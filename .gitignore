@@ -1,0 +1,55 @@
+# ── Node / NestJS ────────────────────────────────────────────
+**/node_modules/
+**/dist/
+**/.next/
+**/build/
+**/.pnpm-debug.log
+
+# ── Java / Spring ────────────────────────────────────────────
+**/target/
+**/.gradle/
+**/*.class
+**/*.jar
+**/*.war
+**/.idea/
+**/*.iml
+
+# ── Go ───────────────────────────────────────────────────────
+**/bin/
+**/*.exe
+**/vendor/
+
+# ── Python ───────────────────────────────────────────────────
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.venv/
+**/venv/
+**/.pytest_cache/
+**/*.egg-info/
+**/dist/
+
+# ── Environment files ────────────────────────────────────────
+**/.env
+!**/.env.example        # .env.example IS committed — template for others
+
+# ── Docker local override ────────────────────────────────────
+docker-compose.override.yml
+
+# ── OS ───────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# ── IDE ──────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.iml
+
+# ── Logs ─────────────────────────────────────────────────────
+**/*.log
+**/logs/
+
+# ── Generated proto stubs ────────────────────────────────────
+**/gen/proto/
