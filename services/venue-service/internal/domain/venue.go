@@ -1,9 +1,18 @@
-// Package domain contains the core business types, port interfaces, and domain errors
-// for the venue-service. It has zero external imports — no HTTP, database, or provider
-// concerns belong here.
 package domain
 
 import "time"
+
+// venue.go defines the core value types for venue search: Review, Venue, VenueDetail,
+// and SearchParams. These are the canonical representations used throughout all layers;
+// adapters map their provider-specific types into these structs at the boundary.
+
+// PhotoRef holds a provider photo reference alongside its original dimensions.
+// Width and Height let callers compute aspect ratios before fetching the image.
+type PhotoRef struct {
+	Reference string
+	Width     int
+	Height    int
+}
 
 // Review is a single user review returned by the place provider.
 type Review struct {
@@ -39,7 +48,7 @@ type Venue struct {
 	// IsOpen is the current open/closed status. Nil means the provider did not return it.
 	IsOpen *bool
 	// PhotoRefs are opaque provider references used to fetch photos.
-	PhotoRefs []string
+	PhotoRefs []PhotoRef
 }
 
 // VenueDetail extends Venue with the full information returned by a detail lookup.

@@ -123,15 +123,16 @@ import "context"
 // PlaceProvider — swap Google Maps for any provider by writing a new adapter
 type PlaceProvider interface {
     SearchNearby(ctx context.Context, params SearchParams) ([]Venue, error)
-    GetDetail(ctx context.Context, placeID string) (VenueDetail, error)
+    GetDetail(ctx context.Context, placeID string) (*VenueDetail, error)
 }
 
 // VenueCache — swap Redis for any cache by writing a new adapter
+// nil return = cache miss; non-nil error = cache failure (best-effort, callers ignore)
 type VenueCache interface {
-    GetNearby(ctx context.Context, key string) (venues []Venue, found bool, err error)
+    GetNearby(ctx context.Context, key string) ([]Venue, error)
     SetNearby(ctx context.Context, key string, venues []Venue) error
-    GetDetail(ctx context.Context, placeID string) (detail VenueDetail, found bool, err error)
-    SetDetail(ctx context.Context, placeID string, detail VenueDetail) error
+    GetDetail(ctx context.Context, placeID string) (*VenueDetail, error)
+    SetDetail(ctx context.Context, placeID string, detail *VenueDetail) error
     InvalidateDetail(ctx context.Context, placeID string) error
 }
 
@@ -317,6 +318,252 @@ CREATE TABLE venue_visits (
     avg_spend_paise  BIGINT NOT NULL DEFAULT 0
 );
 ```
+
+---
+
+## Graceful Shutdown
+
+The service traps SIGTERM and SIGINT, then tears down resources in reverse-construction order. Kubernetes sends SIGTERM during pod eviction; the 10 s budget below fits inside the default 30 s `terminationGracePeriodSeconds`.
+
+```
+signal ──► cancel root ctx ──► Fiber ShutdownWithTimeout(10s) ──► pgxpool.Close() ──► redis.Close() ──► log.Sync()
+```
+
+```go
+// cmd/main.go (shutdown section)
+ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+defer stop()
+
+go func() { _ = app.Listen(":" + cfg.Port) }()
+
+<-ctx.Done()
+log.Info("shutting down")
+
+_ = app.ShutdownWithTimeout(10 * time.Second) // drain in-flight HTTP
+pgPool.Close()                                 // close idle + active conns
+_ = redisCl.Close()                            // close Redis conn pool
+_ = log.Sync()                                 // flush buffered zap entries
+```
+
+**Key points:**
+- `ShutdownWithTimeout` lets Fiber finish in-flight requests before closing listeners.
+- Postgres pool is closed **after** Fiber so that draining requests can still hit the DB.
+- The root `context.Context` from `signal.NotifyContext` is propagated to use-cases so long-running provider calls abort promptly on shutdown.
+
+---
+
+## Health Checks
+
+Two probes serve different Kubernetes needs:
+
+| Endpoint | Probe type | What it checks | Failure consequence |
+|---|---|---|---|
+| `GET /healthz` | **Liveness** | Process is up, Fiber is accepting | kubelet restarts the pod |
+| `GET /health` | **Readiness** | Postgres `pool.Ping()` + Redis `client.Ping()` | pod removed from Service endpoints (no traffic) |
+
+```go
+// Liveness — always 200 if the process is running
+app.Get("/healthz", func(c fiber.Ctx) error {
+    return c.SendStatus(fiber.StatusOK)
+})
+
+// Readiness — 200 only when both dependencies are reachable
+app.Get("/health", func(c fiber.Ctx) error {
+    ctx, cancel := context.WithTimeout(c.Context(), 2*time.Second)
+    defer cancel()
+
+    if err := pgPool.Ping(ctx); err != nil {
+        return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"pg": "down"})
+    }
+    if err := redisCl.Ping(ctx).Err(); err != nil {
+        return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"redis": "down"})
+    }
+    return c.SendStatus(fiber.StatusOK)
+})
+```
+
+Kubernetes manifest snippet:
+```yaml
+readinessProbe:
+  httpGet: { path: /health, port: 3006 }
+  periodSeconds: 5
+  failureThreshold: 3
+livenessProbe:
+  httpGet: { path: /healthz, port: 3006 }
+  periodSeconds: 10
+  failureThreshold: 3
+```
+
+Liveness is deliberately trivial — a deep check in the liveness probe causes unnecessary restarts when only a dependency is down.
+
+---
+
+## Error Propagation Chain
+
+Adapter-level errors are translated into domain sentinels at the adapter boundary. The use-case layer never sees `pgx`, `redis`, or `googlemaps` types.
+
+```
+┌───────────────┐   wrap    ┌──────────────────────┐  pass-through  ┌────────────┐  mapDomainError  ┌──────────┐
+│ External lib  │ ────────► │ Adapter (driven)     │ ─────────────► │ Use-case   │ ───────────────► │ Handler  │
+│ pgx / redis / │           │ returns domain error │                │ returns    │                  │ → HTTP   │
+│ googlemaps    │           └──────────────────────┘                └────────────┘                  └──────────┘
+└───────────────┘
+```
+
+| Adapter | Library error | Mapped domain sentinel |
+|---|---|---|
+| `PostgresVenueRepository` | `pgx.ErrNoRows` | `domain.ErrVenueNotFound` |
+| `PostgresVenueRepository` | unique-violation (SQLSTATE 23505) | `domain.ErrAlreadySaved` |
+| `RedisCacheAdapter` | `redis.Nil` | `nil` return — not an error, just a miss |
+| `RedisCacheAdapter` | timeout / conn refused | logged, swallowed (best-effort) |
+| `GoogleMapsAdapter` | HTTP 429 / 5xx | `domain.ErrProviderUnavailable` |
+| `GoogleMapsAdapter` | ZERO_RESULTS | `domain.ErrVenueNotFound` |
+
+```go
+// Example: inside PostgresVenueRepository.SaveFavourite
+_, err := q.InsertSavedVenue(ctx, params)
+if err != nil {
+    if pgerrcode.IsUniqueViolation(err) {
+        return domain.NewDomainError(domain.ErrAlreadySaved, cmd.PlaceID)
+    }
+    return fmt.Errorf("save favourite: %w", err) // unexpected → 500
+}
+```
+
+**Rule:** If an adapter cannot map a library error to a known sentinel, it wraps with `fmt.Errorf` so the handler's catch-all branch returns 500.
+
+---
+
+## Middleware Chain
+
+Middlewares are registered in `server.go` in this exact order — execution flows top-to-bottom on request, bottom-to-top on response:
+
+```
+request ──► request_id ──► logging ──► recover ──► route handler ──► response
+```
+
+| Order | Middleware | File | Responsibility |
+|---|---|---|---|
+| 1 | `RequestID` | `middleware/request_id.go` | Reads `X-Request-Id` from the incoming header; generates `uuid.New()` if absent. Stores it in `c.Locals("request_id")` and sets it on the response header. |
+| 2 | `Logging` | `middleware/logging.go` | Logs method, path, status, and latency as structured zap fields on response. Reads `request_id` from locals. |
+| 3 | `Recover` | Fiber built-in `recover.New()` | Catches panics in handlers. Logs the stack trace and returns `500` with a generic error response. |
+
+```go
+app := fiber.New(fiber.Config{ErrorHandler: mapDomainError})
+
+app.Use(middleware.RequestID())
+app.Use(middleware.Logging(log))
+app.Use(recover.New())
+
+registerRoutes(app, venueH, favH, historyH)
+```
+
+**Authentication is not in this chain.** JWT validation is handled upstream by the API gateway. The gateway injects two trusted headers that handlers read directly:
+- `X-User-ID` — the authenticated user
+- `X-Squad-ID` — the active squad context
+
+---
+
+## Observability
+
+### Structured Logging
+
+All log output is JSON via `zap.NewProduction()`. Every HTTP request log line includes:
+
+| Field | Source | Example |
+|---|---|---|
+| `request_id` | `middleware.RequestID` | `"b7e4c2a1-..."` |
+| `squad_id` | `X-Squad-ID` header | `"squad_abc"` |
+| `user_id` | `X-User-ID` header | `"user_123"` |
+| `method` | Fiber context | `"GET"` |
+| `path` | Fiber context | `"/venues/search"` |
+| `status` | Fiber context (post-handler) | `200` |
+| `latency_ms` | `time.Since(start)` | `42` |
+| `error` | Only on 4xx/5xx | `"venue not found"` |
+
+Adapter-level logs use the same logger with `log.With(zap.String("adapter", "google_maps"))` so they inherit request-scoped fields when the logger is passed via constructor.
+
+### Distributed Tracing (future)
+
+No tracing SDK is integrated yet. To preserve trace continuity through the API gateway, handlers propagate the `X-Trace-Id` header as-is when calling external services. When OpenTelemetry is added, this header becomes the parent span ID.
+
+### Metrics (future)
+
+Not yet instrumented. Planned: Prometheus `/metrics` endpoint via `fiberprometheus` with RED metrics (rate, errors, duration) per route.
+
+---
+
+## Caching Strategy
+
+The `RedisCacheAdapter` implements `domain.VenueCache`. All cache operations are best-effort — see Key Design Rule 5.
+
+### Cache Keys and TTLs
+
+| Data | Key pattern | TTL | Rationale |
+|---|---|---|---|
+| Nearby search | `nearby:{lat}:{lng}:{radiusM}:{query}` | 24 h | Venue lists change slowly; avoids redundant Google API calls |
+| Venue detail | `detail:{placeID}` | 1 h | Hours/reviews change more often than search results |
+
+Coordinates in the key are truncated to 4 decimal places (~11 m precision) to improve hit rates for nearly-identical requests.
+
+### Cache Miss Flow
+
+```
+Client ──► VenueUseCase.Search()
+               │
+               ├── cached, _ := cache.GetNearby(key)
+               │       ├── cached != nil  → return cached
+               │       └── cached == nil  ↓
+               │
+               ├── provider.SearchNearby(params)      // Google Maps call
+               │
+               ├── _ = cache.SetNearby(key, results)  // best-effort write
+               │
+               └── return results
+```
+
+### Invalidation
+
+There is no active invalidation — caches expire via TTL. `InvalidateDetail` exists on the port for future use (e.g. when a visit is recorded and the detail may have stale metadata).
+
+### Serialisation
+
+Values are stored as JSON via `encoding/json`. Keys are unnamespaced beyond their type prefix because this Redis instance is dedicated to venue-service.
+
+---
+
+## Testing Strategy
+
+Hexagonal architecture makes each layer independently testable by controlling the boundary:
+
+| Layer | Test type | Technique | External deps |
+|---|---|---|---|
+| `domain/` | Unit | Standard `go test`. Pure structs and error constructors, zero imports beyond `fmt`. | None |
+| `application/` | Unit | Inject **in-memory fakes** implementing `PlaceProvider`, `VenueCache`, `VenueRepository`. Assert output and side-effects. | None |
+| `adapters/places/` | Integration | Stub HTTP server or live sandbox key behind `//go:build integration`. | Google Maps API |
+| `adapters/cache/` | Integration | `testcontainers-go` spins up a Redis container per test suite. | Docker |
+| `adapters/persistence/` | Integration | `testcontainers-go` spins up Postgres, applies migrations, runs sqlc queries. | Docker |
+| `transport/http/` | Unit / E2E | `fiber.Test()` against the Fiber app with fake use-cases injected. Asserts status codes, JSON shape, headers. | None |
+
+```go
+// Example: testing VenueUseCase with fakes
+func TestSearch_CacheMiss_CallsProvider(t *testing.T) {
+    fakeCache    := &FakeVenueCache{GetNearbyFn: func(...) ([]domain.Venue, error) { return nil, nil }}
+    fakeProvider := &FakeProvider{SearchNearbyFn: func(...) ([]domain.Venue, error) { return testVenues, nil }}
+
+    uc := application.NewVenueUseCase(fakeProvider, fakeCache)
+    result, err := uc.Search(ctx, params)
+
+    require.NoError(t, err)
+    assert.Equal(t, testVenues, result)
+    assert.True(t, fakeCache.SetNearbyCalled) // verify cache was populated
+}
+```
+
+**Conventions:**
+- Unit tests live alongside source: `venue_usecase_test.go` next to `venue_usecase.go`.
+- Integration tests use `//go:build integration` so `go test ./...` skips them by default.
+- CI runs `go test ./...` first, then `go test -tags=integration ./...` with Docker available.
 
 ---
 

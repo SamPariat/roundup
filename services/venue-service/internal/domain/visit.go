@@ -2,6 +2,10 @@ package domain
 
 import "time"
 
+// visit.go defines the types and command structs for visit tracking. VenueVisit is the
+// raw persistence record, RecordVisitCommand carries the data to create one, and
+// VisitSummary is the aggregated per-venue view used by the history screen.
+
 // VenueVisit is a record of a squad visiting a venue during an event.
 // Visits are recorded automatically when an event is confirmed.
 type VenueVisit struct {
