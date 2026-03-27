@@ -131,10 +131,13 @@ func mapPlaceDetailsToVenueDetail(res maps.PlaceDetailsResult) *domain.VenueDeta
 	})
 
 	detail := &domain.VenueDetail{
-		Venue:            base,
-		PhoneNumber:      res.FormattedPhoneNumber,
-		Website:          res.Website,
-		EditorialSummary: res.EditorialSummary.Overview,
+		Venue:       base,
+		PhoneNumber: res.FormattedPhoneNumber,
+		Website:     res.Website,
+	}
+
+	if res.EditorialSummary != nil {
+		detail.EditorialSummary = res.EditorialSummary.Overview
 	}
 
 	if res.OpeningHours != nil {
