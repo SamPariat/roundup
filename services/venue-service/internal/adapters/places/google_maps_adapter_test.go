@@ -64,10 +64,8 @@ func TestMapPlaceResultToVenuePhotoRefDimensions(t *testing.T) {
 }
 
 func TestMapPlaceResultToVenueIsOpenSet(t *testing.T) {
-	open := true
-
 	res := maps.PlacesSearchResult{
-		OpeningHours: &maps.OpeningHours{OpenNow: &open},
+		OpeningHours: &maps.OpeningHours{OpenNow: new(true)},
 	}
 
 	venue := mapPlaceResultToVenue(res)

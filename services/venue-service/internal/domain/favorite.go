@@ -15,7 +15,7 @@ type SavedVenue struct {
 	SquadID string
 	// UserID is the user who saved the venue.
 	UserID string
-	// PlaceID is the provider-assigned venue identifier (e.g. Google Place ID).
+	// PlaceID is the provider-assigned venue identifier (e.g., Google Place ID).
 	PlaceID string
 	// Name is the display name of the venue at the time it was saved.
 	Name string

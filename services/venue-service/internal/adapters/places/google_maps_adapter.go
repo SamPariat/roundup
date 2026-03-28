@@ -20,7 +20,7 @@ type GoogleMapsAdapter struct {
 }
 
 // NewGoogleMapsAdapter creates a GoogleMapsAdapter.
-// It returns an error if the API key is invalid or the client cannot be initialised.
+// It returns an error if the API key is invalid or the client cannot be initialized.
 func NewGoogleMapsAdapter(apiKey string) (*GoogleMapsAdapter, error) {
 	client, err := maps.NewClient(maps.WithAPIKey(apiKey))
 	if err != nil {
@@ -55,7 +55,7 @@ func (a *GoogleMapsAdapter) SearchNearby(ctx context.Context, params domain.Sear
 }
 
 // GetDetail fetches full venue information for the given placeID from the Google Maps
-// Places API. Only the fields required by domain.VenueDetail are requested to minimise
+// Places API. Only the fields required by domain.VenueDetail are requested to minimize
 // billing costs. Returns nil and domain.ErrVenueNotFound if the place does not exist.
 func (a *GoogleMapsAdapter) GetDetail(ctx context.Context, placeID string) (*domain.VenueDetail, error) {
 	req := &maps.PlaceDetailsRequest{
@@ -159,7 +159,7 @@ func mapPlaceDetailsToVenueDetail(res maps.PlaceDetailsResult) *domain.VenueDeta
 
 // mapProviderError translates a Google Maps library error into a domain sentinel.
 // ZERO_RESULTS → ErrVenueNotFound; rate-limit/server errors → ErrProviderUnavailable.
-// Unrecognised errors are wrapped with fmt.Errorf and surface as 500s at the handler.
+// Unrecognized errors are wrapped with fmt.Errorf and surface as 500s at the handler.
 func mapProviderError(err error) error {
 	s := err.Error()
 

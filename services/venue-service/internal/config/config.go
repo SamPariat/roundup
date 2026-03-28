@@ -26,7 +26,7 @@ type Config struct {
 }
 
 // Load reads environment variables into a Config.
-// It attempts to load a .env file first (no-op if absent, e.g. in production).
+// It attempts to load a .env file first (no-op if absent, e.g., in production).
 // Panics immediately if a required variable is missing or empty.
 func Load() *Config {
 	_ = godotenv.Load() // no-op when .env is absent; env vars from the platform take precedence
@@ -40,7 +40,7 @@ func Load() *Config {
 	}
 }
 
-// requireEnv returns the value of key or panics if it is unset or empty.
+// requireEnv returns the value of the key or panics if it is unset or empty.
 func requireEnv(key string) string {
 	value, ok := os.LookupEnv(key)
 	if !ok || value == "" {
@@ -50,7 +50,7 @@ func requireEnv(key string) string {
 	return value
 }
 
-// getEnv returns the value of key, or defaultValue if the key is unset or empty.
+// getEnv returns the value of the key, or defaultValue if the key is unset or empty.
 func getEnv(key, defaultValue string) string {
 	if value, ok := os.LookupEnv(key); ok && value != "" {
 		return value

@@ -19,7 +19,7 @@ type VenueVisit struct {
 	PlaceID string
 	// VisitedAt is the time the squad arrived at the venue.
 	VisitedAt time.Time
-	// AvgSpendInPaise is the average spend per person in paise (1 INR = 100 paise).
+	// AvgSpendInPaise is the average expenditure per person in paise (1 INR = 100 paise).
 	AvgSpendInPaise int64
 }
 
@@ -33,7 +33,7 @@ type RecordVisitCommand struct {
 	PlaceID string
 	// VisitedAt is the time the squad arrived at the venue.
 	VisitedAt time.Time
-	// AvgSpendInPaise is the average spend per person in paise (1 INR = 100 paise).
+	// AvgSpendInPaise is the average expenditure per person in paise (1 INR = 100 paise).
 	AvgSpendInPaise int64
 }
 

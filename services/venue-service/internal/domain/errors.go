@@ -6,14 +6,14 @@ import "fmt"
 // constructor. All cross-layer error matching uses errors.Is against the sentinels here —
 // callers must never compare against error strings.
 
-// Sentinel errors used as stable identities for errors.Is comparisons.
+// Sentinel errors are used as stable identities for errors.Is comparisons.
 // Callers should match against these values, never against error strings.
 var (
 	// ErrVenueNotFound is returned when a venue lookup finds no matching record.
 	ErrVenueNotFound = fmt.Errorf("venue not found")
 
 	// ErrProviderUnavailable is returned when the external place provider
-	// (e.g. Google Maps) cannot be reached or returns an unrecoverable error.
+	// (e.g., Google Maps) cannot be reached or returns an unrecoverable error.
 	ErrProviderUnavailable = fmt.Errorf("place provider unavailable")
 
 	// ErrAlreadySaved is returned when a user attempts to save a venue they

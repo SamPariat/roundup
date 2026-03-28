@@ -18,7 +18,7 @@ type PhotoRef struct {
 type Review struct {
 	// AuthorName is the display name of the reviewer.
 	AuthorName string
-	// Rating is the reviewer's score, normalised to 1–5.
+	// Rating is the reviewer's score, normalized to 1–5.
 	Rating float32
 	// Text is the body of the review.
 	Text string
@@ -29,7 +29,7 @@ type Review struct {
 // Venue is the lightweight representation returned by a nearby search.
 // For full details including reviews and opening hours, use VenueDetail.
 type Venue struct {
-	// PlaceID is the provider-assigned unique identifier (e.g. Google Place ID).
+	// PlaceID is the provider-assigned unique identifier (e.g., Google Place ID).
 	PlaceID string
 	// Name is the display name of the venue.
 	Name string
@@ -39,9 +39,9 @@ type Venue struct {
 	Latitude float64
 	// Longitude is the WGS-84 longitude of the venue.
 	Longitude float64
-	// AverageRating is the provider's aggregate rating, normalised to 1–5.
+	// AverageRating is the provider's aggregate rating, normalized to 1–5.
 	AverageRating float32
-	// PriceLevel is provider-normalised to 0–4 (0 = free, 4 = very expensive).
+	// PriceLevel is provider-normalized to 0–4 (0 = free, 4 = very expensive).
 	PriceLevel int
 	// Types are the provider's category tags (e.g. "bar", "restaurant", "rooftop").
 	Types []string
