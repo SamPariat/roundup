@@ -27,7 +27,8 @@ func main() {
 	if err != nil {
 		log.Fatal("failed to init Google Maps adapter", zap.Error(err))
 	}
-	cacheAdapter := cache.NewRedisCacheAdapter(redisClient, 10*time.Minute)
+
+	cacheAdapter := cache.NewRedisCacheAdapter(redisClient, 10*time.Minute, log)
 
 	venueUC := application.NewVenueUseCase(mapsAdapter, cacheAdapter)
 

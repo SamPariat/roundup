@@ -25,10 +25,10 @@ type VenueCache interface {
 
 // VenueRepository abstracts the persistence layer (Postgres, etc.).
 type VenueRepository interface {
-	SaveFavourite(ctx context.Context) error
-	DeleteFavourite(ctx context.Context) error
-	ListFavourites(ctx context.Context, squadID string) ([]SavedVenue, error)
-	IsFavourite(ctx context.Context, squadID, userID, placeID string) (bool, error)
+	AddFavorite(ctx context.Context, cmd AddFavoriteCommand) error
+	RemoveFavorite(ctx context.Context, cmd RemoveFavoriteCommand) error
+	ListFavorites(ctx context.Context, squadID string) ([]SavedVenue, error)
+	IsFavorite(ctx context.Context, squadID, userID, placeID string) (bool, error)
 	RecordVisit(ctx context.Context, cmd RecordVisitCommand) error
 	GetVisitHistory(ctx context.Context, squadID string) ([]VisitSummary, error)
 }

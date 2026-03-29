@@ -8,6 +8,7 @@ import (
 
 	"github.com/SamPariatIL/roundup/services/venue-service/internal/domain"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 // redis_cache_adapter.go implements domain.VenueCache using Redis.
@@ -18,12 +19,13 @@ import (
 type RedisCacheAdapter struct {
 	client *redis.Client
 	ttl    time.Duration
+	log    *zap.Logger
 }
 
 // NewRedisCacheAdapter constructs a RedisCacheAdapter with the given client and TTL.
 // The TTL is applied uniformly to all cache writes.
-func NewRedisCacheAdapter(client *redis.Client, ttl time.Duration) *RedisCacheAdapter {
-	return &RedisCacheAdapter{client: client, ttl: ttl}
+func NewRedisCacheAdapter(client *redis.Client, ttl time.Duration, log *zap.Logger) *RedisCacheAdapter {
+	return &RedisCacheAdapter{client: client, ttl: ttl, log: log}
 }
 
 // GetNearby returns cached nearby venues for the given key.
@@ -34,11 +36,13 @@ func (r *RedisCacheAdapter) GetNearby(ctx context.Context, key string) ([]domain
 		return nil, nil
 	}
 	if err != nil {
+		r.log.Warn("failed to get nearby venues", zap.String("key", key), zap.Error(err))
 		return nil, err
 	}
 
 	var venues []domain.Venue
 	if err := json.Unmarshal([]byte(val), &venues); err != nil {
+		r.log.Warn("failed to unmarshal nearby venues", zap.String("key", key), zap.Error(err))
 		return nil, err
 	}
 
@@ -49,10 +53,16 @@ func (r *RedisCacheAdapter) GetNearby(ctx context.Context, key string) ([]domain
 func (r *RedisCacheAdapter) SetNearby(ctx context.Context, key string, venues []domain.Venue) error {
 	val, err := json.Marshal(venues)
 	if err != nil {
+		r.log.Warn("failed to marshal nearby venues", zap.String("key", key), zap.Error(err))
 		return err
 	}
 
-	return r.client.Set(ctx, key, val, r.ttl).Err()
+	if err := r.client.Set(ctx, key, val, r.ttl).Err(); err != nil {
+		r.log.Warn("failed to set nearby venues", zap.String("key", key), zap.Error(err))
+		return err
+	}
+
+	return nil
 }
 
 // GetDetail returns the cached VenueDetail for the given placeID.
@@ -63,11 +73,13 @@ func (r *RedisCacheAdapter) GetDetail(ctx context.Context, placeID string) (*dom
 		return nil, nil
 	}
 	if err != nil {
+		r.log.Warn("failed to get venue detail", zap.String("placeID", placeID), zap.Error(err))
 		return nil, err
 	}
 
 	var detail domain.VenueDetail
 	if err := json.Unmarshal([]byte(val), &detail); err != nil {
+		r.log.Warn("failed to unmarshal venue detail", zap.String("placeID", placeID), zap.Error(err))
 		return nil, err
 	}
 
@@ -78,13 +90,24 @@ func (r *RedisCacheAdapter) GetDetail(ctx context.Context, placeID string) (*dom
 func (r *RedisCacheAdapter) SetDetail(ctx context.Context, placeID string, detail *domain.VenueDetail) error {
 	val, err := json.Marshal(detail)
 	if err != nil {
+		r.log.Warn("failed to marshal venue detail", zap.String("placeID", placeID), zap.Error(err))
 		return err
 	}
 
-	return r.client.Set(ctx, placeID, val, r.ttl).Err()
+	if err := r.client.Set(ctx, placeID, val, r.ttl).Err(); err != nil {
+		r.log.Warn("failed to set venue detail", zap.String("placeID", placeID), zap.Error(err))
+		return err
+	}
+
+	return nil
 }
 
 // InvalidateDetail deletes the cached VenueDetail for the given placeID.
 func (r *RedisCacheAdapter) InvalidateDetail(ctx context.Context, placeID string) error {
-	return r.client.Del(ctx, placeID).Err()
+	if err := r.client.Del(ctx, placeID).Err(); err != nil {
+		r.log.Warn("failed to invalidate venue detail", zap.String("placeID", placeID), zap.Error(err))
+		return err
+	}
+
+	return nil
 }

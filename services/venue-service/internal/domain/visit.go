@@ -12,9 +12,9 @@ type VenueVisit struct {
 	// ID is the database-assigned primary key.
 	ID int64
 	// SquadID identifies the squad that made the visit.
-	SquadID int64
+	SquadID string
 	// EventID identifies the event during which the visit occurred.
-	EventID int64
+	EventID string
 	// PlaceID is the provider-assigned identifier for the venue.
 	PlaceID string
 	// VisitedAt is the time the squad arrived at the venue.
@@ -26,9 +26,9 @@ type VenueVisit struct {
 // RecordVisitCommand carries the data needed to record a new venue visit.
 type RecordVisitCommand struct {
 	// SquadID identifies the squad that made the visit.
-	SquadID int64
+	SquadID string
 	// EventID identifies the event during which the visit occurred.
-	EventID int64
+	EventID string
 	// PlaceID is the provider-assigned identifier for the venue.
 	PlaceID string
 	// VisitedAt is the time the squad arrived at the venue.

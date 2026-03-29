@@ -1,5 +1,3 @@
-// venue_usecase_test.go tests VenueUseCase using hand-rolled fakes for the
-// PlaceProvider and VenueCache ports. No real network or cache calls are made.
 package application
 
 import (
@@ -11,6 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// venue_usecase_test.go tests VenueUseCase using hand-rolled fakes for the
+// PlaceProvider and VenueCache ports. No real network or cache calls are made.
 
 // --- Search tests ---
 
@@ -56,6 +57,7 @@ func (f *fakeProvider) SearchNearby(ctx context.Context, params domain.SearchPar
 	if f.searchNearbyFn != nil {
 		return f.searchNearbyFn(ctx, params)
 	}
+
 	return nil, nil
 }
 
@@ -63,6 +65,7 @@ func (f *fakeProvider) GetDetail(ctx context.Context, placeID string) (*domain.V
 	if f.getDetailFn != nil {
 		return f.getDetailFn(ctx, placeID)
 	}
+
 	return nil, nil
 }
 

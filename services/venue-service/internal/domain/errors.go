@@ -17,11 +17,11 @@ var (
 	ErrProviderUnavailable = fmt.Errorf("place provider unavailable")
 
 	// ErrAlreadySaved is returned when a user attempts to save a venue they
-	// have already added to their favourites.
+	// have already added to their favorites.
 	ErrAlreadySaved = fmt.Errorf("venue already saved")
 
 	// ErrNotSaved is returned when a user attempts to remove a venue that is
-	// not present in their favourites.
+	// not present in their favorites.
 	ErrNotSaved = fmt.Errorf("venue not saved by this user")
 )
 
