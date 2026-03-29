@@ -1,6 +1,6 @@
 // Package main is the entry point for venue-service.
 // It wires together all layers (config, infrastructure, adapters, use-cases, handlers)
-// and starts the HTTP server. All dependency injection happens here.
+// and starts the HTTP server. All dependency injections happen here.
 package main
 
 import (
