@@ -4,15 +4,18 @@
 package main
 
 import (
+	"context"
 	"time"
 
 	"github.com/SamPariatIL/roundup/services/venue-service/internal/adapters/cache"
+	"github.com/SamPariatIL/roundup/services/venue-service/internal/adapters/persistence"
 	"github.com/SamPariatIL/roundup/services/venue-service/internal/adapters/places"
 	"github.com/SamPariatIL/roundup/services/venue-service/internal/application"
 	"github.com/SamPariatIL/roundup/services/venue-service/internal/config"
 	"github.com/SamPariatIL/roundup/services/venue-service/internal/logger"
 	transporthttp "github.com/SamPariatIL/roundup/services/venue-service/internal/transport/http"
 	"github.com/gofiber/fiber/v3"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
@@ -22,6 +25,13 @@ func main() {
 	log := logger.New(cfg.LogLevel)
 
 	redisClient := redis.NewClient(&redis.Options{Addr: cfg.RedisAddr})
+
+	pool, err := pgxpool.New(context.Background(), cfg.PostgresDSN)
+	if err != nil {
+		log.Fatal("failed to connect to the database", zap.Error(err))
+	}
+
+	venueRepo := persistence.NewPostgresVenueRepository(pool)
 
 	mapsAdapter, err := places.NewGoogleMapsAdapter(cfg.GoogleMapsAPIKey)
 	if err != nil {

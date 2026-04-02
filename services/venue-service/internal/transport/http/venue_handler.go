@@ -1,6 +1,3 @@
-// venue_handler.go contains VenueHandler, which handles HTTP requests for venue
-// search and detail endpoints. It parses requests, delegates to VenueUseCase,
-// and maps results into the standard Response envelope.
 package http
 
 import (
@@ -11,6 +8,10 @@ import (
 	"github.com/SamPariatIL/roundup/services/venue-service/internal/transport/http/dtos"
 	"github.com/gofiber/fiber/v3"
 )
+
+// venue_handler.go contains VenueHandler, which handles HTTP requests for venue
+// search and detail endpoints. It parses requests, delegates to VenueUseCase,
+// and maps results into the standard Response envelope.
 
 // VenueHandler handles HTTP requests for venue search and detail lookups.
 type VenueHandler struct {
