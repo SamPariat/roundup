@@ -8,7 +8,9 @@ import "github.com/gofiber/fiber/v3"
 // Handlers group all HTTP handlers for dependency injection into RegisterRoutes.
 // Add new handlers here as features are built — one field per handler.
 type Handlers struct {
-	Venue *VenueHandler
+	Venue    *VenueHandler
+	Favorite *FavoriteHandler
+	History  *HistoryHandler
 }
 
 // RegisterRoutes mounts all route groups onto the Fiber app.
@@ -19,4 +21,16 @@ func RegisterRoutes(app *fiber.App, h *Handlers) {
 	venues := v1.Group("/venues")
 	venues.Get("/", h.Venue.Search)
 	venues.Get("/:placeID", h.Venue.GetDetail)
+
+	squads := v1.Group("/squads/:squadID")
+
+	favorites := squads.Group("/favorites")
+	favorites.Get("/", h.Favorite.ListFavorites)
+	favorites.Get("/:placeID/check", h.Favorite.IsFavorite)
+	favorites.Post("/", h.Favorite.AddFavorite)
+	favorites.Delete("/:placeID", h.Favorite.RemoveFavorite)
+
+	history := squads.Group("/history")
+	history.Get("/", h.History.GetVisitHistory)
+	history.Post("/", h.History.RecordVisit)
 }

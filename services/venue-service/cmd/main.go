@@ -41,10 +41,14 @@ func main() {
 	cacheAdapter := cache.NewRedisCacheAdapter(redisClient, 10*time.Minute, log)
 
 	venueUC := application.NewVenueUseCase(mapsAdapter, cacheAdapter)
+	favoriteUC := application.NewFavoriteUseCase(venueRepo)
+	historyUC := application.NewHistoryUseCase(venueRepo)
 
 	app := fiber.New()
 	transporthttp.RegisterRoutes(app, &transporthttp.Handlers{
-		Venue: transporthttp.NewVenueHandler(venueUC),
+		Venue:    transporthttp.NewVenueHandler(venueUC),
+		Favorite: transporthttp.NewFavoriteHandler(favoriteUC),
+		History:  transporthttp.NewHistoryHandler(historyUC),
 	})
 
 	log.Info("starting venue-service", zap.String("port", cfg.Port))

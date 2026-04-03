@@ -1,6 +1,6 @@
 MIGRATIONS_DIR := db/migrations
 
-.PHONY: install migrate-up migrate-down migrate-status sqlc
+.PHONY: install migrate-up migrate-down migrate-status sqlc run test
 
 install:
 	go install github.com/pressly/goose/v3/cmd/goose@latest
@@ -17,3 +17,9 @@ migrate-status:
 
 sqlc:
 	sqlc generate
+
+run:
+	go run cmd/main.go
+
+test:
+	go test ./...
