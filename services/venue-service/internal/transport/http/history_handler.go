@@ -4,6 +4,7 @@ import (
 	"github.com/SamPariatIL/roundup/services/venue-service/internal/application"
 	"github.com/SamPariatIL/roundup/services/venue-service/internal/domain"
 	"github.com/SamPariatIL/roundup/services/venue-service/internal/transport/http/dtos"
+	"github.com/SamPariatIL/roundup/shared/go/response"
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -27,7 +28,7 @@ func (h *HistoryHandler) RecordVisit(c fiber.Ctx) error {
 	var req dtos.RecordVisitRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(
-			dtos.Fail[any](err.Error()),
+			response.Fail[any](err.Error()),
 		)
 	}
 
@@ -41,7 +42,7 @@ func (h *HistoryHandler) RecordVisit(c fiber.Ctx) error {
 	})
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(
-			dtos.Fail[any](err.Error()),
+			response.Fail[any](err.Error()),
 		)
 	}
 
@@ -55,11 +56,11 @@ func (h *HistoryHandler) GetVisitHistory(c fiber.Ctx) error {
 	summaries, err := h.uc.GetVisitHistory(c.Context(), squadID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(
-			dtos.Fail[dtos.VisitHistoryResponse](err.Error()),
+			response.Fail[dtos.VisitHistoryResponse](err.Error()),
 		)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(
-		dtos.OK(dtos.VisitHistoryToResponse(summaries)),
+		response.OK(dtos.VisitHistoryToResponse(summaries)),
 	)
 }

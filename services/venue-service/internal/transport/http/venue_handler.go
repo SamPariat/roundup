@@ -6,6 +6,7 @@ import (
 	"github.com/SamPariatIL/roundup/services/venue-service/internal/application"
 	"github.com/SamPariatIL/roundup/services/venue-service/internal/domain"
 	"github.com/SamPariatIL/roundup/services/venue-service/internal/transport/http/dtos"
+	"github.com/SamPariatIL/roundup/shared/go/response"
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -28,7 +29,7 @@ func (h *VenueHandler) Search(c fiber.Ctx) error {
 	var req dtos.SearchRequest
 	if err := c.Bind().Query(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(
-			dtos.Fail[dtos.SearchResponse](err.Error()),
+			response.Fail[dtos.SearchResponse](err.Error()),
 		)
 	}
 
@@ -41,12 +42,12 @@ func (h *VenueHandler) Search(c fiber.Ctx) error {
 	})
 	if err != nil {
 		return c.Status(venueErrorStatus(err)).JSON(
-			dtos.Fail[dtos.SearchResponse](err.Error()),
+			response.Fail[dtos.SearchResponse](err.Error()),
 		)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(
-		dtos.OK(dtos.VenuesToSearchResponse(venues)),
+		response.OK(dtos.VenuesToSearchResponse(venues)),
 	)
 }
 
@@ -56,19 +57,19 @@ func (h *VenueHandler) GetDetail(c fiber.Ctx) error {
 
 	if placeID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(
-			dtos.Fail[dtos.VenueDetailResponse]("placeID is required"),
+			response.Fail[dtos.VenueDetailResponse]("placeID is required"),
 		)
 	}
 
 	detail, err := h.uc.GetDetail(c.Context(), placeID)
 	if err != nil {
 		return c.Status(venueErrorStatus(err)).JSON(
-			dtos.Fail[dtos.VenueDetailResponse](err.Error()),
+			response.Fail[dtos.VenueDetailResponse](err.Error()),
 		)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(
-		dtos.OK(dtos.VenueDetailToResponse(*detail)),
+		response.OK(dtos.VenueDetailToResponse(*detail)),
 	)
 }
 

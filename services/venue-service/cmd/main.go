@@ -12,8 +12,8 @@ import (
 	"github.com/SamPariatIL/roundup/services/venue-service/internal/adapters/places"
 	"github.com/SamPariatIL/roundup/services/venue-service/internal/application"
 	"github.com/SamPariatIL/roundup/services/venue-service/internal/config"
-	"github.com/SamPariatIL/roundup/services/venue-service/internal/logger"
 	transporthttp "github.com/SamPariatIL/roundup/services/venue-service/internal/transport/http"
+	"github.com/SamPariatIL/roundup/shared/go/logger"
 	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -22,7 +22,7 @@ import (
 
 func main() {
 	cfg := config.Load()
-	log := logger.New(cfg.LogLevel)
+	log := logger.New("venue-service", cfg.LogLevel)
 
 	redisClient := redis.NewClient(&redis.Options{Addr: cfg.RedisAddr})
 

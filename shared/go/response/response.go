@@ -1,7 +1,7 @@
-package dtos
-
-// response.go defines the standard JSON envelope used by all venue-service endpoints.
-// Every handler returns Response[T] so clients always receive a consistent shape.
+// Package response defines the standard JSON envelope used by every Go
+// service's HTTP API, so clients always receive a consistent shape
+// regardless of which service answered the request.
+package response
 
 // Response is the standard JSON envelope for all API responses.
 // On success, Data is populated and Error is empty. On failure, the inverse.
