@@ -1,5 +1,6 @@
 VENUE_DIR := services/venue-service
 VENUE_MIGRATIONS_DIR := $(VENUE_DIR)/db/migrations
+GATEWAY_DIR := services/gateway
 
 .PHONY: install \
 	venue-migrate-up \
@@ -7,7 +8,9 @@ VENUE_MIGRATIONS_DIR := $(VENUE_DIR)/db/migrations
 	venue-migrate-status \
 	venue-sqlc \
 	venue-run \
-	venue-test
+	venue-test \
+	gateway-run \
+	gateway-test
 
 install:
 	go install github.com/pressly/goose/v3/cmd/goose@latest
@@ -30,3 +33,9 @@ venue-run:
 
 venue-test:
 	cd $(VENUE_DIR) && go test ./...
+
+gateway-run:
+	cd $(GATEWAY_DIR) && go run ./cmd
+
+gateway-test:
+	cd $(GATEWAY_DIR) && go test ./...

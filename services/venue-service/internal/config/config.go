@@ -3,12 +3,7 @@
 // and never read from the environment again outside this package.
 package config
 
-import (
-	"fmt"
-	"os"
-
-	"github.com/joho/godotenv"
-)
+import "github.com/SamPariatIL/roundup/shared/go/env"
 
 // Config holds all runtime configuration for the venue-service.
 // Fields are populated once at startup and treated as read-only thereafter.
@@ -29,32 +24,13 @@ type Config struct {
 // It attempts to load a .env file first (no-op if absent, e.g., in production).
 // Panics immediately if a required variable is missing or empty.
 func Load() *Config {
-	_ = godotenv.Load() // no-op when .env is absent; env vars from the platform take precedence
+	env.Load()
 
 	return &Config{
-		Port:             getEnv("PORT", "3006"),
-		PostgresDSN:      requireEnv("POSTGRES_DSN"),
-		RedisAddr:        getEnv("REDIS_ADDR", "localhost:6379"),
-		GoogleMapsAPIKey: requireEnv("GOOGLE_MAPS_API_KEY"),
-		LogLevel:         getEnv("LOG_LEVEL", "info"),
+		Port:             env.Get("PORT", "3006"),
+		PostgresDSN:      env.Require("POSTGRES_DSN"),
+		RedisAddr:        env.Get("REDIS_ADDR", "localhost:6379"),
+		GoogleMapsAPIKey: env.Require("GOOGLE_MAPS_API_KEY"),
+		LogLevel:         env.Get("LOG_LEVEL", "info"),
 	}
-}
-
-// requireEnv returns the value of the key or panics if it is unset or empty.
-func requireEnv(key string) string {
-	value, ok := os.LookupEnv(key)
-	if !ok || value == "" {
-		panic(fmt.Sprintf("required environment variable %s is not set", key))
-	}
-
-	return value
-}
-
-// getEnv returns the value of the key, or defaultValue if the key is unset or empty.
-func getEnv(key, defaultValue string) string {
-	if value, ok := os.LookupEnv(key); ok && value != "" {
-		return value
-	}
-
-	return defaultValue
 }

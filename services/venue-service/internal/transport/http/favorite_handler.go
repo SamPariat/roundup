@@ -6,6 +6,7 @@ import (
 	"github.com/SamPariatIL/roundup/services/venue-service/internal/application"
 	"github.com/SamPariatIL/roundup/services/venue-service/internal/domain"
 	"github.com/SamPariatIL/roundup/services/venue-service/internal/transport/http/dtos"
+	"github.com/SamPariatIL/roundup/shared/go/response"
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -29,7 +30,7 @@ func (h *FavoriteHandler) AddFavorite(c fiber.Ctx) error {
 	var req dtos.AddFavoriteRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(
-			dtos.Fail[any](err.Error()),
+			response.Fail[any](err.Error()),
 		)
 	}
 
@@ -41,7 +42,7 @@ func (h *FavoriteHandler) AddFavorite(c fiber.Ctx) error {
 	})
 	if err != nil {
 		return c.Status(favoriteErrorStatus(err)).JSON(
-			dtos.Fail[any](err.Error()),
+			response.Fail[any](err.Error()),
 		)
 	}
 
@@ -56,7 +57,7 @@ func (h *FavoriteHandler) RemoveFavorite(c fiber.Ctx) error {
 
 	if userID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(
-			dtos.Fail[any]("userID query param is required"),
+			response.Fail[any]("userID query param is required"),
 		)
 	}
 
@@ -67,7 +68,7 @@ func (h *FavoriteHandler) RemoveFavorite(c fiber.Ctx) error {
 	})
 	if err != nil {
 		return c.Status(favoriteErrorStatus(err)).JSON(
-			dtos.Fail[any](err.Error()),
+			response.Fail[any](err.Error()),
 		)
 	}
 
@@ -81,12 +82,12 @@ func (h *FavoriteHandler) ListFavorites(c fiber.Ctx) error {
 	favorites, err := h.uc.ListFavorites(c.Context(), squadID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(
-			dtos.Fail[dtos.FavoritesResponse](err.Error()),
+			response.Fail[dtos.FavoritesResponse](err.Error()),
 		)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(
-		dtos.OK(dtos.FavoritesToResponse(favorites)),
+		response.OK(dtos.FavoritesToResponse(favorites)),
 	)
 }
 
@@ -98,19 +99,19 @@ func (h *FavoriteHandler) IsFavorite(c fiber.Ctx) error {
 
 	if userID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(
-			dtos.Fail[dtos.IsFavoriteResponse]("userID query param is required"),
+			response.Fail[dtos.IsFavoriteResponse]("userID query param is required"),
 		)
 	}
 
 	isFav, err := h.uc.IsFavorite(c.Context(), squadID, userID, placeID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(
-			dtos.Fail[dtos.IsFavoriteResponse](err.Error()),
+			response.Fail[dtos.IsFavoriteResponse](err.Error()),
 		)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(
-		dtos.OK(dtos.IsFavoriteResponse{IsFavorite: isFav}),
+		response.OK(dtos.IsFavoriteResponse{IsFavorite: isFav}),
 	)
 }
 
