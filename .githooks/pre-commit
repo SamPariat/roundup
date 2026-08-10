@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Pre-commit checks for staged Go files: gofmt + go vet + golangci-lint.
+# Runs once per affected module, since this is a multi-module Go workspace
+# (services/*, shared/go each own a go.mod).
+set -eu
+
+staged_files=$(git diff --cached --name-only --diff-filter=ACM -- '*.go')
+
+if [ -z "$staged_files" ]; then
+  exit 0
+fi
+
+echo "Running Go pre-commit checks..."
+
+fmt_issues=$(echo "$staged_files" | xargs gofmt -l)
+if [ -n "$fmt_issues" ]; then
+  echo "gofmt found unformatted files:"
+  echo "$fmt_issues"
+  echo "Fix with: gofmt -w <file>, then re-stage."
+  exit 1
+fi
+
+if ! command -v golangci-lint >/dev/null 2>&1; then
+  echo "golangci-lint is not installed (it's a listed prerequisite in README.md)."
+  echo "Install: https://golangci-lint.run/usage/install"
+  exit 1
+fi
+
+modules=$(echo "$staged_files" | while read -r f; do
+  dir=$(dirname "$f")
+  while [ "$dir" != "." ] && [ ! -f "$dir/go.mod" ]; do
+    dir=$(dirname "$dir")
+  done
+  [ -f "$dir/go.mod" ] && echo "$dir"
+done | sort -u)
+
+status=0
+for mod in $modules; do
+  echo "-> $mod"
+  (cd "$mod" && go vet ./...) || status=1
+  (cd "$mod" && golangci-lint run ./...) || status=1
+done
+
+exit $status
