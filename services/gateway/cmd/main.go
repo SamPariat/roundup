@@ -7,7 +7,9 @@ import (
 	"github.com/SamPariatIL/roundup/services/gateway/internal/config"
 	transporthttp "github.com/SamPariatIL/roundup/services/gateway/internal/transport/http"
 	"github.com/SamPariatIL/roundup/shared/go/logger"
+	"github.com/SamPariatIL/roundup/shared/go/middleware"
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/recover"
 	"go.uber.org/zap"
 )
 
@@ -16,6 +18,10 @@ func main() {
 	log := logger.New("gateway", cfg.LogLevel)
 
 	app := fiber.New()
+	app.Use(middleware.RequestID())
+	app.Use(middleware.Logging(log))
+	app.Use(recover.New())
+
 	transporthttp.RegisterRoutes(app)
 
 	log.Info("starting gateway", zap.String("port", cfg.Port))

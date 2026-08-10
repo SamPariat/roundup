@@ -28,15 +28,14 @@ func healthHandler(c fiber.Ctx) error {
 // notImplementedHandler responds for route groups whose upstream proxy
 // hasn't been wired up yet.
 //
-// TODO(human): decide what this returns. The route groups above proxy to
+// The route groups above proxy to
 // services that mostly don't exist yet (auth-service, user-service, etc.),
 // so every request under /api/v1/* currently lands here. Consider: status
-// code (501 "not built yet" vs 503 "unavailable" vs something else), and
+// code (501 "not built yet" vs. 503 "unavailable" vs. something else), and
 // whether the JSON body should follow the envelope convention used by
 // venue-service (internal/transport/http/dtos.Response in that service) so
 // gateway responses stay consistent with the rest of the API once proxying
 // lands.
 func notImplementedHandler(c fiber.Ctx) error {
-	// TODO(human): implement
-	return nil
+	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{"status": "not implemented"})
 }
