@@ -1,4 +1,4 @@
-module github.com/SamPariatIL/roundup/shared/go
+module github.com/SamPariat/roundup/shared/go
 
 go 1.26.1
 

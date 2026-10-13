@@ -3,7 +3,7 @@ package application
 import (
 	"context"
 
-	"github.com/SamPariatIL/roundup/services/venue-service/internal/domain"
+	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 )
 
 // history_usecase.go implements HistoryUseCase, which handles recording venue visits

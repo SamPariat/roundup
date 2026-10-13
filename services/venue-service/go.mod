@@ -1,9 +1,9 @@
-module github.com/SamPariatIL/roundup/services/venue-service
+module github.com/SamPariat/roundup/services/venue-service
 
 go 1.26.1
 
 require (
-	github.com/SamPariatIL/roundup/shared/go v0.0.0
+	github.com/SamPariat/roundup/shared/go v0.0.0
 	github.com/gofiber/fiber/v3 v3.6.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/redis/go-redis/v9 v9.23.0
@@ -42,4 +42,4 @@ require (
 	golang.org/x/time v0.16.0 // indirect
 )
 
-replace github.com/SamPariatIL/roundup/shared/go => ../../shared/go
+replace github.com/SamPariat/roundup/shared/go => ../../shared/go

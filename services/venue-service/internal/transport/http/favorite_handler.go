@@ -3,10 +3,10 @@ package http
 import (
 	"errors"
 
-	"github.com/SamPariatIL/roundup/services/venue-service/internal/application"
-	"github.com/SamPariatIL/roundup/services/venue-service/internal/domain"
-	"github.com/SamPariatIL/roundup/services/venue-service/internal/transport/http/dtos"
-	"github.com/SamPariatIL/roundup/shared/go/response"
+	"github.com/SamPariat/roundup/services/venue-service/internal/application"
+	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
+	"github.com/SamPariat/roundup/services/venue-service/internal/transport/http/dtos"
+	"github.com/SamPariat/roundup/shared/go/response"
 	"github.com/gofiber/fiber/v3"
 )
 

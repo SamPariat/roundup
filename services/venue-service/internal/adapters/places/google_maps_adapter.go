@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/SamPariatIL/roundup/services/venue-service/internal/domain"
+	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 	"googlemaps.github.io/maps"
 )
 

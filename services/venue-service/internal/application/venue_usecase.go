@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/SamPariatIL/roundup/services/venue-service/internal/domain"
+	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 )
 
 // venue_usecase.go implements VenueUseCase, which handles venue search and detail

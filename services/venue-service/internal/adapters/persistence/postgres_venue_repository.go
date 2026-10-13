@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/SamPariatIL/roundup/services/venue-service/internal/adapters/persistence/db"
-	"github.com/SamPariatIL/roundup/services/venue-service/internal/domain"
+	"github.com/SamPariat/roundup/services/venue-service/internal/adapters/persistence/db"
+	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"

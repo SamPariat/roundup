@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/SamPariatIL/roundup/services/venue-service/internal/domain"
+	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

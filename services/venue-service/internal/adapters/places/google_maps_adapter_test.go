@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/SamPariatIL/roundup/services/venue-service/internal/domain"
+	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"googlemaps.github.io/maps"
 )
