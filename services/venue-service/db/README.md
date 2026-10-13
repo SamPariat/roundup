@@ -6,33 +6,32 @@ Database schema, migrations, and sqlc query definitions.
 
 | Directory | Purpose |
 |---|---|
-| `migrations/` | Ordered SQL migration files that define and evolve the database schema. |
+| `migrations/` | Ordered goose migration files that define and evolve the database schema. |
 | `queries/` | sqlc-annotated SQL files used to generate type-safe Go query functions. |
 
 ## `sqlc.yaml`
 
-Configuration file for [sqlc](https://sqlc.dev). Points sqlc at the `queries/` and `migrations/` directories and specifies the output location for generated Go code (`internal/adapters/persistence/sqlc/`).
+Lives in the service root (`services/venue-service/sqlc.yaml`). Points sqlc at `db/queries/` and `db/migrations/` and writes generated Go code to `internal/adapters/persistence/db/`.
 
-To regenerate Go code after modifying a query or schema:
+To regenerate Go code after modifying a query or schema, from the monorepo root:
 
 ```bash
-cd services/venue-service/db
-sqlc generate
+make venue-sqlc
 ```
 
 ## Tables
 
 | Table | Purpose |
 |---|---|
-| `saved_venues` | Venues saved as favourites by a user within a squad |
+| `saved_venues` | Venues saved as favorites by a user within a squad |
 | `venue_visits` | Historical record of squad outings at a confirmed venue |
 
 ## Running migrations
 
-Migrations are run manually using the `make migrate` target from the monorepo root:
+From the monorepo root:
 
 ```bash
-make migrate s=venue-service
+POSTGRES_DSN="postgres://venue_user:venue_pass@localhost:5438/venue?sslmode=disable" make venue-migrate-up
 ```
 
-This applies all pending migration files in `migrations/` in filename order against the venue-service's PostgreSQL database.
+`venue-migrate-down` rolls back the latest migration and `venue-migrate-status` lists what has been applied.
