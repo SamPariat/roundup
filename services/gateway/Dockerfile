@@ -1,20 +1,24 @@
 # Build context must be the monorepo root (not services/gateway), since this
-# module depends on ../../shared/go via a replace directive:
+# module depends on ../../shared via a replace directive:
 #   docker build -f services/gateway/Dockerfile -t roundup-gateway .
+#
+# Neither stage runs as root: the build stage uses an unprivileged "builder"
+# user, and the runtime image is distroless with its built-in "nonroot" user.
 
 FROM golang:1.26-alpine AS build
-RUN apk add --no-cache ca-certificates
-WORKDIR /src
+RUN adduser -D -u 10001 builder
+USER builder
+WORKDIR /home/builder/src
 
-COPY shared/go ./shared/go
-COPY services/gateway ./services/gateway
-WORKDIR /src/services/gateway
+COPY --chown=builder:builder shared ./shared
+COPY --chown=builder:builder services/gateway ./services/gateway
+WORKDIR /home/builder/src/services/gateway
 
-RUN go build -trimpath -ldflags="-s -w" -o /gateway ./cmd
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /home/builder/gateway ./cmd
 
-FROM scratch
-COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-COPY --from=build /gateway /gateway
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=build /home/builder/gateway /gateway
 
+USER nonroot:nonroot
 EXPOSE 8080
 ENTRYPOINT ["/gateway"]

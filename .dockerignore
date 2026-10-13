@@ -1,0 +1,6 @@
+# Build context is the monorepo root. Keep secrets and local artifacts out of it.
+.git
+**/.env
+**/tmp
+**/bin
+**/*.log
