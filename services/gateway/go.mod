@@ -3,7 +3,7 @@ module github.com/SamPariat/roundup/services/gateway
 go 1.26.1
 
 require (
-	github.com/SamPariat/roundup/shared/go v0.0.0
+	github.com/SamPariat/roundup/shared v0.0.0
 	github.com/gofiber/fiber/v3 v3.4.0
 	go.uber.org/zap v1.28.0
 )
@@ -28,4 +28,4 @@ require (
 	golang.org/x/text v0.40.0 // indirect
 )
 
-replace github.com/SamPariat/roundup/shared/go => ../../shared/go
+replace github.com/SamPariat/roundup/shared => ../../shared

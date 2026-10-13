@@ -1,0 +1,111 @@
+package http
+
+import (
+	"errors"
+
+	"github.com/SamPariat/roundup/services/user-service/internal/application"
+	"github.com/SamPariat/roundup/services/user-service/internal/domain"
+	"github.com/SamPariat/roundup/services/user-service/internal/transport/http/dtos"
+	"github.com/SamPariat/roundup/shared/middleware"
+	"github.com/SamPariat/roundup/shared/response"
+	"github.com/gofiber/fiber/v3"
+)
+
+// user_handler.go contains UserHandler, which handles HTTP requests for user
+// profiles. The caller's user ID comes from the X-User-ID header via
+// middleware.UserID.
+
+// UserHandler handles HTTP requests for the user endpoints.
+type UserHandler struct {
+	uc *application.UserUseCase
+}
+
+// NewUserHandler constructs a UserHandler with the given use case.
+func NewUserHandler(uc *application.UserUseCase) *UserHandler {
+	return &UserHandler{uc: uc}
+}
+
+// Create handles POST /api/v1/users. Called by auth-service after a phone is
+// verified. Returns 201 for a new user and 200 if the user already existed.
+func (h *UserHandler) Create(c fiber.Ctx) error {
+	var req dtos.CreateUserRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(
+			response.Fail[any](err.Error()),
+		)
+	}
+
+	user, created, err := h.uc.CreateOrGet(c.Context(), req.Phone)
+	if err != nil {
+		return c.Status(userErrorStatus(err)).JSON(
+			response.Fail[any](err.Error()),
+		)
+	}
+
+	status := fiber.StatusOK
+	if created {
+		status = fiber.StatusCreated
+	}
+
+	return c.Status(status).JSON(response.OK(dtos.UserToResponse(user)))
+}
+
+// GetMe handles GET /api/v1/users/me.
+func (h *UserHandler) GetMe(c fiber.Ctx) error {
+	user, err := h.uc.Get(c.Context(), middleware.UserIDFrom(c))
+	if err != nil {
+		return c.Status(userErrorStatus(err)).JSON(
+			response.Fail[any](err.Error()),
+		)
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.UserToResponse(user)))
+}
+
+// UpdateMe handles PATCH /api/v1/users/me.
+func (h *UserHandler) UpdateMe(c fiber.Ctx) error {
+	var req dtos.UpdateProfileRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(
+			response.Fail[any](err.Error()),
+		)
+	}
+
+	user, err := h.uc.UpdateProfile(c.Context(), domain.UpdateProfileCommand{
+		UserID:    middleware.UserIDFrom(c),
+		Name:      req.Name,
+		AvatarURL: req.AvatarURL,
+	})
+	if err != nil {
+		return c.Status(userErrorStatus(err)).JSON(
+			response.Fail[any](err.Error()),
+		)
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.UserToResponse(user)))
+}
+
+// DeleteMe handles DELETE /api/v1/users/me.
+func (h *UserHandler) DeleteMe(c fiber.Ctx) error {
+	if err := h.uc.Delete(c.Context(), middleware.UserIDFrom(c)); err != nil {
+		return c.Status(userErrorStatus(err)).JSON(
+			response.Fail[any](err.Error()),
+		)
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// userErrorStatus maps domain sentinel errors to HTTP status codes for users.
+func userErrorStatus(err error) int {
+	switch {
+	case errors.Is(err, domain.ErrInvalidPhone), errors.Is(err, domain.ErrInvalidName):
+		return fiber.StatusBadRequest
+	case errors.Is(err, domain.ErrUserNotFound):
+		return fiber.StatusNotFound
+	case errors.Is(err, domain.ErrPhoneTaken):
+		return fiber.StatusConflict
+	default:
+		return fiber.StatusInternalServerError
+	}
+}

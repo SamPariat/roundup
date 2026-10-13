@@ -18,6 +18,23 @@ services:
       timeout: 5s
       retries: 5
 
+  postgres-user:
+    image: postgres:18-alpine
+    container_name: roundup-postgres-user
+    environment:
+      POSTGRES_DB: users
+      POSTGRES_USER: user_user
+      POSTGRES_PASSWORD: user_pass
+    ports:
+      - "5434:5432"
+    volumes:
+      - user_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_user -d users"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   redis:
     image: redis:8.6-alpine
     container_name: roundup-redis
@@ -33,4 +50,5 @@ services:
 
 volumes:
   venue_db_data:
+  user_db_data:
   redis_data:

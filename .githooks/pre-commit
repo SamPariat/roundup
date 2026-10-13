@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Pre-commit checks for staged Go files: gofmt + go vet + golangci-lint.
 # Runs once per affected module, since this is a multi-module Go workspace
-# (services/*, shared/go each own a go.mod).
+# (services/*, shared each own a go.mod).
 set -eu
 
 staged_files=$(git diff --cached --name-only --diff-filter=ACM -- '*.go')

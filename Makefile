@@ -1,6 +1,8 @@
 VENUE_DIR := services/venue-service
 VENUE_MIGRATIONS_DIR := $(VENUE_DIR)/db/migrations
 GATEWAY_DIR := services/gateway
+USER_DIR := services/user-service
+USER_MIGRATIONS_DIR := $(USER_DIR)/db/migrations
 
 .PHONY: install \
 	venue-migrate-up \
@@ -10,7 +12,13 @@ GATEWAY_DIR := services/gateway
 	venue-run \
 	venue-test \
 	gateway-run \
-	gateway-test
+	gateway-test \
+	user-migrate-up \
+	user-migrate-down \
+	user-migrate-status \
+	user-sqlc \
+	user-run \
+	user-test
 
 install:
 	go install github.com/pressly/goose/v3/cmd/goose@latest
@@ -39,3 +47,21 @@ gateway-run:
 
 gateway-test:
 	cd $(GATEWAY_DIR) && go test ./...
+
+user-migrate-up:
+	goose -dir $(USER_MIGRATIONS_DIR) postgres "$(POSTGRES_DSN)" up
+
+user-migrate-down:
+	goose -dir $(USER_MIGRATIONS_DIR) postgres "$(POSTGRES_DSN)" down
+
+user-migrate-status:
+	goose -dir $(USER_MIGRATIONS_DIR) postgres "$(POSTGRES_DSN)" status
+
+user-sqlc:
+	cd $(USER_DIR) && sqlc generate
+
+user-run:
+	cd $(USER_DIR) && go run ./cmd
+
+user-test:
+	cd $(USER_DIR) && go test ./...
