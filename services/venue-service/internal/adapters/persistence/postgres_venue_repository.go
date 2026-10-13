@@ -2,21 +2,17 @@ package persistence
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/SamPariat/roundup/services/venue-service/internal/adapters/persistence/db"
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/SamPariat/roundup/shared/postgres"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // postgres_venue_repository.go implements domain.VenueRepository backed by PostgreSQL.
 // It wraps the sqlc-generated Queries and maps between db types and domain types.
-
-// pgUniqueViolation is the Postgres error code for unique constraint violations.
-const pgUniqueViolation = "23505"
 
 // PostgresVenueRepository implements domain.VenueRepository using PostgreSQL.
 type PostgresVenueRepository struct {
@@ -38,7 +34,7 @@ func (r *PostgresVenueRepository) AddFavorite(ctx context.Context, cmd domain.Ad
 		Name:    cmd.Name,
 	})
 	if err != nil {
-		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == pgUniqueViolation {
+		if postgres.IsUniqueViolation(err) {
 			return domain.NewDomainError(domain.ErrAlreadySaved, cmd.PlaceID)
 		}
 		return err

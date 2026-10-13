@@ -2,6 +2,7 @@ go 1.26.1
 
 use (
 	./services/gateway
+	./services/user-service
 	./services/venue-service
-	./shared/go
+	./shared
 )

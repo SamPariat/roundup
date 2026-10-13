@@ -6,8 +6,8 @@ package main
 import (
 	"github.com/SamPariat/roundup/services/gateway/internal/config"
 	transporthttp "github.com/SamPariat/roundup/services/gateway/internal/transport/http"
-	"github.com/SamPariat/roundup/shared/go/logger"
-	"github.com/SamPariat/roundup/shared/go/middleware"
+	"github.com/SamPariat/roundup/shared/logger"
+	"github.com/SamPariat/roundup/shared/middleware"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/recover"
 	"go.uber.org/zap"

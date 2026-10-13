@@ -13,9 +13,10 @@ import (
 	"github.com/SamPariat/roundup/services/venue-service/internal/application"
 	"github.com/SamPariat/roundup/services/venue-service/internal/config"
 	transporthttp "github.com/SamPariat/roundup/services/venue-service/internal/transport/http"
-	"github.com/SamPariat/roundup/shared/go/logger"
+	"github.com/SamPariat/roundup/shared/logger"
+	"github.com/SamPariat/roundup/shared/middleware"
+	"github.com/SamPariat/roundup/shared/postgres"
 	"github.com/gofiber/fiber/v3"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
@@ -26,7 +27,7 @@ func main() {
 
 	redisClient := redis.NewClient(&redis.Options{Addr: cfg.RedisAddr})
 
-	pool, err := pgxpool.New(context.Background(), cfg.PostgresDSN)
+	pool, err := postgres.Connect(context.Background(), cfg.PostgresDSN)
 	if err != nil {
 		log.Fatal("failed to connect to the database", zap.Error(err))
 	}
@@ -45,6 +46,7 @@ func main() {
 	historyUC := application.NewHistoryUseCase(venueRepo)
 
 	app := fiber.New()
+	app.Use(middleware.RequestID(), middleware.Logging(log))
 	transporthttp.RegisterRoutes(app, &transporthttp.Handlers{
 		Venue:    transporthttp.NewVenueHandler(venueUC),
 		Favorite: transporthttp.NewFavoriteHandler(favoriteUC),

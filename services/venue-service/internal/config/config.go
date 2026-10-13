@@ -3,7 +3,7 @@
 // and never read from the environment again outside this package.
 package config
 
-import "github.com/SamPariat/roundup/shared/go/env"
+import "github.com/SamPariat/roundup/shared/env"
 
 // Config holds all runtime configuration for the venue-service.
 // Fields are populated once at startup and treated as read-only thereafter.
