@@ -18,10 +18,10 @@ func TestNew(t *testing.T) {
 		level string
 		want  zapcore.Level
 	}{
-		{name: "debug", level: "debug", want: zapcore.DebugLevel},
-		{name: "info", level: "info", want: zapcore.InfoLevel},
-		{name: "warn", level: "warn", want: zapcore.WarnLevel},
-		{name: "error", level: "error", want: zapcore.ErrorLevel},
+		{name: "Debug", level: "debug", want: zapcore.DebugLevel},
+		{name: "Info", level: "info", want: zapcore.InfoLevel},
+		{name: "Warn", level: "warn", want: zapcore.WarnLevel},
+		{name: "Error", level: "error", want: zapcore.ErrorLevel},
 	}
 
 	for _, tt := range tests {

@@ -15,11 +15,11 @@ func TestMapProviderError(t *testing.T) {
 		input        string
 		wantSentinel error
 	}{
-		{name: "zero results", input: "ZERO_RESULTS", wantSentinel: domain.ErrVenueNotFound},
-		{name: "over query limit", input: "OVER_QUERY_LIMIT", wantSentinel: domain.ErrProviderUnavailable},
-		{name: "request denied", input: "REQUEST_DENIED", wantSentinel: domain.ErrProviderUnavailable},
-		{name: "unknown api error", input: "UNKNOWN_ERROR", wantSentinel: domain.ErrProviderUnavailable},
-		{name: "unrecognised error", input: "connection refused", wantSentinel: nil},
+		{name: "ZeroResults", input: "ZERO_RESULTS", wantSentinel: domain.ErrVenueNotFound},
+		{name: "OverQueryLimit", input: "OVER_QUERY_LIMIT", wantSentinel: domain.ErrProviderUnavailable},
+		{name: "RequestDenied", input: "REQUEST_DENIED", wantSentinel: domain.ErrProviderUnavailable},
+		{name: "UnknownAPIError", input: "UNKNOWN_ERROR", wantSentinel: domain.ErrProviderUnavailable},
+		{name: "UnrecognisedError", input: "connection refused", wantSentinel: nil},
 	}
 
 	for _, tt := range tests {
