@@ -2,6 +2,8 @@
 
 > Complete reference document covering features, architecture, services, communication patterns, design patterns, and database schemas.
 
+> **Language policy:** Backend is Go only. Mobile app is Compose Multiplatform (Kotlin). No other languages.
+
 ---
 
 ## Table of contents
@@ -42,34 +44,28 @@ Plan → Vote → RSVP → Go out → Bill tab → Settle → Remember
 | Place discovery     | Google Places search filtered by vibe — rooftop, cocktail bar, pub, fine dining |
 | Saved favourites    | Squad's go-to spots saved for quick access                                      |
 | Venue history       | Every venue the squad has visited, with avg spend                               |
-| AI recommendations  | Ranked suggestions based on past behaviour and current request                  |
 | Table reservation   | Direct booking via Dineout / EazyDiner                                          |
 | Deals & offers      | Venue-specific discounts surfaced during planning                               |
 | Event templates     | Reuse a past outing's config (same squad, same split mode)                      |
 | Budget cap          | Set max spend per person before the outing                                      |
 | Recurring outings   | Every Friday auto-created with same squad                                       |
-| Best day suggestion | AI analyses RSVP patterns to suggest highest-turnout day                        |
 | Calendar sync       | Export outing to Google / Apple Calendar                                        |
 | Invite links        | Shareable link — join without being in the squad                                |
 | Guest mode          | RSVP and settle bill without creating an account                                |
 | Cross-squad outings | Merge two squads for one event                                                  |
 
-### Billing & payments
+### Billing & debts
 
 | Feature             | Description                                                         |
 | ------------------- | ------------------------------------------------------------------- |
 | Live bill tab       | Firestore real-time sync — multiple people add items simultaneously |
-| Receipt OCR         | Photograph the bill — AI extracts line items automatically          |
 | Split strategies    | Equal, by item, custom percentage                                   |
 | Item assignment     | Tap a line item to claim it                                         |
 | Tax & tip split     | Proportional or equal                                               |
 | Multi-bill support  | Bar tab + dinner bill on the same outing                            |
 | Debt simplification | Min-cash-flow graph — reduces N pairwise debts to minimum transfers |
-| UPI settle-up       | Razorpay collect requests sent inside the app                       |
 | Running balance     | Total owed / owing across all squads                                |
-| Partial payments    | Pay a debt in instalments                                           |
-| Cash settlement     | Mark a debt paid offline                                            |
-| Payment proof       | Upload screenshot as confirmation                                   |
+| Mark as paid        | Settle a debt outside the app, then mark it paid                    |
 | Dispute resolution  | Flag an incorrect line item                                         |
 | Bill audit log      | Every add / remove / assign recorded with timestamp and user        |
 
@@ -81,12 +77,10 @@ Plan → Vote → RSVP → Go out → Bill tab → Settle → Remember
 | Face detection     | Google Vision API — bounding box per face per photo              |
 | Face tagging       | Auto-match against squad profiles (≥0.85 confidence) or self-tag |
 | QR download        | Scan QR to download ZIP of your tagged photos only               |
-| Outing recap       | AI-generated summary after event closes                          |
 | Shareable card     | Instagram-ready highlight card for the outing                    |
 | On this day        | Anniversary reminder for past outings                            |
 | Video reel         | Auto-compilation of photos into a short reel                     |
 | Reactions          | Emoji reactions on photos                                        |
-| Caption generation | AI suggests captions for photos                                  |
 | Squad stats        | Most visited spot, biggest spender, most frequent RSVPer         |
 | Leaderboard        | Rankings per squad — fun data to roast each other with           |
 | Streak tracking    | Consecutive weekly outings                                       |
@@ -101,9 +95,8 @@ Plan → Vote → RSVP → Go out → Bill tab → Settle → Remember
 | Debt reminder       | Gentle nudge 48 hours after debt created                |
 | Friday prompt       | Weekly push if no outing planned for the weekend        |
 | Vote deadline alert | Notification 1 hour before voting closes                |
-| AI nudges           | Personalised, context-aware message generation          |
 | Photo tagged        | Notification when you appear in a new photo             |
-| Payment confirmed   | Instant notification when debt settled                  |
+| Debt settled        | Instant notification when a debt is marked paid         |
 | Download alert      | Notifies photo uploader when someone downloads          |
 | Quiet hours         | User-set window where no notifications are sent         |
 | Channels            | FCM push (primary), WhatsApp Business API, SMS fallback |
@@ -116,21 +109,7 @@ Plan → Vote → RSVP → Go out → Bill tab → Settle → Remember
 | Live vote tally        | See votes come in as friends cast them               |
 | Typing indicators      | "Priya is adding an item..." on bill tab             |
 | Presence               | Who is currently viewing the outing                  |
-| Payment confirmed live | Debt status clears instantly on both screens         |
-
-### AI features (LangChain + Gemini 1.5 Pro)
-
-| Feature               | Chain type | Description                                                   |
-| --------------------- | ---------- | ------------------------------------------------------------- |
-| Receipt OCR           | LLM chain  | Photo → Vision API → LLM extraction → structured JSON         |
-| Venue recommendations | Agent      | Tools: venue search, squad history, preferences → ranked list |
-| RAG queries           | RAG chain  | "Where did we go most?" over pgvector-stored squad history    |
-| Smart nudges          | LLM chain  | Context-aware debt reminder generation                        |
-| Outing recap          | LLM chain  | Auto-summary on event close                                   |
-| Planning assistant    | Agent      | Conversational — "plan something for 8 of us Saturday"        |
-| Spend prediction      | Predictor  | "This venue averages ₹X for your group size"                  |
-| Caption generation    | LLM chain  | 3 Instagram-style caption options per photo                   |
-| Yearly wrapped        | LLM chain  | Narrative annual summary                                      |
+| Debt settled live      | Debt status clears instantly on both screens         |
 
 ### Monetisation
 
@@ -138,7 +117,9 @@ Plan → Vote → RSVP → Go out → Bill tab → Settle → Remember
 | ---------------------- | -------------------------------------------------- |
 | Venue partnerships     | Featured placement in discovery                    |
 | Commission on bookings | Revenue on Dineout reservations                    |
-| Roundup Pro            | Unlimited history, advanced analytics, priority AI |
+
+> **Later:** AI features — deferred, will be revisited.
+| Roundup Pro            | Unlimited history, advanced analytics              |
 | Referral program       | Invite friends, earn Pro credits                   |
 | Deals marketplace      | Exclusive squad offers from partner venues         |
 
@@ -150,7 +131,7 @@ Plan → Vote → RSVP → Go out → Bill tab → Settle → Remember
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Flutter app                                            │
+│  Compose Multiplatform app (Android + iOS)              │
 └────────────────────────┬────────────────────────────────┘
                          │ HTTPS
 ┌────────────────────────▼────────────────────────────────┐
@@ -159,14 +140,14 @@ Plan → Vote → RSVP → Go out → Bill tab → Settle → Remember
 └──┬──────┬──────┬──────┬──────┬──────┬──────┬───────────┘
    │      │      │      │      │      │      │
    ▼      ▼      ▼      ▼      ▼      ▼      ▼
- Auth   User  Event Billing Payment Venue  Media ...
- (Nest) (Java)(Java)(Java)  (Go)    (Go)   (Go)
+ Auth   User  Event Billing Venue  Media  ...
+ (Go)   (Go)  (Go)  (Go)    (Go)   (Go)
 
                    │ Kafka (async events)
          ┌─────────┴──────────┐
          ▼                    ▼
    Notification           Analytics
-      (Go)                 (Java)
+      (Go)                 (Go)
 
 ┌──────────────────────────────────────────────────────┐
 │  Data layer                                          │
@@ -175,7 +156,7 @@ Plan → Vote → RSVP → Go out → Bill tab → Settle → Remember
 
 ┌──────────────────────────────────────────────────────┐
 │  External                                            │
-│  Firebase · Razorpay · Cloudinary · Google Places    │
+│  Cloudinary · Google Places · SMS provider           │
 │  Google Vision · FCM · WhatsApp Business             │
 └──────────────────────────────────────────────────────┘
 ```
@@ -195,22 +176,20 @@ Plan → Vote → RSVP → Go out → Bill tab → Settle → Remember
 | Service              | Language   | Port | DB              |
 | -------------------- | ---------- | ---- | --------------- |
 | API Gateway          | Go (Fiber) | 8080 | —               |
-| Auth Service         | NestJS     | 3001 | 5433            |
-| User Service         | Java       | 3002 | 5434            |
-| Event Service        | Java       | 3003 | 5435            |
-| Billing Service      | Java       | 3004 | 5436            |
-| Payment Service      | Go         | 3005 | 5437            |
+| Auth Service         | Go         | 3001 | 5433            |
+| User Service         | Go         | 3002 | 5434            |
+| Event Service        | Go         | 3003 | 5435            |
+| Billing Service      | Go         | 3004 | 5436            |
 | Venue Service        | Go         | 3006 | 5438            |
 | Notification Service | Go         | 3007 | —               |
 | Media Service        | Go         | 3008 | 5439            |
 | Realtime Service     | Go         | 3009 | —               |
-| AI Service           | Python     | 3010 | 5441 (pgvector) |
 | Reservation Service  | Go         | 3011 | 5442            |
-| Analytics Service    | Java       | 3012 | 5441            |
+| Analytics Service    | Go         | 3012 | 5441            |
 | Feature Flag Service | Go         | 3013 | 5440            |
-| Admin Service        | NestJS     | 3014 | —               |
+| Admin Service        | Go         | 3014 | —               |
 
-All services share Redis on `6379` and Kafka on `9092`.
+All services share Redis on `6379` and Kafka on `9092`. All HTTP routes are versioned under `/api/v1`.
 
 ---
 
@@ -222,29 +201,22 @@ All services share Redis on `6379` and Kafka on `9092`.
 | ------------------------ | --------- | --------------------------------- |
 | `rsvp.updated`           | Event     | Notification, Realtime, Analytics |
 | `event.created`          | Event     | Analytics                         |
-| `event.closed`           | Event     | Billing, AI, Analytics            |
+| `event.closed`           | Event     | Billing, Analytics                |
 | `vote.cast`              | Event     | Realtime, Analytics               |
 | `event.confirmed`        | Event     | Realtime, Reservation             |
 | `tab.opened`             | Billing   | Realtime                          |
-| `tab.closed`             | Billing   | Notification, AI                  |
+| `tab.closed`             | Billing   | Notification                      |
 | `debt.created`           | Billing   | Notification, Realtime            |
 | `debt.settled`           | Billing   | Analytics, Realtime               |
-| `payment.initiated`      | Payment   | Analytics                         |
-| `payment.confirmed`      | Payment   | Billing, Notification, Realtime   |
-| `payment.failed`         | Payment   | Billing, Notification             |
 | `photo.uploaded`         | Media     | Media (tagging worker)            |
 | `photo.tagged`           | Media     | Notification, Realtime            |
-| `outing.recap.requested` | AI        | Notification                      |
-| `notification.send`      | AI        | Notification                      |
 
 ### Synchronous REST calls
 
 | Caller          | Callee               | Endpoint                  | When                                           |
 | --------------- | -------------------- | ------------------------- | ---------------------------------------------- |
-| Gateway         | Auth Service         | `POST /auth/validate`     | Every authenticated request (Redis cached)     |
-| Billing Service | Payment Service      | `POST /payments/initiate` | On debt settlement request                     |
-| AI Service      | Venue Service        | `GET /venues/search`      | Venue recommendation agent tool call           |
-| Any service     | Feature Flag Service | `GET /flags/:key?userId=` | On feature-gated code paths (Redis cached 60s) |
+| Gateway         | Auth Service         | `POST /api/v1/auth/validate` | Every authenticated request (Redis cached)  |
+| Any service     | Feature Flag Service | `GET /api/v1/flags/:key?userId=` | On feature-gated code paths (Redis cached 60s) |
 
 ---
 
@@ -253,20 +225,19 @@ All services share Redis on `6379` and Kafka on `9092`.
 | Pattern        | Where                      | What it does                                                                                                        |
 | -------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | Strategy       | Billing — split modes      | `EqualSplit`, `ByItemSplit`, `CustomSplit` all implement `SplitStrategy`. Swapped at runtime based on `split_mode`. |
-| Strategy       | Auth — providers           | `FirebaseStrategy`, `JwtStrategy`, `ApiKeyStrategy` all implement `IAuthStrategy`. Factory picks at request time.   |
-| Factory        | Auth                       | `AuthStrategyFactory` holds a `Map<AuthProvider, IAuthStrategy>` and resolves via `resolve(provider)`.              |
-| Repository     | All Java + NestJS services | All DB queries behind an interface. Services never touch the ORM directly.                                          |
-| Port / Adapter | Auth — Firebase            | `AuthProviderPort` interface. `FirebaseAuthAdapter` implements it. Swap provider without touching strategy.         |
+| Strategy       | Auth — providers           | `OTPStrategy`, `JWTStrategy`, `APIKeyStrategy` all implement the `AuthStrategy` interface. Factory picks at request time. |
+| Factory        | Auth                       | `AuthStrategyFactory` holds a `map[AuthProvider]AuthStrategy` and resolves via `Resolve(provider)`.                 |
+| Repository     | All services               | All DB queries behind a domain interface. Use cases never touch sqlc/pgx directly.                                  |
+| Port / Adapter | Auth — SMS                 | `OTPSender` interface. An SMS provider adapter implements it (console adapter in dev). Swap provider freely.        |
 | Port / Adapter | Venue — Places             | `VenueProvider` interface. `GooglePlacesAdapter` implements it. Future: `ZomatoAdapter`, `FoursquareAdapter`.       |
 | Command        | Billing — bill tab         | Every mutation (`AddItem`, `RemoveItem`, `AssignItem`, `CloseBill`) is a Command. Enables audit log and undo.       |
 | State machine  | Event Service              | `DRAFT → VOTING → CONFIRMED → ACTIVE → CLOSED`. Invalid transitions throw.                                          |
-| State machine  | Billing — debts            | `PENDING → REQUESTED → SETTLED`.                                                                                    |
+| State machine  | Billing — debts            | `PENDING → SETTLED` (marked paid by hand).                                                                          |
 | State machine  | Reservation Service        | `PENDING → CONFIRMED → CANCELLED → NO_SHOW`.                                                                        |
-| Observer       | All services               | `EventEmitter2` domain events. `rsvp.updated` triggers notification without Billing knowing Notification exists.    |
+| Observer       | All services               | Kafka domain events. `rsvp.updated` triggers notification without Event knowing Notification exists.               |
 | Facade         | Venue Service              | Wraps Google Places API + Redis cache. Callers call `venueService.search()` — no knowledge of Places API.           |
-| Facade         | Payment Service            | Wraps Razorpay SDK. Callers call `paymentService.initiate()` — no knowledge of Razorpay internals.                  |
-| Decorator      | NestJS common              | `AuthGuard`, `TransformInterceptor`, `LoggingInterceptor`, `ZodValidationPipe`, `GlobalExceptionFilter`.            |
-| Singleton      | All services               | DB pool, Redis client, Firebase Admin SDK — one instance, DI-managed.                                               |
+| Middleware     | `shared/middleware`        | `RequestID`, `Logging`, auth, error handling — Fiber middleware shared by every service.                            |
+| Singleton      | All services               | DB pool, Redis client, FCM client — built once in `cmd/main.go` and injected.                                        |
 | Feature flags  | All services               | `feature_flags` table + Redis cache. Kill switch for every major feature.                                           |
 
 ---
@@ -278,18 +249,16 @@ All services share Redis on `6379` and Kafka on `9092`.
 ```sql
 -- sessions
 CREATE TABLE sessions (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id      UUID NOT NULL,
-  firebase_uid TEXT NOT NULL,
-  device_token TEXT,
-  ip_address   TEXT,
-  created_at   TIMESTAMP NOT NULL DEFAULT now(),
-  expires_at   TIMESTAMP NOT NULL,
-  revoked_at   TIMESTAMP
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id            UUID NOT NULL,
+  refresh_token_hash TEXT NOT NULL UNIQUE,       -- never store the raw token
+  ip_address         TEXT,
+  created_at         TIMESTAMP NOT NULL DEFAULT now(),
+  expires_at         TIMESTAMP NOT NULL,
+  revoked_at         TIMESTAMP
 );
 
 CREATE INDEX idx_sessions_user_id ON sessions(user_id);
-CREATE INDEX idx_sessions_firebase_uid ON sessions(firebase_uid);
 ```
 
 ---
@@ -300,10 +269,9 @@ CREATE INDEX idx_sessions_firebase_uid ON sessions(firebase_uid);
 -- users
 CREATE TABLE users (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  uid         TEXT UNIQUE NOT NULL,          -- Firebase UID
   phone       TEXT UNIQUE,
   email       TEXT UNIQUE,
-  name        TEXT NOT NULL,
+  name        TEXT,                          -- set during profile setup
   avatar_url  TEXT,
   deleted_at  TIMESTAMP,                     -- soft delete
   created_at  TIMESTAMP NOT NULL DEFAULT now(),
@@ -333,7 +301,7 @@ CREATE TABLE device_tokens (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     UUID NOT NULL REFERENCES users(id),
   token       TEXT NOT NULL UNIQUE,
-  platform    TEXT NOT NULL,                 -- IOS | ANDROID
+  platform    TEXT NOT NULL,                 -- iOS | Android
   created_at  TIMESTAMP NOT NULL DEFAULT now()
 );
 
@@ -354,7 +322,6 @@ CREATE TABLE friend_connections (
   CHECK (user_id_a < user_id_b)             -- prevent duplicate pairs
 );
 
-CREATE INDEX idx_users_uid ON users(uid);
 CREATE INDEX idx_users_phone ON users(phone);
 CREATE INDEX idx_squad_members_squad_id ON squad_members(squad_id);
 CREATE INDEX idx_squad_members_user_id ON squad_members(user_id);
@@ -435,7 +402,7 @@ CREATE INDEX idx_invite_links_token ON invite_links(token);
 ```sql
 CREATE TYPE split_mode AS ENUM ('EQUAL', 'BY_ITEM', 'CUSTOM');
 CREATE TYPE bill_status AS ENUM ('OPEN', 'CLOSED');
-CREATE TYPE debt_status AS ENUM ('PENDING', 'REQUESTED', 'SETTLED');
+CREATE TYPE debt_status AS ENUM ('PENDING', 'SETTLED');
 
 -- bills
 CREATE TABLE bills (
@@ -504,53 +471,6 @@ CREATE INDEX idx_debts_from_user ON debts(from_user);
 CREATE INDEX idx_debts_to_user ON debts(to_user);
 CREATE INDEX idx_debts_status ON debts(status);
 CREATE INDEX idx_audit_log_bill_id ON audit_log(bill_id);
-```
-
----
-
-### Payment Service (PostgreSQL)
-
-```sql
-CREATE TYPE payment_status AS ENUM ('INITIATED', 'CAPTURED', 'FAILED', 'REFUNDED');
-
--- payment_requests
-CREATE TABLE payment_requests (
-  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  debt_id             UUID NOT NULL UNIQUE,         -- idempotency key
-  razorpay_payment_id TEXT UNIQUE,
-  razorpay_order_id   TEXT,
-  from_user           UUID NOT NULL,
-  to_user             UUID NOT NULL,
-  amount_paise        BIGINT NOT NULL,
-  status              payment_status NOT NULL DEFAULT 'INITIATED',
-  created_at          TIMESTAMP NOT NULL DEFAULT now(),
-  captured_at         TIMESTAMP
-);
-
--- payment_events (raw webhook payloads for replay)
-CREATE TABLE payment_events (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  payment_id  UUID REFERENCES payment_requests(id),
-  event_type  TEXT NOT NULL,                        -- payment.captured | payment.failed
-  raw_payload JSONB NOT NULL,
-  processed   BOOLEAN NOT NULL DEFAULT false,
-  created_at  TIMESTAMP NOT NULL DEFAULT now()
-);
-
--- refunds
-CREATE TABLE refunds (
-  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  payment_id         UUID NOT NULL REFERENCES payment_requests(id),
-  razorpay_refund_id TEXT UNIQUE,
-  amount_paise       BIGINT NOT NULL,
-  status             TEXT NOT NULL DEFAULT 'PENDING',
-  created_at         TIMESTAMP NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_payment_requests_debt_id ON payment_requests(debt_id);
-CREATE INDEX idx_payment_requests_status ON payment_requests(status);
-CREATE INDEX idx_payment_events_payment_id ON payment_events(payment_id);
-CREATE INDEX idx_payment_events_processed ON payment_events(processed);
 ```
 
 ---
@@ -741,9 +661,6 @@ INSERT INTO feature_flags (key, enabled, rollout, description) VALUES
   ('memory_wall',         false, 100, 'Photo upload and memory wall'),
   ('new_bill_tab_v2',     false, 100, 'Redesigned live bill tab UI'),
   ('squad_stats',         false, 100, 'Squad leaderboard and analytics'),
-  ('razorpay_payments',   false, 100, 'UPI settle-up via Razorpay'),
-  ('ai_recommendations',  false, 10,  'AI venue recommendations (10% rollout)'),
-  ('receipt_ocr',         false, 100, 'Receipt photo to line items'),
   ('table_reservation',   false, 100, 'Direct table booking via Dineout');
 ```
 
@@ -785,42 +702,6 @@ CREATE UNIQUE INDEX idx_reservations_event_id_unique ON reservations(event_id)
 
 ---
 
-### AI Service (PostgreSQL + pgvector)
-
-```sql
--- requires: CREATE EXTENSION vector;
-
--- squad_memories (embeddings of past outings for RAG)
-CREATE TABLE squad_memories (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  squad_id    UUID NOT NULL,
-  event_id    UUID NOT NULL UNIQUE,
-  content     TEXT NOT NULL,                   -- text representation of the outing
-  embedding   vector(768) NOT NULL,            -- Gemini embedding dimension
-  metadata    JSONB,                           -- venue, spend, members, date
-  created_at  TIMESTAMP NOT NULL DEFAULT now()
-);
-
--- ai_request_log
-CREATE TABLE ai_request_log (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  squad_id     UUID,
-  user_id      UUID,
-  request_type TEXT NOT NULL,                  -- RECEIPT_OCR | RECOMMEND | QUERY | NUDGE
-  input        JSONB NOT NULL,
-  output       JSONB,
-  tokens_used  INT,
-  duration_ms  INT,
-  created_at   TIMESTAMP NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_squad_memories_squad_id ON squad_memories(squad_id);
-CREATE INDEX idx_squad_memories_embedding ON squad_memories
-  USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
-```
-
----
-
 ### Firestore (live bill tab — not PostgreSQL)
 
 Firestore is used only for the live bill tab. When the tab closes, the final state is synced to the Billing Service's PostgreSQL.
@@ -853,15 +734,13 @@ bill_tabs/                              (collection)
 
 | Category  | SDK                                  | Free tier                        | Used by              |
 | --------- | ------------------------------------ | -------------------------------- | -------------------- |
-| Auth      | `firebase-admin`                     | 10,000 OTPs/month free           | Auth Service         |
-| Push      | Firebase FCM                         | Unlimited forever                | Notification Service |
+| Auth      | SMS provider (OTP delivery)          | Dev uses a fixed code, no SMS    | Auth Service         |
+| Push      | Firebase FCM (`firebase.google.com/go`) | Unlimited forever                | Notification Service |
 | Real-time | Firestore                            | 50k reads/day, 20k writes/day    | Media + Billing      |
 | Maps      | `googlemaps/google-maps-services-go` | 10,000 calls/month per SKU       | Venue Service        |
-| Payments  | `razorpay` (npm)                     | Test mode free, no KYC           | Payment Service      |
 | Media     | `cloudinary-go`                      | 25 credits/month, no card        | Media Service        |
-| Vision    | `@google-cloud/vision`               | 1,000 units/month free           | Media Service        |
-| Queue     | BullMQ + Redis                       | Self-hosted on Redis             | Notification, Media  |
-| AI        | LangChain Python                     | Pay per token (Gemini free tier) | AI Service           |
+| Vision    | `cloud.google.com/go/vision`         | 1,000 units/month free           | Media Service        |
+| Queue     | `hibiken/asynq` + Redis              | Self-hosted on Redis             | Notification, Media  |
 | QR        | `skip2/go-qrcode`                    | Free open source                 | Media Service        |
 
 ---
@@ -872,8 +751,8 @@ bill_tabs/                              (collection)
 
 | Person | Work                                                                    |
 | ------ | ----------------------------------------------------------------------- |
-| A      | API Gateway (Go) + Auth Service (NestJS) + Firebase integration         |
-| B      | User Service (Java) — profiles, squads, device tokens                   |
+| A      | API Gateway (Go) + Auth Service (Go) — phone OTP + JWT                  |
+| B      | User Service (Go) — profiles, squads, device tokens                     |
 | C      | Infra — Docker Compose, Kafka, Redis, Postgres per service, CI skeleton |
 | D      | Realtime Service (Go) — WebSocket hub, connection registry, presence    |
 
@@ -883,40 +762,40 @@ bill_tabs/                              (collection)
 
 | Person | Work                                                                         |
 | ------ | ---------------------------------------------------------------------------- |
-| A      | Event Service (Java) — state machine, RSVP, voting, invite links, guest mode |
-| B      | Billing Service (Java) — tab, strategies, debt graph, command pattern        |
-| C      | Payment Service (Go) + Venue Service (Go) + Feature Flag Service (Go)        |
+| A      | Event Service (Go) — state machine, RSVP, voting, invite links, guest mode   |
+| B      | Billing Service (Go) — tab, strategies, debt graph, command pattern          |
+| C      | Venue Service (Go) + Feature Flag Service (Go)                               |
 | D      | Realtime wired — live RSVP, live votes, live bill tab typing indicators      |
 
-**Done when:** a squad can plan an outing, vote on a venue, open a bill tab, and one person can settle a debt.
+**Done when:** a squad can plan an outing, vote on a venue, open a bill tab, and one person can mark a debt as paid.
 
 ### Phase 3 — Media + notifications + reservation (Month 4)
 
 | Person | Work                                                                    |
 | ------ | ----------------------------------------------------------------------- |
 | A      | Media Service (Go) — Cloudinary, face detection pipeline, QR download   |
-| B      | Notification Service (Go) + Analytics Service (Java)                    |
+| B      | Notification Service (Go) + Analytics Service (Go)                      |
 | C      | Reservation Service (Go) — Dineout integration, booking state machine   |
-| D      | AI Service (Python) — LangChain setup, receipt OCR, pgvector embeddings |
+| D      | Mobile app (Compose Multiplatform) — planning, bill tab, debts screens  |
 
-### Phase 4 — AI features + admin (Month 5)
+### Phase 4 — Admin + growth (Month 5)
 
 | Person | Work                                                                     |
 | ------ | ------------------------------------------------------------------------ |
-| A      | Admin Service (NestJS) — user mgmt, payment ops, webhook replay          |
+| A      | Admin Service (Go) — user mgmt, flag mgmt, webhook replay                |
 | B      | Venue partnerships — deals, featured placement, partner analytics        |
 | C      | Friend graph, cross-squad outings, yearly wrapped                        |
-| D      | AI — venue recommendation agent, smart nudges, outing recap, RAG queries |
+| D      | Mobile app — memory wall, notifications, settings                        |
 
 ### Phase 5 — Hardening (Month 6)
 
 | Person | Work                                                                |
 | ------ | ------------------------------------------------------------------- |
-| A      | E2E tests, contract tests, security audit, pen test auth + payments |
-| B      | Java service profiling, GC tuning, DB index audit                   |
+| A      | E2E tests, contract tests, security audit, pen test auth            |
+| B      | Go service profiling (pprof), DB index audit                        |
 | C      | GCP production deploy — Cloud Run, Cloud SQL, Memorystore           |
 | D      | Grafana + Loki + Prometheus, distributed tracing, alerting          |
 
 ---
 
-_15 services · 4 languages (Go, Java, NestJS, Python) · 4 people · 6 months_
+_13 services · 1 backend language (Go) · Compose Multiplatform mobile · 4 people · 6 months_

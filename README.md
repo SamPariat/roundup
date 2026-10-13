@@ -2,11 +2,13 @@
 
 Weekend squad outing planner. Plan where to go, track who's coming, split the bill, settle up, remember the night.
 
+> **Language policy:** Backend is Go only. Mobile app is Compose Multiplatform (Kotlin). No other languages.
+
 ---
 
 ## What's this?
 
-Roundup is a mobile app (Flutter) backed by a microservices architecture. It handles the full lifecycle of a group outing — from venue voting and RSVP tracking to live bill splitting and UPI payments.
+Roundup is a mobile app (Compose Multiplatform — Android + iOS) backed by a Go microservices architecture. It handles the full lifecycle of a group outing — from venue voting and RSVP tracking to live bill splitting and keeping track of who owes whom.
 
 This repository is a monorepo containing all backend services, shared proto definitions, and infrastructure config.
 
@@ -14,21 +16,18 @@ This repository is a monorepo containing all backend services, shared proto defi
 
 ## Tech stack
 
-| Layer                                                | Technology                     |
-| ---------------------------------------------------- | ------------------------------ |
-| Mobile                                               | Flutter                        |
-| API Gateway                                          | Go (Fiber)                     |
-| Auth                                                 | NestJS + TypeScript + Firebase |
-| User, Event, Billing, Analytics                      | Java + Spring Boot 3           |
-| Payment, Venue, Notification, Media, Realtime, Flags | Go                             |
-| AI                                                   | Python + FastAPI + LangChain   |
-| Message broker                                       | Apache Kafka                   |
-| Cache                                                | Redis                          |
-| Database                                             | PostgreSQL (one per service)   |
-| Real-time sync                                       | Firestore (live bill tab only) |
-| Media storage                                        | Cloudinary                     |
-| Push                                                 | Firebase Cloud Messaging       |
-| Payments                                             | Razorpay                       |
+| Layer                          | Technology                     |
+| ------------------------------ | ------------------------------ |
+| Mobile                         | Compose Multiplatform (Kotlin) |
+| All backend services + gateway | Go (Fiber v3)                  |
+| Auth                           | Custom — phone OTP + JWT (Go)  |
+| DB access / migrations         | sqlc + pgx / goose             |
+| Message broker                 | Apache Kafka                   |
+| Cache                          | Redis                          |
+| Database                       | PostgreSQL (one per service)   |
+| Real-time sync                 | Firestore (live bill tab only) |
+| Media storage                  | Cloudinary                     |
+| Push                           | Firebase Cloud Messaging       |
 
 ---
 
@@ -57,15 +56,13 @@ Install these before anything else.
 | Docker Desktop | latest   | https://docs.docker.com/get-docker           |
 | Git            | 2.x+     | https://git-scm.com                          |
 | Make           | any      | pre-installed on macOS / Linux               |
-| Go             | 1.22+    | https://go.dev/dl                            |
-| Java           | 21 (LTS) | https://adoptium.net                         |
-| Node.js        | 20 LTS   | https://nodejs.org                           |
-| pnpm           | 9+       | `npm i -g pnpm`                              |
-| Python         | 3.11+    | https://python.org                           |
-| Flutter        | stable   | https://flutter.dev/docs/get-started/install |
-| nest-cli       | latest   | `npm i -g @nestjs/cli`                       |
+| Go             | 1.26+    | https://go.dev/dl                            |
+| goose          | latest   | `make install`                               |
+| sqlc           | latest   | `make install`                               |
 | buf            | latest   | https://buf.build/docs/installation          |
 | golangci-lint  | latest   | https://golangci-lint.run/usage/install      |
+| Android Studio | latest   | https://developer.android.com/studio (mobile only) |
+| Xcode          | latest   | Mac App Store (mobile, iOS builds only)      |
 
 ---
 
@@ -128,21 +125,15 @@ curl http://localhost:8080/health
 
 All third-party services have free sandbox / test modes. No real money changes hands during development.
 
-### Firebase
+### Auth (custom — phone OTP + JWT)
 
-1. Go to [console.firebase.google.com](https://console.firebase.google.com) → create a project
-2. Project Settings → Service Accounts → Generate new private key → download JSON
-3. Authentication → Sign-in method → enable **Phone**
-4. Authentication → Phone → **Test phone numbers** → add your dev numbers here (no SMS cost, no OTP sent)
+No Firebase Auth. The auth-service sends a one-time code by SMS and issues JWTs itself. In development the SMS step is skipped and a fixed code is accepted.
 
 ```env
 # services/auth-service/.env
-FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxx@your-project.iam.gserviceaccount.com
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+JWT_SECRET=change-me
+OTP_DEV_CODE=123456
 ```
-
-> The `\n` in `FIREBASE_PRIVATE_KEY` must be literal backslash-n in the `.env` file, not actual newlines. The service handles the replacement.
 
 ### Google Maps / Places
 
@@ -155,47 +146,6 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
 # services/venue-service/.env
 GOOGLE_MAPS_API_KEY=AIza...
 ```
-
-### Razorpay (payments)
-
-1. Go to [razorpay.com](https://razorpay.com) → sign up — no KYC needed to access test mode
-2. Dashboard → toggle **Test Mode** on (top-right switch)
-3. Settings → API Keys → **Generate Test Key**
-4. Copy the Key ID and Key Secret
-
-```env
-# services/payment-service/.env
-RAZORPAY_KEY_ID=rzp_test_...
-RAZORPAY_KEY_SECRET=...
-RAZORPAY_WEBHOOK_SECRET=...
-```
-
-**Test credentials for local development**
-
-| Method       | Value                   | Behaviour       |
-| ------------ | ----------------------- | --------------- |
-| UPI ID       | `success@razorpay`      | Always succeeds |
-| UPI ID       | `failure@razorpay`      | Always fails    |
-| UPI ID       | `pending@razorpay`      | Stays pending   |
-| Card number  | `4111 1111 1111 1111`   | Always succeeds |
-| Card number  | `4242 4242 4242 4242`   | Always succeeds |
-| CVV / expiry | any valid-looking value | Works in test   |
-
-**Webhook testing locally** — use [ngrok](https://ngrok.com) to expose your local payment service:
-
-```bash
-ngrok http 3005
-# copy the https URL → Razorpay Dashboard → Webhooks → Add new webhook
-# e.g. https://abc123.ngrok.io/webhooks/razorpay
-```
-
-Subscribe to these events in the Razorpay dashboard:
-
-- `payment.captured`
-- `payment.failed`
-- `refund.created`
-
-> Live mode requires KYC (Aadhaar + PAN + business details). Stay in test mode until you are ready to go live.
 
 ### Cloudinary (media)
 
@@ -248,37 +198,14 @@ Faster for active development — run the service you are working on natively, w
 make infra   # start Postgres, Redis, Kafka only
 ```
 
-**NestJS (auth-service, admin-service)**
+Every service is Go and runs the same way:
 
 ```bash
-cd services/auth-service
-pnpm install
-pnpm start:dev
+cd services/venue-service
+go run ./cmd
 ```
 
-**Go (gateway, payment-service, venue-service, etc.)**
-
-```bash
-cd services/gateway
-go run cmd/main.go
-```
-
-**Java (user-service, event-service, billing-service, analytics-service)**
-
-```bash
-cd services/billing-service
-./gradlew bootRun
-```
-
-**Python (ai-service)**
-
-```bash
-cd services/ai-service
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
+Or use the Makefile shortcuts, e.g. `make venue-run`, `make user-run`, `make gateway-run`.
 
 ---
 
@@ -287,22 +214,22 @@ uvicorn app.main:app --reload
 | Service              | Language | Port | Description                             |
 | -------------------- | -------- | ---- | --------------------------------------- |
 | gateway              | Go       | 8080 | Routes all traffic, rate limiting, auth |
-| auth-service         | NestJS   | 3001 | Firebase token verification, JWT        |
-| user-service         | Java     | 3002 | Profiles, squads, device tokens         |
-| event-service        | Java     | 3003 | Outing lifecycle, RSVP, voting          |
-| billing-service      | Java     | 3004 | Bill tab, split strategies, debt graph  |
-| payment-service      | Go       | 3005 | Razorpay integration, webhooks          |
+| auth-service         | Go       | 3001 | Phone OTP login, JWT issuing            |
+| user-service         | Go       | 3002 | Profiles, squads, device tokens         |
+| event-service        | Go       | 3003 | Outing lifecycle, RSVP, voting          |
+| billing-service      | Go       | 3004 | Bill tab, split strategies, debt graph  |
 | venue-service        | Go       | 3006 | Google Places facade, Redis cache       |
 | notification-service | Go       | 3007 | FCM push, WhatsApp                      |
 | media-service        | Go       | 3008 | Photos, face detection, QR download     |
 | realtime-service     | Go       | 3009 | WebSocket hub, presence                 |
-| ai-service           | Python   | 3010 | LangChain, receipt OCR, recommendations |
 | reservation-service  | Go       | 3011 | Table booking via Dineout               |
-| analytics-service    | Java     | 3012 | Squad stats, leaderboards, wrapped      |
+| analytics-service    | Go       | 3012 | Squad stats, leaderboards, wrapped      |
 | feature-flag-service | Go       | 3013 | Flag evaluation, rollout control        |
-| admin-service        | NestJS   | 3014 | Internal ops dashboard                  |
+| admin-service        | Go       | 3014 | Internal ops dashboard                  |
 
-All services share Redis on `6379` and Kafka on `9092`.
+All services share Redis on `6379` and Kafka on `9092`. All HTTP routes are versioned under `/api/v1` (e.g. `/api/v1/users/me`).
+
+> **Later:** AI features — deferred, will be revisited.
 
 ---
 
@@ -320,24 +247,19 @@ Started automatically with `make infra`.
 
 ## Kafka topics
 
-Inter-service events flow through Kafka. Topic name constants are in `shared/constants/kafka-topics.*`.
+Inter-service events flow through Kafka. Topic name constants live in `shared/kafka`.
 
 | Topic                    | Publisher       | Consumers                         |
 | ------------------------ | --------------- | --------------------------------- |
 | `rsvp.updated`           | event-service   | notification, realtime, analytics |
 | `event.created`          | event-service   | analytics                         |
-| `event.closed`           | event-service   | billing, ai, analytics            |
+| `event.closed`           | event-service   | billing, analytics                |
 | `tab.opened`             | billing-service | realtime                          |
-| `tab.closed`             | billing-service | notification, ai                  |
+| `tab.closed`             | billing-service | notification                      |
 | `debt.created`           | billing-service | notification, realtime            |
 | `debt.settled`           | billing-service | analytics, realtime               |
-| `payment.initiated`      | payment-service | analytics                         |
-| `payment.confirmed`      | payment-service | billing, notification, realtime   |
-| `payment.failed`         | payment-service | billing, notification             |
 | `photo.uploaded`         | media-service   | media (tagging worker)            |
 | `photo.tagged`           | media-service   | notification, realtime            |
-| `outing.recap.requested` | ai-service      | notification                      |
-| `notification.send`      | ai-service      | notification-service              |
 
 ---
 
@@ -354,7 +276,6 @@ make proto
 | --------------- | ----------------------------------- |
 | `auth.proto`    | gateway → auth-service              |
 | `user.proto`    | auth, event, billing → user-service |
-| `billing.proto` | billing → payment-service           |
 | `flags.proto`   | any service → feature-flag-service  |
 
 ---
@@ -363,21 +284,11 @@ make proto
 
 Each service owns its own database and migrations independently.
 
-**Java services** — Flyway runs automatically on startup. Files live in `src/main/resources/db/migration/` named `V1__description.sql`, `V2__description.sql`, etc.
-
-**Go services** — run manually:
+All services use **goose** for migrations and **sqlc** for typed queries. Files live in `services/<name>/db/migrations/` named `0001_description.sql`, `0002_description.sql`, etc.
 
 ```bash
-make migrate s=payment-service
-```
-
-**NestJS services** — Drizzle Kit:
-
-```bash
-cd services/auth-service
-pnpm drizzle-kit generate   # generate migration from schema change
-pnpm drizzle-kit migrate    # apply pending migrations
-pnpm drizzle-kit studio     # open DB browser UI
+POSTGRES_DSN=... make venue-migrate-up   # apply pending migrations
+make venue-sqlc                          # regenerate Go code from db/queries/*.sql
 ```
 
 ---
@@ -407,28 +318,29 @@ git push origin feat/billing-service/debt-simplification
 
 ```
 feat(billing): implement min-cash-flow debt graph
-fix(auth): handle expired firebase token gracefully
+fix(auth): reject expired OTP codes
 chore(infra): add kafka-ui to docker compose
 test(event): add state machine transition unit tests
-refactor(payment): extract razorpay client into adapter
+refactor(venue): extract places client into adapter
 ```
 
 Types: `feat` `fix` `chore` `refactor` `test` `docs` `perf` `ci`
 
-Scope: the service name — `billing` `auth` `gateway` `payment` `infra` `proto`
+Scope: the service name — `billing` `auth` `gateway` `user` `venue` `infra` `proto`
 
 ---
 
 ## Adding a new service
 
 1. Create the directory under `services/`
-2. Initialise the project (`nest new`, `go mod init`, `spring init`, `fastapi`, etc.)
-3. Add a `Dockerfile`
-4. Add `.env.example` with all required variables documented
-5. Add the service to `docker-compose.yml`
-6. Add a shortcut to the `Makefile` if useful
-7. Update the services table in this README
-8. Add ownership to `.github/CODEOWNERS`
+2. `go mod init github.com/SamPariat/roundup/services/<name>` and copy the `services/venue-service` layout
+3. Add the module to `go.work`
+4. Add a `Dockerfile`
+5. Add `.env.example` with all required variables documented
+6. Add the service's database to `docker-compose.yml`
+7. Add `<name>-run` / `<name>-test` / migration targets to the `Makefile`
+8. Update the services table in this README
+9. Add ownership to `.github/CODEOWNERS`
 
 ---
 
@@ -438,8 +350,8 @@ Scope: the service name — `billing` `auth` `gateway` `payment` `infra` `proto`
 | -------- | --------------------------------------------------------------------- |
 | Person A | gateway, auth-service, admin-service                                  |
 | Person B | user-service, event-service, billing-service                          |
-| Person C | payment-service, venue-service, notification-service, media-service   |
-| Person D | realtime-service, ai-service, analytics-service, feature-flag-service |
+| Person C | venue-service, notification-service, media-service                    |
+| Person D | realtime-service, analytics-service, feature-flag-service             |
 
 ---
 
@@ -447,5 +359,5 @@ Scope: the service name — `billing` `auth` `gateway` `payment` `infra` `proto`
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system design, service map, communication patterns
 - [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — detailed contribution guide
-- [docs/RUNBOOK.md](docs/RUNBOOK.md) — ops procedures (restart service, replay webhook, manual refund)
+- [docs/RUNBOOK.md](docs/RUNBOOK.md) — ops procedures (restart service, replay webhook)
 - [docs/adr/](docs/adr/) — architecture decision records
