@@ -10,17 +10,13 @@ import (
 	"googlemaps.github.io/maps"
 )
 
-// google_maps_adapter.go contains GoogleMapsAdapter, its constructor, the two
-// PlaceProvider methods, and the private mapping helpers that translate between
-// Google Maps library types and domain types.
-
 // GoogleMapsAdapter implements domain.PlaceProvider using the Google Maps Places API.
 type GoogleMapsAdapter struct {
 	client *maps.Client
 }
 
-// NewGoogleMapsAdapter creates a GoogleMapsAdapter.
-// It returns an error if the API key is invalid or the client cannot be initialized.
+// NewGoogleMapsAdapter creates a GoogleMapsAdapter. It returns an error only if
+// apiKey is empty; Google checks the key itself on the first request.
 func NewGoogleMapsAdapter(apiKey string) (*GoogleMapsAdapter, error) {
 	client, err := maps.NewClient(maps.WithAPIKey(apiKey))
 	if err != nil {
@@ -31,8 +27,8 @@ func NewGoogleMapsAdapter(apiKey string) (*GoogleMapsAdapter, error) {
 }
 
 // SearchNearby queries the Google Maps Places API for venues near the location in params.
-// Returns domain.ErrVenueNotFound if Google returns ZERO_RESULTS, or
-// domain.ErrProviderUnavailable on rate-limit or server errors.
+// An area with no matches returns an empty slice: the library treats ZERO_RESULTS
+// as success. Returns domain.ErrProviderUnavailable on auth, rate-limit or server errors.
 func (a *GoogleMapsAdapter) SearchNearby(ctx context.Context, params domain.SearchParams) ([]domain.Venue, error) {
 	req := &maps.NearbySearchRequest{
 		Location: &maps.LatLng{Lat: params.Latitude, Lng: params.Longitude},
@@ -56,7 +52,8 @@ func (a *GoogleMapsAdapter) SearchNearby(ctx context.Context, params domain.Sear
 
 // GetDetail fetches full venue information for the given placeID from the Google Maps
 // Places API. Only the fields required by domain.VenueDetail are requested to minimize
-// billing costs. Returns nil and domain.ErrVenueNotFound if the place does not exist.
+// billing costs. Returns domain.ErrVenueNotFound if the place does not exist or the
+// ID is malformed.
 func (a *GoogleMapsAdapter) GetDetail(ctx context.Context, placeID string) (*domain.VenueDetail, error) {
 	req := &maps.PlaceDetailsRequest{
 		PlaceID: placeID,
@@ -78,7 +75,7 @@ func (a *GoogleMapsAdapter) GetDetail(ctx context.Context, placeID string) (*dom
 
 	res, err := a.client.PlaceDetails(ctx, req)
 	if err != nil {
-		return nil, mapProviderError(err)
+		return nil, mapDetailError(err, placeID)
 	}
 
 	return mapPlaceDetailsToVenueDetail(res), nil
@@ -157,13 +154,25 @@ func mapPlaceDetailsToVenueDetail(res maps.PlaceDetailsResult) *domain.VenueDeta
 	return detail
 }
 
+// mapDetailError translates a place-details error. A place-details request has
+// only one input, so INVALID_REQUEST means the place ID is malformed — the
+// client asked for a venue that cannot exist.
+func mapDetailError(err error, placeID string) error {
+	if strings.Contains(err.Error(), "INVALID_REQUEST") {
+		return domain.NewDomainError(domain.ErrVenueNotFound, placeID)
+	}
+
+	return mapProviderError(err)
+}
+
 // mapProviderError translates a Google Maps library error into a domain sentinel.
-// ZERO_RESULTS → ErrVenueNotFound; rate-limit/server errors → ErrProviderUnavailable.
+// NOT_FOUND → ErrVenueNotFound; auth, rate-limit and server errors → ErrProviderUnavailable.
 // Unrecognized errors are wrapped with fmt.Errorf and surface as 500s at the handler.
+// ZERO_RESULTS never reaches here: the library treats it as success.
 func mapProviderError(err error) error {
 	s := err.Error()
 
-	if strings.Contains(s, "ZERO_RESULTS") {
+	if strings.Contains(s, "NOT_FOUND") {
 		return domain.NewDomainError(domain.ErrVenueNotFound, s)
 	}
 

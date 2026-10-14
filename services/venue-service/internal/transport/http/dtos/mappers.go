@@ -2,9 +2,6 @@ package dtos
 
 import "github.com/SamPariat/roundup/services/venue-service/internal/domain"
 
-// mappers.go contains functions that translate domain types into DTO response types.
-// Nothing outside this file should construct response DTOs manually.
-
 // VenueToResponse maps a domain.Venue to a VenueResponse.
 func VenueToResponse(v domain.Venue) VenueResponse {
 	photos := make([]PhotoRefResponse, 0, len(v.PhotoRefs))

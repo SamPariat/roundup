@@ -2,11 +2,8 @@ package domain
 
 import "context"
 
-// port.go declares the driven-port interfaces the application layer depends on.
-// Implementations live in internal/adapters/.
-
 // UserRepository abstracts persistence of user profiles. All lookups ignore
-// soft-deleted users.
+// soft-deleted users. Implemented by adapters/persistence.
 type UserRepository interface {
 	// Create inserts a new user. Returns ErrPhoneTaken if an active user
 	// already has this phone number.

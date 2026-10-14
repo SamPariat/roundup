@@ -11,11 +11,9 @@ import (
 	"go.uber.org/zap"
 )
 
-// redis_cache_adapter.go implements domain.VenueCache using Redis.
-// All methods serialize domain types to JSON before writing and deserialize on read.
-// Cache misses (redis.Nil) are returned as nil, nil — not as errors.
-
-// RedisCacheAdapter implements domain.VenueCache backed by a Redis instance.
+// RedisCacheAdapter implements domain.VenueCache by storing domain types as JSON
+// in Redis. Cache misses (redis.Nil) are returned as nil, nil, not as errors.
+// Every failure is logged at warn level before it is returned.
 type RedisCacheAdapter struct {
 	client *redis.Client
 	ttl    time.Duration

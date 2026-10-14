@@ -7,12 +7,7 @@ import (
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 )
 
-// venue_usecase.go implements VenueUseCase, which handles venue search and detail
-// retrieval. It is the only consumer of PlaceProvider and VenueCache in this layer.
-
 // VenueUseCase orchestrates venue search and detail lookups using a cache-first strategy.
-// All provider and cache interactions are mediated through domain port interfaces so that
-// the underlying implementations can be swapped without touching this file.
 type VenueUseCase struct {
 	provider domain.PlaceProvider
 	cache    domain.VenueCache
@@ -26,7 +21,12 @@ func NewVenueUseCase(provider domain.PlaceProvider, cache domain.VenueCache) *Ve
 // Search returns venues near the location described by params.
 // It checks the cache first; on a miss it calls the provider and warms the cache.
 // Cache errors are ignored — the provider is always the fallback source of truth.
+// Returns domain.ErrInvalidSearch if params fail validation.
 func (u *VenueUseCase) Search(ctx context.Context, params domain.SearchParams) ([]domain.Venue, error) {
+	if err := params.Validate(); err != nil {
+		return nil, err
+	}
+
 	key := buildCacheKey(params)
 
 	venues, _ := u.cache.GetNearby(ctx, key)

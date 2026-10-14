@@ -8,10 +8,7 @@ import (
 	"github.com/SamPariat/roundup/services/user-service/internal/domain"
 )
 
-// user_usecase.go implements UserUseCase, which handles creating, reading,
-// updating, and deleting user profiles.
-
-// UserUseCase handles user profile operations.
+// UserUseCase handles creating, reading, updating, and deleting user profiles.
 type UserUseCase struct {
 	users  domain.UserRepository
 	tokens domain.DeviceTokenRepository

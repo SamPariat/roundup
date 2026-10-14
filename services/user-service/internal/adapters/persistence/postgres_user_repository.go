@@ -10,12 +10,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// postgres_user_repository.go implements domain.UserRepository and
-// domain.DeviceTokenRepository backed by PostgreSQL. It wraps the
-// sqlc-generated Queries and maps between db types and domain types.
-
 // PostgresUserRepository implements domain.UserRepository and
-// domain.DeviceTokenRepository using PostgreSQL.
+// domain.DeviceTokenRepository on top of the sqlc-generated queries.
+//
+// IDs that are not valid UUIDs cannot exist in the tables, so they map to the
+// not-found sentinel for the operation instead of a parse error.
 type PostgresUserRepository struct {
 	queries *db.Queries
 }
@@ -147,7 +146,8 @@ func (r *PostgresUserRepository) Delete(ctx context.Context, cmd domain.RemoveDe
 	return nil
 }
 
-// DeleteAllForUser removes every token registered to the user.
+// DeleteAllForUser removes every token registered to the user. An invalid
+// user ID owns no tokens, so it is a no-op rather than an error.
 func (r *PostgresUserRepository) DeleteAllForUser(ctx context.Context, userID string) error {
 	uid, err := uuid.Parse(userID)
 	if err != nil {

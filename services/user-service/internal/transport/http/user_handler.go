@@ -11,11 +11,8 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// user_handler.go contains UserHandler, which handles HTTP requests for user
-// profiles. The caller's user ID comes from the X-User-ID header via
-// middleware.UserID.
-
-// UserHandler handles HTTP requests for the user endpoints.
+// UserHandler handles HTTP requests for the user endpoints. On /me routes the
+// caller's user ID comes from the X-User-ID header via middleware.UserIDFrom.
 type UserHandler struct {
 	uc *application.UserUseCase
 }
