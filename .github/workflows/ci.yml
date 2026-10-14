@@ -14,13 +14,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  go:
-    name: go (${{ matrix.module }})
+  lint:
+    name: lint (${{ matrix.module }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # Every module in go.work. Add new services here.
+        # Every module in go.work. Add new services here (and in the other job).
         module:
           - shared
           - services/gateway
@@ -54,8 +54,37 @@ jobs:
           version: v2.14.0
           working-directory: ${{ matrix.module }}
 
+  test:
+    name: test (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Every module in go.work. Add new services here (and in the other job).
+        module:
+          - shared
+          - services/gateway
+          - services/user-service
+          - services/venue-service
+    defaults:
+      run:
+        working-directory: ${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+
       - name: go test
-        run: go test -race -count=1 ./...
+        run: go test -race -count=1 -coverprofile=coverage.out ./...
+
+      # Total statement coverage for the module, shown on the run's summary page.
+      - name: coverage summary
+        run: |
+          total=$(go tool cover -func=coverage.out | tail -1 | awk '{print $NF}')
+          echo "| \`${{ matrix.module }}\` | $total |" >> "$GITHUB_STEP_SUMMARY"
 
   docker:
     name: docker (${{ matrix.service }})
@@ -87,7 +116,7 @@ jobs:
   ci-ok:
     name: ci-ok
     runs-on: ubuntu-latest
-    needs: [go, docker]
+    needs: [lint, test, docker]
     if: always()
     steps:
       - name: All jobs passed

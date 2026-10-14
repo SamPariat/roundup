@@ -314,7 +314,7 @@ git push origin feat/billing-service/debt-simplification
 # open PR → dev  (not main)
 ```
 
-**CI:** every PR runs `.github/workflows/ci.yml` (gofmt, go vet, golangci-lint, `go test -race` per module, plus a Docker build per service). Merging into `main` requires the `ci-ok` check to pass.
+**CI:** every PR runs `.github/workflows/ci.yml`: a `lint` job (gofmt, go vet, golangci-lint) and a `test` job (`go test -race`, coverage in the run summary) per module, plus a Docker build per service. Merging into `main` requires the `ci-ok` check to pass.
 
 **Commit format:** `type(scope): description`
 
@@ -341,7 +341,7 @@ Scope: the service name — `billing` `auth` `gateway` `user` `venue` `infra` `p
 5. Add `.env.example` with all required variables documented
 6. Add the service's database to `docker-compose.yml`
 7. Add `<name>-run` / `<name>-test` / migration targets to the `Makefile`
-8. Add the module to the `go` matrix (and the service to the `docker` matrix) in `.github/workflows/ci.yml`
+8. Add the module to the `lint` and `test` matrices (and the service to the `docker` matrix) in `.github/workflows/ci.yml`
 9. Update the services table in this README
 10. Add ownership to `.github/CODEOWNERS`
 
