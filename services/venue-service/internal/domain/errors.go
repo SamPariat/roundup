@@ -2,10 +2,6 @@ package domain
 
 import "fmt"
 
-// errors.go defines the sentinel error variables, the DomainError wrapper type, and its
-// constructor. All cross-layer error matching uses errors.Is against the sentinels here —
-// callers must never compare against error strings.
-
 // Sentinel errors are used as stable identities for errors.Is comparisons.
 // Callers should match against these values, never against error strings.
 var (
@@ -23,6 +19,10 @@ var (
 	// ErrNotSaved is returned when a user attempts to remove a venue that is
 	// not present in their favorites.
 	ErrNotSaved = fmt.Errorf("venue not saved by this user")
+
+	// ErrInvalidSearch is returned when nearby-search parameters are missing
+	// or out of range. Callers must fix the request; retrying will not help.
+	ErrInvalidSearch = fmt.Errorf("invalid search parameters")
 )
 
 // DomainError wraps a sentinel error with additional context. It preserves

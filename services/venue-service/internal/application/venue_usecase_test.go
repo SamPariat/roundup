@@ -15,6 +15,9 @@ import (
 
 // --- Search tests ---
 
+// validSearch passes SearchParams.Validate so tests exercise the cache and provider paths.
+var validSearch = domain.SearchParams{Latitude: 12.97, Longitude: 77.59, RadiusInMeters: 2000}
+
 type fakeCache struct {
 	getNearbyFn func(ctx context.Context, key string) ([]domain.Venue, error)
 	getDetailFn func(ctx context.Context, placeID string) (*domain.VenueDetail, error)
@@ -82,7 +85,7 @@ func TestSearchCacheHit(t *testing.T) {
 		},
 	)
 
-	got, err := uc.Search(context.Background(), domain.SearchParams{})
+	got, err := uc.Search(context.Background(), validSearch)
 	require.NoError(t, err)
 	assert.Equal(t, cached, got)
 }
@@ -105,7 +108,7 @@ func TestSearchCacheMissCallsProvider(t *testing.T) {
 		},
 	)
 
-	got, err := uc.Search(context.Background(), domain.SearchParams{})
+	got, err := uc.Search(context.Background(), validSearch)
 	require.NoError(t, err)
 	assert.True(t, providerCalled)
 	assert.Equal(t, providerVenues, got)
@@ -127,8 +130,31 @@ func TestSearchProviderErrorReturnsError(t *testing.T) {
 		},
 	)
 
-	_, err := uc.Search(context.Background(), domain.SearchParams{})
+	_, err := uc.Search(context.Background(), validSearch)
 	assert.ErrorIs(t, err, providerErr)
+}
+
+func TestSearchInvalidParamsSkipsCacheAndProvider(t *testing.T) {
+	called := false
+
+	uc := NewVenueUseCase(
+		&fakeProvider{
+			searchNearbyFn: func(_ context.Context, _ domain.SearchParams) ([]domain.Venue, error) {
+				called = true
+				return nil, nil
+			},
+		},
+		&fakeCache{
+			getNearbyFn: func(_ context.Context, _ string) ([]domain.Venue, error) {
+				called = true
+				return nil, nil
+			},
+		},
+	)
+
+	_, err := uc.Search(context.Background(), domain.SearchParams{})
+	assert.ErrorIs(t, err, domain.ErrInvalidSearch)
+	assert.False(t, called, "cache and provider must not be called for invalid params")
 }
 
 // --- GetDetail tests ---

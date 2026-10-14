@@ -7,10 +7,7 @@ import (
 	"github.com/SamPariat/roundup/services/user-service/internal/domain"
 )
 
-// device_token_usecase.go implements DeviceTokenUseCase, which registers and
-// removes the FCM push tokens for a user's devices.
-
-// DeviceTokenUseCase handles device token registration and removal.
+// DeviceTokenUseCase registers and removes the FCM push tokens for a user's devices.
 type DeviceTokenUseCase struct {
 	tokens domain.DeviceTokenRepository
 }

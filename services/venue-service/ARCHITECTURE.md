@@ -35,8 +35,8 @@ The venue-service wraps the Google Places API but must allow swapping the provid
                            ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │  DOMAIN  internal/domain/   — imports only the standard library  │
-│  Structs: Venue, VenueDetail, SavedVenue, VenueVisit,            │
-│           VisitSummary, SearchParams, *Command types             │
+│  Structs: Venue, VenueDetail, SavedVenue, VisitSummary,          │
+│           SearchParams, *Command types                           │
 │  Ports (interfaces owned here, not in adapters):                 │
 │    PlaceProvider   — SearchNearby, GetDetail                     │
 │    VenueCache      — GetNearby/Set, GetDetail/Set, Invalidate    │
@@ -60,7 +60,7 @@ services/venue-service/
 │   ├── domain/
 │   │   ├── venue.go                     # Venue, VenueDetail, PhotoRef, Review, SearchParams
 │   │   ├── favorite.go                  # SavedVenue, AddFavoriteCommand, RemoveFavoriteCommand
-│   │   ├── visit.go                     # VenueVisit, RecordVisitCommand, VisitSummary
+│   │   ├── visit.go                     # RecordVisitCommand, VisitSummary
 │   │   ├── errors.go                    # sentinel errors + DomainError type + constructor
 │   │   └── port.go                      # PlaceProvider, VenueCache, VenueRepository interfaces
 │   │
@@ -197,15 +197,6 @@ type RemoveFavoriteCommand struct { SquadID, UserID, PlaceID string }
 
 ### `internal/domain/visit.go`
 ```go
-type VenueVisit struct {
-    ID              int64
-    SquadID         string
-    EventID         string
-    PlaceID         string
-    VisitedAt       time.Time
-    AvgSpendInPaise int64
-}
-
 type RecordVisitCommand struct {
     SquadID, EventID, PlaceID, Name string
     VisitedAt                       time.Time
@@ -274,13 +265,15 @@ All routes are versioned under `/api/v1`.
 | GET | /api/v1/venues | VenueHandler.Search | VenueUseCase.Search | 200 |
 | GET | /api/v1/venues/:placeID | VenueHandler.GetDetail | VenueUseCase.GetDetail | 200 |
 | GET | /api/v1/squads/:squadID/favorites | FavoriteHandler.ListFavorites | FavoriteUseCase.ListFavorites | 200 |
-| GET | /api/v1/squads/:squadID/favorites/:placeID/check?userID= | FavoriteHandler.IsFavorite | FavoriteUseCase.IsFavorite | 200 |
+| GET | /api/v1/squads/:squadID/favorites/:placeID/check | FavoriteHandler.IsFavorite | FavoriteUseCase.IsFavorite | 200 |
 | POST | /api/v1/squads/:squadID/favorites | FavoriteHandler.AddFavorite | FavoriteUseCase.AddFavorite | 201 |
-| DELETE | /api/v1/squads/:squadID/favorites/:placeID?userID= | FavoriteHandler.RemoveFavorite | FavoriteUseCase.RemoveFavorite | 204 |
+| DELETE | /api/v1/squads/:squadID/favorites/:placeID | FavoriteHandler.RemoveFavorite | FavoriteUseCase.RemoveFavorite | 204 |
 | GET | /api/v1/squads/:squadID/history | HistoryHandler.GetVisitHistory | HistoryUseCase.GetVisitHistory | 200 |
 | POST | /api/v1/squads/:squadID/history | HistoryHandler.RecordVisit | HistoryUseCase.RecordVisit | 201 |
 
 Search takes query params `lat`, `lng`, `radius`, `query`, `type`.
+
+All `/squads/:squadID/*` routes require a UUID `X-User-ID` header (`shared/middleware.UserID()`); without it they return 401. Handlers read the caller with `middleware.UserIDFrom(c)` — the user ID is never taken from the body or query string.
 
 ---
 
@@ -288,7 +281,8 @@ Search takes query params `lat`, `lng`, `radius`, `query`, `type`.
 
 | Domain sentinel | HTTP status |
 |---|---|
-| request body / query fails to bind, missing `userID` | 400 |
+| request body / query fails to bind, `ErrInvalidSearch` | 400 |
+| missing or invalid `X-User-ID` on squad routes (middleware) | 401 |
 | `ErrVenueNotFound`, `ErrNotSaved` | 404 |
 | `ErrAlreadySaved` | 409 |
 | `ErrProviderUnavailable` | 503 |
@@ -333,8 +327,9 @@ Library errors are translated into domain sentinels at the adapter boundary. The
 | `PostgresVenueRepository` | favorite does not exist on remove | `domain.ErrNotSaved` |
 | `RedisCacheAdapter` | `redis.Nil` | `nil` return — a cache miss, not an error |
 | `RedisCacheAdapter` | timeout / conn refused / bad JSON | logged with zap, swallowed (best-effort) |
-| `GoogleMapsAdapter` | `ZERO_RESULTS` | `domain.ErrVenueNotFound` |
-| `GoogleMapsAdapter` | rate limit / server errors | `domain.ErrProviderUnavailable` |
+| `GoogleMapsAdapter` | `NOT_FOUND`; `INVALID_REQUEST` on place details | `domain.ErrVenueNotFound` |
+| `GoogleMapsAdapter` | `ZERO_RESULTS` | not an error — empty result list |
+| `GoogleMapsAdapter` | `REQUEST_DENIED` / `OVER_QUERY_LIMIT` / `UNKNOWN_ERROR` | `domain.ErrProviderUnavailable` |
 
 **Rule:** If an adapter cannot map a library error to a known sentinel, it returns it as-is so the handler's default branch returns 500.
 
@@ -343,15 +338,16 @@ Library errors are translated into domain sentinels at the adapter boundary. The
 ## Middleware Chain
 
 ```
-request ──► RequestID ──► Logging ──► route handler ──► response
+request ──► RequestID ──► Logging ──► [UserID — squad routes only] ──► route handler ──► response
 ```
 
 | Middleware | Source | Responsibility |
 |---|---|---|
 | `RequestID` | `shared/middleware` | Reads or generates `X-Request-Id`, stores it in locals, echoes it on the response |
 | `Logging` | `shared/middleware` | Logs method, path, status, latency, and request ID |
+| `UserID` | `shared/middleware` | Squad routes only: requires a UUID `X-User-ID` header (401 otherwise) and stores it for `UserIDFrom` |
 
-**Authentication is not in this chain.** Token validation happens in the API gateway. Favorite routes currently take `userID` from the request body or query string; once the gateway sets `X-User-ID`, they should switch to `shared/middleware.UserID()` like user-service.
+**Token validation is not in this chain.** It happens in the API gateway, which sets `X-User-ID` from the verified access token. The service trusts that header, so it must only be reachable through the gateway.
 
 ---
 

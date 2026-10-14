@@ -2,12 +2,7 @@ package domain
 
 import "time"
 
-// favorite.go defines the types and command structs for the favorites feature.
-// SavedVenue is the persisted record; AddFavoriteCommand and RemoveFavoriteCommand
-// carry the input data for the corresponding use-case operations.
-
 // SavedVenue is a venue that a user has added to their favorites within a squad.
-// It is persisted in the database and returned by the FavoriteUseCase.
 type SavedVenue struct {
 	// ID is the database-assigned primary key.
 	ID int64

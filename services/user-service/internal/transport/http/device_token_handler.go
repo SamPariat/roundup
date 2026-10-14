@@ -12,9 +12,6 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// device_token_handler.go contains DeviceTokenHandler, which handles HTTP
-// requests for registering and removing FCM push tokens.
-
 // DeviceTokenHandler handles HTTP requests for the device token endpoints.
 type DeviceTokenHandler struct {
 	uc *application.DeviceTokenUseCase

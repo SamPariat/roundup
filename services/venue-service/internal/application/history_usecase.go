@@ -6,10 +6,6 @@ import (
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 )
 
-// history_usecase.go implements HistoryUseCase, which handles recording venue visits
-// and fetching aggregated visit history for a squad. All operations are delegated directly
-// to VenueRepository — no caching or provider calls are made here.
-
 // HistoryUseCase handles the visit history feature for a squad.
 // It delegates all persistence operations to the VenueRepository port.
 type HistoryUseCase struct {
@@ -21,8 +17,7 @@ func NewHistoryUseCase(repo domain.VenueRepository) *HistoryUseCase {
 	return &HistoryUseCase{repo: repo}
 }
 
-// RecordVisit persists as a new venue visit for the squad.
-// Typically called when an event is confirmed.
+// RecordVisit stores a new venue visit for the squad.
 func (u *HistoryUseCase) RecordVisit(ctx context.Context, cmd domain.RecordVisitCommand) error {
 	return u.repo.RecordVisit(ctx, cmd)
 }

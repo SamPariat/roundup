@@ -6,14 +6,14 @@ import (
 	"github.com/SamPariat/roundup/services/venue-service/internal/application"
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 	"github.com/SamPariat/roundup/services/venue-service/internal/transport/http/dtos"
+	"github.com/SamPariat/roundup/shared/middleware"
 	"github.com/SamPariat/roundup/shared/response"
 	"github.com/gofiber/fiber/v3"
 )
 
-// favorite_handler.go contains FavoriteHandler, which handles HTTP requests for
-// the favorites feature. Squad ID is always taken from the path parameter.
-
-// FavoriteHandler handles HTTP requests for the favorite endpoints.
+// FavoriteHandler handles HTTP requests for the favorite endpoints. The squad
+// ID comes from the path and the caller's user ID from the X-User-ID header
+// via middleware.UserIDFrom.
 type FavoriteHandler struct {
 	uc *application.FavoriteUseCase
 }
@@ -36,7 +36,7 @@ func (h *FavoriteHandler) AddFavorite(c fiber.Ctx) error {
 
 	err := h.uc.AddFavorite(c.Context(), domain.AddFavoriteCommand{
 		SquadID: squadID,
-		UserID:  req.UserID,
+		UserID:  middleware.UserIDFrom(c),
 		PlaceID: req.PlaceID,
 		Name:    req.Name,
 	})
@@ -53,13 +53,7 @@ func (h *FavoriteHandler) AddFavorite(c fiber.Ctx) error {
 func (h *FavoriteHandler) RemoveFavorite(c fiber.Ctx) error {
 	squadID := c.Params("squadID")
 	placeID := c.Params("placeID")
-	userID := c.Query("userID")
-
-	if userID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(
-			response.Fail[any]("userID query param is required"),
-		)
-	}
+	userID := middleware.UserIDFrom(c)
 
 	err := h.uc.RemoveFavorite(c.Context(), domain.RemoveFavoriteCommand{
 		SquadID: squadID,
@@ -95,13 +89,7 @@ func (h *FavoriteHandler) ListFavorites(c fiber.Ctx) error {
 func (h *FavoriteHandler) IsFavorite(c fiber.Ctx) error {
 	squadID := c.Params("squadID")
 	placeID := c.Params("placeID")
-	userID := c.Query("userID")
-
-	if userID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(
-			response.Fail[dtos.IsFavoriteResponse]("userID query param is required"),
-		)
-	}
+	userID := middleware.UserIDFrom(c)
 
 	isFav, err := h.uc.IsFavorite(c.Context(), squadID, userID, placeID)
 	if err != nil {

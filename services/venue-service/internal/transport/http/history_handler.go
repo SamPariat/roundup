@@ -8,9 +8,6 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// history_handler.go contains HistoryHandler, which handles HTTP requests for
-// recording venue visits and fetching visit history for a squad.
-
 // HistoryHandler handles HTTP requests for the visit history endpoints.
 type HistoryHandler struct {
 	uc *application.HistoryUseCase

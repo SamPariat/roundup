@@ -6,10 +6,6 @@ import (
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 )
 
-// favorite_usecase.go implements FavoriteUseCase, which handles saving, removing,
-// and listing venue favorites for a squad. All operations are delegated directly to
-// VenueRepository — no caching or provider calls are made here.
-
 // FavoriteUseCase handles the favorites feature for a squad.
 // It delegates all persistence operations to the VenueRepository port.
 type FavoriteUseCase struct {

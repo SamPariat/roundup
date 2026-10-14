@@ -5,9 +5,6 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// router.go registers all HTTP routes for the user-service.
-// Add new handlers to the Handlers struct and register their routes here.
-
 // Handlers group all HTTP handlers for dependency injection into RegisterRoutes.
 // Add new handlers here as features are built — one field per handler.
 type Handlers struct {

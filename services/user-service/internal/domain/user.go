@@ -5,8 +5,6 @@ import (
 	"time"
 )
 
-// user.go defines the User type and the command structs for user operations.
-
 // User is a Roundup user's profile. Login credentials live in auth-service;
 // both services share the same ID.
 type User struct {

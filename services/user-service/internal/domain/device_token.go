@@ -2,9 +2,6 @@ package domain
 
 import "time"
 
-// device_token.go defines the DeviceToken type and the command structs for
-// registering and removing FCM push tokens.
-
 // Platform is the mobile OS a device token belongs to.
 type Platform string
 

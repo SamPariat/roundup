@@ -2,10 +2,6 @@ package domain
 
 import "fmt"
 
-// errors.go defines the sentinel error variables, the DomainError wrapper type, and its
-// constructor. All cross-layer error matching uses errors.Is against the sentinels here —
-// callers must never compare against error strings.
-
 // Sentinel errors are used as stable identities for errors.Is comparisons.
 // Callers should match against these values, never against error strings.
 var (

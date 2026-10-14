@@ -2,28 +2,8 @@ package domain
 
 import "time"
 
-// visit.go defines the types and command structs for visit tracking. VenueVisit is the
-// raw persistence record, RecordVisitCommand carries the data to create one, and
-// VisitSummary is the aggregated per-venue view used by the history screen.
-
-// VenueVisit is a record of a squad visiting a venue during an event.
-// Visits are recorded automatically when an event is confirmed.
-type VenueVisit struct {
-	// ID is the database-assigned primary key.
-	ID int64
-	// SquadID identifies the squad that made the visit.
-	SquadID string
-	// EventID identifies the event during which the visit occurred.
-	EventID string
-	// PlaceID is the provider-assigned identifier for the venue.
-	PlaceID string
-	// VisitedAt is the time the squad arrived at the venue.
-	VisitedAt time.Time
-	// AvgSpendInPaise is the average expenditure per person in paise (1 INR = 100 paise).
-	AvgSpendInPaise int64
-}
-
 // RecordVisitCommand carries the data needed to record a new venue visit.
+// Each call adds a row, so the same event can be recorded more than once.
 type RecordVisitCommand struct {
 	// SquadID identifies the squad that made the visit.
 	SquadID string
@@ -36,6 +16,7 @@ type RecordVisitCommand struct {
 	// VisitedAt is the time the squad arrived at the venue.
 	VisitedAt time.Time
 	// AvgSpendInPaise is the average expenditure per person in paise (1 INR = 100 paise).
+	// Zero means unknown and is stored as NULL.
 	AvgSpendInPaise int64
 }
 

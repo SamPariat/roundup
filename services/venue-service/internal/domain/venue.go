@@ -1,17 +1,18 @@
 package domain
 
-import "time"
-
-// venue.go defines the core value types for venue search: Review, Venue, VenueDetail,
-// and SearchParams. These are the canonical representations used throughout all layers;
-// adapters map their provider-specific types into these structs at the boundary.
+import (
+	"math"
+	"time"
+)
 
 // PhotoRef holds a provider photo reference alongside its original dimensions.
-// Width and Height let callers compute aspect ratios before fetching the image.
 type PhotoRef struct {
+	// Reference is the opaque provider token used to fetch the photo.
 	Reference string
-	Width     int
-	Height    int
+	// Width is the original image width in pixels.
+	Width int
+	// Height is the original image height in pixels.
+	Height int
 }
 
 // Review is a single user review returned by the place provider.
@@ -72,10 +73,46 @@ type SearchParams struct {
 	Latitude float64
 	// Longitude is the WGS-84 longitude of the search origin.
 	Longitude float64
-	// RadiusInMeters is the search radius. The provider may cap this value.
+	// RadiusInMeters is the search radius, 1–50000.
 	RadiusInMeters int
-	// Query is a free-text keyword (e.g. "rooftop bar").
+	// Query is an optional free-text keyword (e.g. "rooftop bar").
 	Query string
-	// Type is a provider category filter (e.g. "bar", "restaurant").
+	// Type is an optional provider category filter (e.g. "bar", "restaurant").
 	Type string
+}
+
+// Validate reports whether p describes a searchable area. It returns a
+// DomainError wrapping ErrInvalidSearch, with a detail naming the bad field,
+// so the transport layer can map it to 400 without calling the provider.
+func (p SearchParams) Validate() error {
+	// NaN fails every comparison, so it would slip past the range checks below.
+	if math.IsNaN(p.Latitude) || math.IsNaN(p.Longitude) {
+		return NewDomainError(ErrInvalidSearch, "latitude and longitude must be numbers")
+	}
+
+	if p.Latitude < -90 {
+		return NewDomainError(ErrInvalidSearch, "latitude must be >= -90")
+	}
+
+	if p.Latitude > 90 {
+		return NewDomainError(ErrInvalidSearch, "latitude must be <= 90")
+	}
+
+	if p.Longitude < -180 {
+		return NewDomainError(ErrInvalidSearch, "longitude must be >= -180")
+	}
+
+	if p.Longitude > 180 {
+		return NewDomainError(ErrInvalidSearch, "longitude must be <= 180")
+	}
+
+	if p.RadiusInMeters <= 0 {
+		return NewDomainError(ErrInvalidSearch, "radius must be > 0")
+	}
+
+	if p.RadiusInMeters > 50000 {
+		return NewDomainError(ErrInvalidSearch, "radius must be <= 50000")
+	}
+
+	return nil
 }

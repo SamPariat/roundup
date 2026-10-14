@@ -15,7 +15,7 @@ func TestMapProviderError(t *testing.T) {
 		input        string
 		wantSentinel error
 	}{
-		{name: "ZeroResults", input: "ZERO_RESULTS", wantSentinel: domain.ErrVenueNotFound},
+		{name: "NotFound", input: "maps: NOT_FOUND - ", wantSentinel: domain.ErrVenueNotFound},
 		{name: "OverQueryLimit", input: "OVER_QUERY_LIMIT", wantSentinel: domain.ErrProviderUnavailable},
 		{name: "RequestDenied", input: "REQUEST_DENIED", wantSentinel: domain.ErrProviderUnavailable},
 		{name: "UnknownAPIError", input: "UNKNOWN_ERROR", wantSentinel: domain.ErrProviderUnavailable},
@@ -32,6 +32,24 @@ func TestMapProviderError(t *testing.T) {
 				assert.False(t, errors.Is(err, domain.ErrVenueNotFound))
 				assert.False(t, errors.Is(err, domain.ErrProviderUnavailable))
 			}
+		})
+	}
+}
+
+func TestMapDetailError(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		wantSentinel error
+	}{
+		{name: "MalformedPlaceID", input: "maps: INVALID_REQUEST - ", wantSentinel: domain.ErrVenueNotFound},
+		{name: "UnknownPlaceID", input: "maps: NOT_FOUND - ", wantSentinel: domain.ErrVenueNotFound},
+		{name: "RequestDenied", input: "maps: REQUEST_DENIED - billing", wantSentinel: domain.ErrProviderUnavailable},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.ErrorIs(t, mapDetailError(errors.New(tt.input), "bad-id"), tt.wantSentinel)
 		})
 	}
 }

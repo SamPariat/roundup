@@ -11,10 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// postgres_venue_repository.go implements domain.VenueRepository backed by PostgreSQL.
-// It wraps the sqlc-generated Queries and maps between db types and domain types.
-
-// PostgresVenueRepository implements domain.VenueRepository using PostgreSQL.
+// PostgresVenueRepository implements domain.VenueRepository on top of the
+// sqlc-generated queries.
 type PostgresVenueRepository struct {
 	queries *db.Queries
 }
@@ -43,8 +41,8 @@ func (r *PostgresVenueRepository) AddFavorite(ctx context.Context, cmd domain.Ad
 	return nil
 }
 
-// RemoveFavorite deletes a saved favorite. Returns ErrNotSaved if the record
-// does not exist before attempting to delete.
+// RemoveFavorite deletes a saved favorite. Returns ErrNotSaved if the user has
+// not saved this venue in the squad.
 func (r *PostgresVenueRepository) RemoveFavorite(ctx context.Context, cmd domain.RemoveFavoriteCommand) error {
 	exists, err := r.queries.IsFavorite(ctx, db.IsFavoriteParams{
 		SquadID: cmd.SquadID,
@@ -101,7 +99,8 @@ func (r *PostgresVenueRepository) IsFavorite(ctx context.Context, squadID, userI
 	return isFavorite, nil
 }
 
-// RecordVisit inserts a new venue visit record for the squad.
+// RecordVisit inserts a new venue visit record for the squad. A zero
+// AvgSpendInPaise is stored as NULL (unknown) rather than as a real 0.
 func (r *PostgresVenueRepository) RecordVisit(ctx context.Context, cmd domain.RecordVisitCommand) error {
 	return r.queries.RecordVisit(ctx, db.RecordVisitParams{
 		SquadID:         cmd.SquadID,

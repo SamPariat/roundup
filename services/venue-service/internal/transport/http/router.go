@@ -1,9 +1,9 @@
 package http
 
-import "github.com/gofiber/fiber/v3"
-
-// router.go registers all HTTP routes for the venue-service.
-// Add new handlers to the Handlers struct and register their routes here.
+import (
+	"github.com/SamPariat/roundup/shared/middleware"
+	"github.com/gofiber/fiber/v3"
+)
 
 // Handlers group all HTTP handlers for dependency injection into RegisterRoutes.
 // Add new handlers here as features are built — one field per handler.
@@ -22,7 +22,9 @@ func RegisterRoutes(app *fiber.App, h *Handlers) {
 	venues.Get("/", h.Venue.Search)
 	venues.Get("/:placeID", h.Venue.GetDetail)
 
-	squads := v1.Group("/squads/:squadID")
+	// Squad routes act on behalf of the caller, so they require X-User-ID
+	// (set by the gateway from the verified access token).
+	squads := v1.Group("/squads/:squadID", middleware.UserID())
 
 	favorites := squads.Group("/favorites")
 	favorites.Get("/", h.Favorite.ListFavorites)

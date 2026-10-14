@@ -10,10 +10,6 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// venue_handler.go contains VenueHandler, which handles HTTP requests for venue
-// search and detail endpoints. It parses requests, delegates to VenueUseCase,
-// and maps results into the standard Response envelope.
-
 // VenueHandler handles HTTP requests for venue search and detail lookups.
 type VenueHandler struct {
 	uc *application.VenueUseCase
@@ -76,6 +72,8 @@ func (h *VenueHandler) GetDetail(c fiber.Ctx) error {
 // venueErrorStatus maps domain sentinel errors to HTTP status codes.
 func venueErrorStatus(err error) int {
 	switch {
+	case errors.Is(err, domain.ErrInvalidSearch):
+		return fiber.StatusBadRequest
 	case errors.Is(err, domain.ErrVenueNotFound):
 		return fiber.StatusNotFound
 	case errors.Is(err, domain.ErrProviderUnavailable):
