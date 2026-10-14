@@ -1,6 +1,8 @@
 package http
 
 import (
+	"errors"
+
 	"github.com/SamPariat/roundup/services/venue-service/internal/application"
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 	"github.com/SamPariat/roundup/services/venue-service/internal/transport/http/dtos"
@@ -38,7 +40,12 @@ func (h *HistoryHandler) RecordVisit(c fiber.Ctx) error {
 		AvgSpendInPaise: req.AvgSpendInPaise,
 	})
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(
+		status := fiber.StatusInternalServerError
+		if errors.Is(err, domain.ErrVisitAlreadyRecorded) {
+			status = fiber.StatusConflict
+		}
+
+		return c.Status(status).JSON(
 			response.Fail[any](err.Error()),
 		)
 	}

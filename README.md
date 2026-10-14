@@ -291,6 +291,13 @@ POSTGRES_DSN=... make venue-migrate-up   # apply pending migrations
 make venue-sqlc                          # regenerate Go code from db/queries/*.sql
 ```
 
+Repository tests run against real Postgres. Each test creates its own throwaway database, migrates it and drops it afterwards (`shared/postgres/postgrestest`). They are skipped unless `TEST_POSTGRES_DSN` points at a server whose user can create databases, such as any compose container:
+
+```bash
+docker compose up -d postgres-user
+TEST_POSTGRES_DSN="postgres://user_user:user_pass@localhost:5434/users?sslmode=disable" make user-test
+```
+
 ---
 
 ## Branching
@@ -314,7 +321,7 @@ git push origin feat/billing-service/debt-simplification
 # open PR → dev  (not main)
 ```
 
-**CI:** every PR runs `.github/workflows/ci.yml`: a `lint` job (gofmt, go vet, golangci-lint) and a `test` job (`go test -race`, coverage in the run summary) per module, plus a Docker build per service. Merging into `main` requires the `ci-ok` check to pass.
+**CI:** every PR runs `.github/workflows/ci.yml`: a `lint` job (gofmt, go vet, golangci-lint) and a `test` job (`go test -race` against a Postgres 18 service container, coverage in the run summary) per module, plus a Docker build per service. Merging into `main` requires the `ci-ok` check to pass.
 
 **Commit format:** `type(scope): description`
 

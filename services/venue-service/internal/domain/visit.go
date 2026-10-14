@@ -3,7 +3,7 @@ package domain
 import "time"
 
 // RecordVisitCommand carries the data needed to record a new venue visit.
-// Each call adds a row, so the same event can be recorded more than once.
+// A squad can record each venue only once per event.
 type RecordVisitCommand struct {
 	// SquadID identifies the squad that made the visit.
 	SquadID string

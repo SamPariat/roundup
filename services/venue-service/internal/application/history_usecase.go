@@ -18,6 +18,7 @@ func NewHistoryUseCase(repo domain.VenueRepository) *HistoryUseCase {
 }
 
 // RecordVisit stores a new venue visit for the squad.
+// Returns domain.ErrVisitAlreadyRecorded if this event's visit is already recorded.
 func (u *HistoryUseCase) RecordVisit(ctx context.Context, cmd domain.RecordVisitCommand) error {
 	return u.repo.RecordVisit(ctx, cmd)
 }

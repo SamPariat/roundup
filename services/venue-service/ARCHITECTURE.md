@@ -284,7 +284,7 @@ All `/squads/:squadID/*` routes require a UUID `X-User-ID` header (`shared/middl
 | request body / query fails to bind, `ErrInvalidSearch` | 400 |
 | missing or invalid `X-User-ID` on squad routes (middleware) | 401 |
 | `ErrVenueNotFound`, `ErrNotSaved` | 404 |
-| `ErrAlreadySaved` | 409 |
+| `ErrAlreadySaved`, `ErrVisitAlreadyRecorded` | 409 |
 | `ErrProviderUnavailable` | 503 |
 | anything else | 500 |
 
@@ -325,6 +325,7 @@ Library errors are translated into domain sentinels at the adapter boundary. The
 |---|---|---|
 | `PostgresVenueRepository` | unique violation (`postgres.IsUniqueViolation`) | `domain.ErrAlreadySaved` |
 | `PostgresVenueRepository` | favorite does not exist on remove | `domain.ErrNotSaved` |
+| `PostgresVenueRepository` | unique violation on visits | `domain.ErrVisitAlreadyRecorded` |
 | `RedisCacheAdapter` | `redis.Nil` | `nil` return — a cache miss, not an error |
 | `RedisCacheAdapter` | timeout / conn refused / bad JSON | logged with zap, swallowed (best-effort) |
 | `GoogleMapsAdapter` | `NOT_FOUND`; `INVALID_REQUEST` on place details | `domain.ErrVenueNotFound` |
