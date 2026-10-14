@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   postgres-venue:
     image: postgres:18-alpine
@@ -11,7 +9,7 @@ services:
     ports:
       - "5438:5432"
     volumes:
-      - venue_db_data:/var/lib/postgresql/data
+      - venue_db_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U venue_user -d venue"]
       interval: 10s
@@ -28,7 +26,7 @@ services:
     ports:
       - "5434:5432"
     volumes:
-      - user_db_data:/var/lib/postgresql/data
+      - user_db_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user_user -d users"]
       interval: 10s
@@ -36,7 +34,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:8.6-alpine
+    image: redis:8.10-alpine
     container_name: roundup-redis
     ports:
       - "6379:6379"

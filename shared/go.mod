@@ -1,6 +1,6 @@
 module github.com/SamPariat/roundup/shared
 
-go 1.26.1
+go 1.27.0
 
 require (
 	github.com/gofiber/fiber/v3 v3.4.0
