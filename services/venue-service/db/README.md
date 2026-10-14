@@ -31,7 +31,7 @@ make venue-sqlc
 From the monorepo root:
 
 ```bash
-POSTGRES_DSN="postgres://venue_user:venue_pass@localhost:5438/venue?sslmode=disable" make venue-migrate-up
+POSTGRES_DSN="postgres://venue_user:venue_pass@localhost:5438/venues?sslmode=disable" make venue-migrate-up
 ```
 
 `venue-migrate-down` rolls back the latest migration and `venue-migrate-status` lists what has been applied.

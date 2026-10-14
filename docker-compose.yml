@@ -3,7 +3,7 @@ services:
     image: postgres:18-alpine
     container_name: roundup-postgres-venue
     environment:
-      POSTGRES_DB: venue
+      POSTGRES_DB: venues
       POSTGRES_USER: venue_user
       POSTGRES_PASSWORD: venue_pass
     ports:
@@ -11,7 +11,7 @@ services:
     volumes:
       - venue_db_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U venue_user -d venue"]
+      test: ["CMD-SHELL", "pg_isready -U venue_user -d venues"]
       interval: 10s
       timeout: 5s
       retries: 5
