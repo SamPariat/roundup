@@ -6,7 +6,7 @@
 roundup/
 ├── .github/
 │   ├── workflows/
-│   │   ├── ci.yml                        # golangci-lint + go test on every PR
+│   │   ├── ci.yml                        # gofmt, vet, golangci-lint, go test + docker build on every PR; `ci-ok` gates main
 │   │   ├── deploy.yml                    # build + push + deploy on main merge
 │   │   └── proto.yml                     # regenerate Go stubs on proto changes
 │   ├── CODEOWNERS
