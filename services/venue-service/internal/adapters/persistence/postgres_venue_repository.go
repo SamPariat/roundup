@@ -101,8 +101,9 @@ func (r *PostgresVenueRepository) IsFavorite(ctx context.Context, squadID, userI
 
 // RecordVisit inserts a new venue visit record for the squad. A zero
 // AvgSpendInPaise is stored as NULL (unknown) rather than as a real 0.
+// Returns ErrVisitAlreadyRecorded if the (squad, event, place) row exists.
 func (r *PostgresVenueRepository) RecordVisit(ctx context.Context, cmd domain.RecordVisitCommand) error {
-	return r.queries.RecordVisit(ctx, db.RecordVisitParams{
+	err := r.queries.RecordVisit(ctx, db.RecordVisitParams{
 		SquadID:         cmd.SquadID,
 		EventID:         cmd.EventID,
 		PlaceID:         cmd.PlaceID,
@@ -110,6 +111,11 @@ func (r *PostgresVenueRepository) RecordVisit(ctx context.Context, cmd domain.Re
 		VisitedAt:       pgtype.Timestamptz{Time: cmd.VisitedAt, Valid: true},
 		AvgSpendInPaise: pgtype.Int8{Int64: cmd.AvgSpendInPaise, Valid: cmd.AvgSpendInPaise > 0},
 	})
+	if postgres.IsUniqueViolation(err) {
+		return domain.NewDomainError(domain.ErrVisitAlreadyRecorded, cmd.EventID+"/"+cmd.PlaceID)
+	}
+
+	return err
 }
 
 // GetVisitHistory returns aggregated visit summaries for all venues visited by the squad.

@@ -40,7 +40,8 @@ type VenueRepository interface {
 	ListFavorites(ctx context.Context, squadID string) ([]SavedVenue, error)
 	// IsFavorite reports whether the user has saved this venue in the squad.
 	IsFavorite(ctx context.Context, squadID, userID, placeID string) (bool, error)
-	// RecordVisit stores one visit.
+	// RecordVisit stores one visit. Returns ErrVisitAlreadyRecorded if the squad
+	// already recorded this venue for this event.
 	RecordVisit(ctx context.Context, cmd RecordVisitCommand) error
 	// GetVisitHistory returns one summary per venue the squad has visited,
 	// most recently visited first.

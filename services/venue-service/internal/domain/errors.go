@@ -23,6 +23,10 @@ var (
 	// ErrInvalidSearch is returned when nearby-search parameters are missing
 	// or out of range. Callers must fix the request; retrying will not help.
 	ErrInvalidSearch = fmt.Errorf("invalid search parameters")
+
+	// ErrVisitAlreadyRecorded is returned when the squad already has a visit
+	// recorded for this venue during this event.
+	ErrVisitAlreadyRecorded = fmt.Errorf("visit already recorded for this event")
 )
 
 // DomainError wraps a sentinel error with additional context. It preserves
