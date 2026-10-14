@@ -91,7 +91,7 @@ services/venue-service/
 │   │           └── mappers.go           # domain → response DTOs
 │   │
 │   └── config/
-│       └── config.go                    # env-var loading (PORT, POSTGRES_DSN, REDIS_ADDR, GOOGLE_MAPS_API_KEY, LOG_LEVEL)
+│       └── config.go                    # env-var loading (APP_ENV, PORT, POSTGRES_DSN, REDIS_ADDR, GOOGLE_MAPS_API_KEY, LOG_LEVEL)
 │
 ├── db/
 │   ├── migrations/
@@ -105,7 +105,8 @@ services/venue-service/
 ├── go.mod
 ├── go.sum
 ├── Dockerfile
-└── .env.example
+├── .env.beta.example                # template for .env.beta (local + beta)
+└── .env.prod.example                # template for .env.prod
 ```
 
 ---

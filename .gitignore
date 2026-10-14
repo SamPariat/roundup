@@ -31,8 +31,11 @@
 **/dist/
 
 # ── Environment files ────────────────────────────────────────
+# Real env files (.env.beta, .env.prod) hold secrets and stay local.
+# Only the *.example templates are committed.
 **/.env
-!**/.env.example        # .env.example IS committed — template for others
+**/.env.*
+!**/.env.*.example
 
 # ── Docker local override ────────────────────────────────────
 docker-compose.override.yml

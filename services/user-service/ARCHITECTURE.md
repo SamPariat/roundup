@@ -78,7 +78,7 @@ services/user-service/
 │   │           └── mappers.go           # domain → response DTOs
 │   │
 │   └── config/
-│       └── config.go                    # env-var loading (PORT, POSTGRES_DSN, LOG_LEVEL)
+│       └── config.go                    # env-var loading (APP_ENV, PORT, POSTGRES_DSN, LOG_LEVEL)
 │
 ├── db/
 │   ├── migrations/
@@ -92,7 +92,8 @@ services/user-service/
 ├── go.mod
 ├── go.sum
 ├── Dockerfile
-└── .env.example
+├── .env.beta.example                # template for .env.beta (local + beta)
+└── .env.prod.example                # template for .env.prod
 ```
 
 ---

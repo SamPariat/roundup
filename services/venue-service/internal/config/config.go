@@ -8,6 +8,8 @@ import "github.com/SamPariat/roundup/shared/env"
 // Config holds all runtime configuration for the venue-service.
 // Fields are populated once at startup and treated as read-only thereafter.
 type Config struct {
+	// Env is the deployment environment from APP_ENV: "beta" or "prod".
+	Env string
 	// Port is the HTTP listen port. Defaults to 3006.
 	Port string
 	// PostgresDSN is the full Postgres connection string. Required.
@@ -21,12 +23,14 @@ type Config struct {
 }
 
 // Load reads environment variables into a Config.
-// It attempts to load a .env file first (no-op if absent, e.g., in production).
+// It first loads .env.<APP_ENV> from the working directory (no-op if absent,
+// e.g. in a deployed container).
 // Panics immediately if a required variable is missing or empty.
 func Load() *Config {
-	env.Load()
+	appEnv := env.Load()
 
 	return &Config{
+		Env:              appEnv,
 		Port:             env.Get("PORT", "3006"),
 		PostgresDSN:      env.Require("POSTGRES_DSN"),
 		RedisAddr:        env.Get("REDIS_ADDR", "localhost:6379"),

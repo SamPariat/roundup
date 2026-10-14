@@ -3,8 +3,15 @@ VENUE_MIGRATIONS_DIR := $(VENUE_DIR)/db/migrations
 GATEWAY_DIR := services/gateway
 USER_DIR := services/user-service
 USER_MIGRATIONS_DIR := $(USER_DIR)/db/migrations
+SERVICE_DIRS := $(GATEWAY_DIR) $(USER_DIR) $(VENUE_DIR)
+
+# Selects services/<name>/.env.<APP_ENV>. Override per command:
+#   make user-run APP_ENV=prod
+APP_ENV ?= beta
+export APP_ENV
 
 .PHONY: install \
+	setup \
 	venue-migrate-up \
 	venue-migrate-down \
 	venue-migrate-status \
@@ -23,6 +30,17 @@ USER_MIGRATIONS_DIR := $(USER_DIR)/db/migrations
 install:
 	go install github.com/pressly/goose/v3/cmd/goose@latest
 	go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+
+# Creates each service's .env.beta from its template. Existing files are kept.
+# .env.prod is never generated: copy .env.prod.example by hand and fill in real values.
+setup:
+	@for dir in $(SERVICE_DIRS); do \
+		if [ -f $$dir/.env.beta ]; then \
+			echo "keep    $$dir/.env.beta"; \
+		else \
+			cp $$dir/.env.beta.example $$dir/.env.beta && echo "created $$dir/.env.beta"; \
+		fi; \
+	done
 
 venue-migrate-up:
 	goose -dir $(VENUE_MIGRATIONS_DIR) postgres "$(POSTGRES_DSN)" up

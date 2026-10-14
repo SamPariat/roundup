@@ -53,7 +53,7 @@ func main() {
 		History:  transporthttp.NewHistoryHandler(historyUC),
 	})
 
-	log.Info("starting venue-service", zap.String("port", cfg.Port))
+	log.Info("starting venue-service", zap.String("env", cfg.Env), zap.String("port", cfg.Port))
 	if err := app.Listen(":" + cfg.Port); err != nil {
 		log.Fatal("server exited with error", zap.Error(err))
 	}

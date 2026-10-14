@@ -2,6 +2,10 @@
 # module depends on ../../shared via a replace directive:
 #   docker build -f services/venue-service/Dockerfile -t roundup-venue-service .
 #
+# The image holds no env files and no APP_ENV: set APP_ENV (beta|prod) and the
+# service's variables at runtime, or it refuses to start. The same image is
+# promoted from beta to prod unchanged.
+#
 # Neither stage runs as root: the build stage uses an unprivileged "builder"
 # user, and the runtime image is distroless with its built-in "nonroot" user.
 

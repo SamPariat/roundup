@@ -152,7 +152,7 @@
 - [ ] Add OpenTelemetry Go SDK
 - [ ] Create `cmd/main.go` entry point
 - [ ] Create `internal/config/` — env var loading with validation
-- [ ] Create `.env.example` with all required vars
+- [ ] Create `.env.beta.example` and `.env.prod.example` with all required vars
 - [ ] Write `Dockerfile` (multi-stage, scratch final image)
 
 ### Routing
@@ -211,7 +211,7 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 - [ ] Copy the `services/venue-service` layout (`cmd/`, `internal/{domain,application,adapters,transport,config}`, `db/`)
 - [ ] Add `gofiber/fiber/v3`, `jackc/pgx/v5`, `golang-jwt/jwt/v5`
 - [ ] Create `internal/config/` — `PORT`, `POSTGRES_DSN`, `JWT_SECRET`, `OTP_DEV_CODE` via `shared/env`
-- [ ] Write `.env.example`
+- [ ] Write `.env.beta.example` and `.env.prod.example`
 - [ ] Write `Dockerfile`
 
 ### OTP login
@@ -266,7 +266,7 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 - [ ] Add `sqlc.yaml`
 - [ ] Add `postgres-user` (port 5434) to `docker-compose.yml`
 - [ ] Add `user-*` targets to the `Makefile`
-- [ ] Write `.env.example`
+- [ ] Write `.env.beta.example` and `.env.prod.example`
 - [ ] Write `Dockerfile`
 
 ### Database schema (goose migrations)
