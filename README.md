@@ -81,11 +81,28 @@ cd roundup
 make setup
 ```
 
-This copies `.env.example` to `.env` for every service. The `.env` files are gitignored — they live only on your machine.
+This creates `.env.beta` from `.env.beta.example` for every service (existing files are kept). Real env files are gitignored; they live only on your machine.
+
+Each service reads `.env.<APP_ENV>` from its own folder at startup. `APP_ENV` is `beta` or `prod`, and the Makefile defaults it to `beta`:
+
+| File | Committed? | Used for |
+|---|---|---|
+| `.env.beta.example`, `.env.prod.example` | yes | templates listing every variable |
+| `.env.beta` | no | local development and the beta environment |
+| `.env.prod` | no | running locally against production resources; copy `.env.prod.example` by hand |
+
+```bash
+make user-run                 # APP_ENV=beta → services/user-service/.env.beta
+make user-run APP_ENV=prod    # → services/user-service/.env.prod
+```
+
+Deployed containers don't use env files (they are excluded from images by `.dockerignore`). Set `APP_ENV` and every variable as real environment variables on the platform; those always take precedence over a file.
+
+`APP_ENV` is required: a service refuses to start if it is unset or anything other than `beta` or `prod` (exact, lowercase). Running `go run` directly instead of through `make` therefore needs it too, e.g. `APP_ENV=beta go run ./cmd`.
 
 ### 3. Fill in environment variables
 
-Open each `services/*/.env` file and fill in the required values.
+Open each `services/*/.env.beta` file and fill in the required values.
 See [Environment variables](#environment-variables) below for what you need.
 
 ### 4. Start infrastructure only
@@ -130,7 +147,7 @@ All third-party services have free sandbox / test modes. No real money changes h
 No Firebase Auth. The auth-service sends a one-time code by SMS and issues JWTs itself. In development the SMS step is skipped and a fixed code is accepted.
 
 ```env
-# services/auth-service/.env
+# services/auth-service/.env.beta
 JWT_SECRET=change-me
 OTP_DEV_CODE=123456
 ```
@@ -143,7 +160,7 @@ OTP_DEV_CODE=123456
 4. Free tier: 10,000 calls/month per SKU — more than enough for development
 
 ```env
-# services/venue-service/.env
+# services/venue-service/.env.beta
 GOOGLE_MAPS_API_KEY=AIza...
 ```
 
@@ -153,7 +170,7 @@ GOOGLE_MAPS_API_KEY=AIza...
 2. Dashboard → copy Cloud Name, API Key, API Secret
 
 ```env
-# services/media-service/.env
+# services/media-service/.env.beta
 CLOUDINARY_CLOUD_NAME=...
 CLOUDINARY_API_KEY=...
 CLOUDINARY_API_SECRET=...
@@ -345,7 +362,7 @@ Scope: the service name — `billing` `auth` `gateway` `user` `venue` `infra` `p
 2. `go mod init github.com/SamPariat/roundup/services/<name>` and copy the `services/venue-service` layout
 3. Add the module to `go.work`
 4. Add a `Dockerfile`
-5. Add `.env.example` with all required variables documented
+5. Add `.env.beta.example` and `.env.prod.example` with all required variables documented, and add the service folder to `SERVICE_DIRS` in the `Makefile`
 6. Add the service's database to `docker-compose.yml`
 7. Add `<name>-run` / `<name>-test` / migration targets to the `Makefile`
 8. Add the module to the `lint` and `test` matrices (and the service to the `docker` matrix) in `.github/workflows/ci.yml`

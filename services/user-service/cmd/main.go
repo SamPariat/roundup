@@ -38,7 +38,7 @@ func main() {
 		DeviceToken: transporthttp.NewDeviceTokenHandler(deviceTokenUC),
 	})
 
-	log.Info("starting user-service", zap.String("port", cfg.Port))
+	log.Info("starting user-service", zap.String("env", cfg.Env), zap.String("port", cfg.Port))
 	if err := app.Listen(":" + cfg.Port); err != nil {
 		log.Fatal("server exited with error", zap.Error(err))
 	}

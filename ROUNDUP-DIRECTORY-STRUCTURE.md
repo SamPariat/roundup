@@ -28,7 +28,7 @@ roundup/
 │       └── flags.proto
 │
 ├── shared/                               # module github.com/SamPariat/roundup/shared
-│   ├── env/                              # .env loading + typed getters
+│   ├── env/                              # .env.<APP_ENV> loading + typed getters
 │   ├── logger/                           # zap logger factory
 │   ├── middleware/                       # RequestID, Logging, UserID (Fiber)
 │   ├── postgres/                         # pool setup + Postgres error helpers
@@ -129,7 +129,8 @@ services/<name>/
 ├── go.sum
 ├── .air.toml                            # live reload
 ├── Dockerfile
-└── .env.example
+├── .env.beta.example                    # template for .env.beta (local + beta)
+└── .env.prod.example                    # template for .env.prod
 ```
 
 ---

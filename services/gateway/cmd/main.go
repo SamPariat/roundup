@@ -24,7 +24,7 @@ func main() {
 
 	transporthttp.RegisterRoutes(app)
 
-	log.Info("starting gateway", zap.String("port", cfg.Port))
+	log.Info("starting gateway", zap.String("env", cfg.Env), zap.String("port", cfg.Port))
 	if err := app.Listen(":" + cfg.Port); err != nil {
 		log.Fatal("server exited with error", zap.Error(err))
 	}
