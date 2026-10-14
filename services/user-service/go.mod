@@ -1,6 +1,6 @@
 module github.com/SamPariat/roundup/services/user-service
 
-go 1.26.1
+go 1.27.0
 
 replace github.com/SamPariat/roundup/shared => ../../shared
 

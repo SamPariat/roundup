@@ -1,6 +1,6 @@
 module github.com/SamPariat/roundup/services/gateway
 
-go 1.26.1
+go 1.27.0
 
 require (
 	github.com/SamPariat/roundup/shared v0.0.0

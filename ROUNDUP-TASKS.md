@@ -35,7 +35,7 @@
 ### Local environment
 
 - [x] Install Docker Desktop
-- [x] Install Go 1.26+
+- [x] Install Go 1.27+
 - [x] Install goose (`make install`)
 - [x] Install sqlc (`make install`)
 - [x] Install golangci-lint

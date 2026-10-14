@@ -56,7 +56,7 @@ Install these before anything else.
 | Docker Desktop | latest   | https://docs.docker.com/get-docker           |
 | Git            | 2.x+     | https://git-scm.com                          |
 | Make           | any      | pre-installed on macOS / Linux               |
-| Go             | 1.26+    | https://go.dev/dl                            |
+| Go             | 1.27+    | https://go.dev/dl                            |
 | goose          | latest   | `make install`                               |
 | sqlc           | latest   | `make install`                               |
 | buf            | latest   | https://buf.build/docs/installation          |
