@@ -158,21 +158,21 @@ internal/
 ```
 internal/
 ├── domain/
-│   ├── session.go
-│   ├── otp.go
-│   └── port.go                          # SessionRepository, OTPSender, AuthStrategy
+│   ├── otp.go                           # OTPCode + OTP limits
+│   ├── session.go                       # refresh tokens, TokenPair, LoginResult
+│   └── port.go                          # OTPRepository, SessionRepository, OTPSender, UserDirectory
 ├── application/
-│   ├── otp_usecase.go                   # request + verify OTP
-│   ├── token_usecase.go                 # issue / refresh / revoke JWTs
-│   └── strategy_factory.go              # map[AuthProvider]AuthStrategy
+│   ├── otp_usecase.go                   # request + verify OTP → login
+│   ├── token_usecase.go                 # refresh (rotation + reuse detection), logout
+│   └── tokens.go                        # TokenIssuer: Ed25519 access JWTs + refresh tokens
 ├── adapters/
-│   ├── sms/
-│   │   ├── console_sender.go            # dev — logs the code
-│   │   └── sms_sender.go                # production SMS provider
-│   └── persistence/
+│   ├── sms/console_sender.go            # beta — logs the code (prod SMS provider: later)
+│   ├── users/user_service_client.go     # POST /api/v1/users on user-service
+│   └── persistence/                     # OTP + session repositories (sqlc)
 └── transport/http/auth_handler.go
 db/migrations/
-└── 0001_create_sessions.sql
+├── 0001_create_otp_codes.sql
+└── 0002_create_sessions.sql
 ```
 
 ### user-service

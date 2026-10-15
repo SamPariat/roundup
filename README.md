@@ -144,13 +144,20 @@ All third-party services have free sandbox / test modes. No real money changes h
 
 ### Auth (custom — phone OTP + JWT)
 
-No Firebase Auth. The auth-service sends a one-time code by SMS and issues JWTs itself. In development the SMS step is skipped and a fixed code is accepted.
+No Firebase Auth. auth-service sends a one-time code by SMS and issues its own tokens: a 15-minute access JWT signed with **Ed25519**, and a 30-day refresh token that rotates on every use. In beta, codes are written to auth-service's log instead of sent, and `OTP_DEV_CODE` is also accepted (auth-service refuses to start if it is set with `APP_ENV=prod`).
+
+```bash
+make setup      # creates services/*/.env.beta
+make jwt-keys   # private key → auth-service/.env.beta, public key → gateway/.env.beta
+```
 
 ```env
 # services/auth-service/.env.beta
-JWT_SECRET=change-me
-OTP_DEV_CODE=123456
+JWT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n…"   # written by make jwt-keys
+OTP_DEV_CODE="123456"
 ```
+
+Only auth-service holds the private key; the gateway verifies tokens with the public key and can't mint them. Use a separate keypair per environment.
 
 ### Google Maps / Places
 
@@ -222,7 +229,7 @@ cd services/venue-service
 go run ./cmd
 ```
 
-Or use the Makefile shortcuts, e.g. `make venue-run`, `make user-run`, `make gateway-run`.
+Or use the Makefile shortcuts, e.g. `make auth-run`, `make user-run`, `make venue-run`, `make gateway-run`.
 
 ---
 
