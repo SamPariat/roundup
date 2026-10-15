@@ -143,14 +143,10 @@ Only the parts that differ from the template are listed.
 
 ```
 internal/
-├── config/config.go
-├── proxy/
-│   ├── proxy.go                         # reverse proxy to upstream services
-│   └── upstream.go                      # upstream URL registry
-├── middleware/
-│   ├── auth.go                          # validate access token via auth-service
-│   └── rate_limit.go                    # Redis-backed rate limiter
-└── transport/http/router.go             # /health + /api/v1/* route groups
+├── config/config.go                     # upstream URLs, JWT_PUBLIC_KEY, timeout
+├── proxy/proxy.go                       # forward to an upstream (path, query, X-Request-Id)
+├── middleware/identity.go               # StripIdentity + RequireAuth (Ed25519, sets X-User-ID)
+└── transport/http/router.go             # public vs protected routes → upstream per prefix
 ```
 
 ### auth-service
