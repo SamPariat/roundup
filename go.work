@@ -1,6 +1,7 @@
 go 1.27.0
 
 use (
+	./services/auth-service
 	./services/gateway
 	./services/user-service
 	./services/venue-service

@@ -23,6 +23,7 @@ jobs:
         # Every module in go.work. Add new services here (and in the other job).
         module:
           - shared
+          - services/auth-service
           - services/gateway
           - services/user-service
           - services/venue-service
@@ -79,6 +80,7 @@ jobs:
         # Every module in go.work. Add new services here (and in the other job).
         module:
           - shared
+          - services/auth-service
           - services/gateway
           - services/user-service
           - services/venue-service
@@ -110,6 +112,7 @@ jobs:
       matrix:
         # Every service with a Dockerfile. Add new services here.
         service:
+          - auth-service
           - gateway
           - user-service
           - venue-service
