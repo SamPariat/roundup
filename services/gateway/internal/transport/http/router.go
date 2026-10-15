@@ -1,22 +1,40 @@
-// Package http registers the gateway's HTTP routes.
-// Route groups mirror the upstream services they will eventually proxy to;
-// until proxying is wired up (see ROUNDUP-TASKS.md → API Gateway → Routing),
-// each group falls through to a placeholder handler.
+// Package http registers the gateway's HTTP routes: which paths are public,
+// which need an access token, and which upstream service each one goes to.
 package http
 
 import (
+	"crypto/ed25519"
+	"time"
+
+	"github.com/SamPariat/roundup/services/gateway/internal/config"
+	"github.com/SamPariat/roundup/services/gateway/internal/middleware"
+	"github.com/SamPariat/roundup/services/gateway/internal/proxy"
+	"github.com/SamPariat/roundup/shared/response"
 	"github.com/gofiber/fiber/v3"
 )
 
-// RegisterRoutes mounts /health and the versioned route groups onto the Fiber app.
-func RegisterRoutes(app *fiber.App) {
+// RegisterRoutes mounts /health and the /api/v1 routes. Client-sent identity
+// headers must already be stripped (middleware.StripIdentity, mounted globally).
+func RegisterRoutes(app *fiber.App, upstreams config.Upstreams, pub ed25519.PublicKey, timeout time.Duration) {
 	app.Get("/health", healthHandler)
 
+	auth := middleware.RequireAuth(pub)
 	v1 := app.Group("/api/v1")
 
-	routeGroups := []string{"auth", "users", "events", "billing", "venues", "media", "realtime"}
-	for _, name := range routeGroups {
-		v1.Group("/"+name).All("/*", notImplementedHandler)
+	// Public: login and token refresh are how a client gets a token.
+	v1.All("/auth/*", proxy.To(upstreams.Auth, timeout))
+
+	// Creating users is internal: auth-service calls user-service directly at
+	// login. Registered before the /users group so it wins.
+	v1.Post("/users", notFoundHandler)
+
+	v1.Group("/users", auth).All("/*", proxy.To(upstreams.User, timeout))
+	v1.Group("/venues", auth).All("/*", proxy.To(upstreams.Venue, timeout))
+	v1.Group("/squads", auth).All("/*", proxy.To(upstreams.Venue, timeout))
+
+	// Services that don't exist yet.
+	for _, name := range []string{"events", "billing", "media", "realtime"} {
+		v1.All("/"+name+"/*", notImplementedHandler)
 	}
 }
 
@@ -25,17 +43,11 @@ func healthHandler(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"status": "ok"})
 }
 
-// notImplementedHandler responds for route groups whose upstream proxy
-// hasn't been wired up yet.
-//
-// The route groups above proxy to
-// services that mostly don't exist yet (auth-service, user-service, etc.),
-// so every request under /api/v1/* currently lands here. Consider: status
-// code (501 "not built yet" vs. 503 "unavailable" vs. something else), and
-// whether the JSON body should follow the envelope convention used by
-// venue-service (internal/transport/http/dtos.Response in that service) so
-// gateway responses stay consistent with the rest of the API once proxying
-// lands.
+func notFoundHandler(c fiber.Ctx) error {
+	return c.Status(fiber.StatusNotFound).JSON(response.Fail[any]("not found"))
+}
+
+// notImplementedHandler answers for route groups whose service isn't built yet.
 func notImplementedHandler(c fiber.Ctx) error {
-	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{"status": "not implemented"})
+	return c.Status(fiber.StatusNotImplemented).JSON(response.Fail[any]("not implemented yet"))
 }

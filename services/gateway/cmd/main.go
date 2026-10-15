@@ -5,6 +5,7 @@ package main
 
 import (
 	"github.com/SamPariat/roundup/services/gateway/internal/config"
+	gatewaymw "github.com/SamPariat/roundup/services/gateway/internal/middleware"
 	transporthttp "github.com/SamPariat/roundup/services/gateway/internal/transport/http"
 	"github.com/SamPariat/roundup/shared/logger"
 	"github.com/SamPariat/roundup/shared/middleware"
@@ -21,8 +22,9 @@ func main() {
 	app.Use(middleware.RequestID())
 	app.Use(middleware.Logging(log))
 	app.Use(recover.New())
+	app.Use(gatewaymw.StripIdentity())
 
-	transporthttp.RegisterRoutes(app)
+	transporthttp.RegisterRoutes(app, cfg.Upstreams, cfg.JWTPublicKey, cfg.UpstreamTimeout)
 
 	log.Info("starting gateway", zap.String("env", cfg.Env), zap.String("port", cfg.Port))
 	if err := app.Listen(":" + cfg.Port); err != nil {

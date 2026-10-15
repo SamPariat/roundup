@@ -142,62 +142,51 @@
 
 ## API Gateway `[Go]`
 
+Access tokens are Ed25519 JWTs: the gateway verifies them locally with auth-service's **public** key (no per-request call to auth, no shared secret).
+
 ### Project setup
 
 - [x] `go mod init github.com/SamPariat/roundup/services/gateway`
 - [x] Add Fiber v3 dependency (`gofiber/fiber/v3`)
-- [ ] Add `golang-jwt/jwt` dependency
-- [ ] Add `redis/go-redis` dependency
+- [x] Create `cmd/main.go` entry point
+- [x] Create `internal/config/` — env var loading with validation
+- [x] Create `.env.beta.example` and `.env.prod.example` with all required vars
+- [x] Write `Dockerfile` (multi-stage, distroless nonroot)
 - [ ] Add `prometheus/client_golang` dependency
 - [ ] Add OpenTelemetry Go SDK
-- [ ] Create `cmd/main.go` entry point
-- [ ] Create `internal/config/` — env var loading with validation
-- [ ] Create `.env.beta.example` and `.env.prod.example` with all required vars
-- [ ] Write `Dockerfile` (multi-stage, scratch final image)
 
 ### Routing
 
-- [ ] Define route groups: `/api/v1/auth`, `/api/v1/users`, `/api/v1/events`, `/api/v1/billing`, `/api/v1/venues`, `/api/v1/media`, `/api/v1/realtime`
-- [ ] Implement dynamic proxy to upstream service URLs
-- [ ] Add service URL config per route group
-- [ ] Handle routing errors (upstream down → 503)
-- [ ] Add request ID generation middleware (UUID v4)
-- [ ] Forward `X-Request-ID` header to all upstream services
-- [ ] Forward `X-User-ID` header after auth validation
+- [x] Proxy `/api/v1/auth`, `/users`, `/venues`, `/squads` to their upstream service URLs (config per service)
+- [x] Keep `/events`, `/billing`, `/media`, `/realtime` as 501 until those services exist
+- [x] Block external `POST /api/v1/users` (only auth-service creates users, directly)
+- [x] Upstream down or slow → 502
+- [x] Request ID generation (UUID v4) and forwarding as `X-Request-Id`
+- [x] Forward `X-User-ID` after auth validation
 
 ### Auth middleware
 
-- [ ] Create auth middleware — reads `Authorization: Bearer <token>`
-- [ ] Call Auth Service gRPC `ValidateToken` RPC
-- [ ] Cache valid tokens in Redis (TTL = token expiry)
-- [ ] Return 401 if token invalid
-- [ ] Attach user ID to request context
-- [ ] Whitelist public routes (skip auth): `POST /api/v1/auth/otp/*`, `GET /api/v1/venues`
+- [x] Strip any client-sent `X-User-ID` on every request
+- [x] Read `Authorization: Bearer <token>`, verify with `shared/authtoken` (EdDSA only, iss/aud/exp)
+- [x] Return 401 if the token is missing or invalid
+- [x] Public routes: `/api/v1/auth/*`, `/health`
 
 ### Rate limiting
 
-- [ ] Implement Redis-backed rate limiter
-- [ ] Rate limit by IP: 100 req/min for unauthenticated
-- [ ] Rate limit by user ID: 500 req/min for authenticated
+- [ ] Rate limit `/api/v1/auth/*` by IP (protects OTP sending)
+- [ ] Rate limit by user ID for authenticated routes
 - [ ] Return `429 Too Many Requests` with `Retry-After` header
-- [ ] Exempt internal service calls from rate limiting
 
 ### Load balancing
 
-- [ ] Support multiple upstream instances per service
-- [ ] Implement round-robin selection
-- [ ] Add health check poller per upstream (every 10s)
-- [ ] Remove unhealthy upstreams from rotation
-- [ ] Re-add upstreams when health check recovers
+- [ ] Support multiple upstream instances per service (or rely on the platform's load balancer)
 
 ### Observability
 
-- [ ] Log every request: method, path, status, duration, requestId
+- [x] Log every request: method, path, status, duration, requestId
+- [x] Expose `/health` endpoint — returns 200 if healthy
 - [ ] Expose `/metrics` endpoint for Prometheus
-- [ ] Add request count metric per route
-- [ ] Add latency histogram per route
-- [ ] Add upstream error count metric
-- [ ] Expose `/health` endpoint — returns 200 if healthy
+- [ ] Request count, latency histogram and upstream error count per route
 
 ---
 
@@ -207,51 +196,43 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 
 ### Project setup
 
-- [ ] `go mod init github.com/SamPariat/roundup/services/auth-service` and add to `go.work`
-- [ ] Copy the `services/venue-service` layout (`cmd/`, `internal/{domain,application,adapters,transport,config}`, `db/`)
-- [ ] Add `gofiber/fiber/v3`, `jackc/pgx/v5`, `golang-jwt/jwt/v5`
-- [ ] Create `internal/config/` — `PORT`, `POSTGRES_DSN`, `JWT_SECRET`, `OTP_DEV_CODE` via `shared/env`
-- [ ] Write `.env.beta.example` and `.env.prod.example`
-- [ ] Write `Dockerfile`
+- [x] `go mod init github.com/SamPariat/roundup/services/auth-service` and add to `go.work`
+- [x] Copy the `services/user-service` layout (`cmd/`, `internal/{domain,application,adapters,transport,config}`, `db/`)
+- [x] Add `gofiber/fiber/v3`, `jackc/pgx/v5`, `golang-jwt/jwt/v5` (via `shared/authtoken`)
+- [x] Create `internal/config/` — `PORT`, `POSTGRES_DSN`, `USER_SERVICE_URL`, `JWT_PRIVATE_KEY`, TTLs, `OTP_DEV_CODE` via `shared/env`
+- [x] Write `.env.beta.example` and `.env.prod.example`
+- [x] Write `Dockerfile`
+- [x] `make jwt-keys` — Ed25519 keypair (private → auth, public → gateway)
 
 ### OTP login
 
-- [ ] Define `OTPSender` port in `internal/domain/port.go`
-- [ ] Console adapter for dev — logs the code, accepts `OTP_DEV_CODE`
-- [ ] SMS provider adapter for production
-- [ ] Store OTP hashed with 5-minute expiry and an attempt counter
-- [ ] Rate limit OTP requests per phone number
+- [x] Define `OTPSender` port in `internal/domain/port.go`
+- [x] Console adapter for beta — logs the code; `OTP_DEV_CODE` accepted in beta only
+- [ ] SMS provider adapter for production (e.g. MSG91) — auth refuses to start in prod until it exists
+- [x] Store OTP hashed with 5-minute expiry and an attempt counter (5 wrong guesses max)
+- [x] Rate limit OTP requests per phone number (3 per 15 minutes, counted in Postgres)
 
 ### Tokens & sessions
 
-- [ ] `0001_create_sessions.sql` — id, user_id, refresh_token_hash, ip_address, created_at, expires_at, revoked_at
-- [ ] Issue short-lived access JWT (15 min, `sub` = user ID)
-- [ ] Issue refresh token (30 days) — store only its hash in `sessions`
-- [ ] Rotate refresh token on every refresh
-- [ ] Revoke session on logout
-
-### Strategy pattern
-
-- [ ] Define `AuthStrategy` interface — `Validate(ctx, token) (AuthUser, error)`
-- [ ] `OTPStrategy` — user-facing login tokens
-- [ ] `JWTStrategy` — internal service tokens
-- [ ] `APIKeyStrategy` — webhook endpoints
-- [ ] `AuthStrategyFactory` — `map[AuthProvider]AuthStrategy`, `Resolve(provider)` errors if unknown
+- [x] `0002_create_sessions.sql` — `sessions` (one per login) + `refresh_tokens` (hashed, `used_at`)
+- [x] Issue short-lived access JWT (15 min, `sub` = user ID), Ed25519-signed
+- [x] Issue refresh token (30 days) — store only its SHA-256 hash
+- [x] Rotate refresh token on every refresh; reuse of a used token revokes the session
+- [x] Revoke session on logout
 
 ### Controllers (REST)
 
-- [ ] `POST /api/v1/auth/otp/request` — send code to phone
-- [ ] `POST /api/v1/auth/otp/verify` — verify code, create user via User Service, return tokens
-- [ ] `POST /api/v1/auth/refresh` — rotate refresh token, return new access token
-- [ ] `POST /api/v1/auth/logout` — revoke session
-- [ ] `POST /api/v1/auth/validate` — validate access token (used by gateway)
+- [x] `POST /api/v1/auth/otp/request` — send code to phone
+- [x] `POST /api/v1/auth/otp/verify` — verify code, create user via User Service, return tokens
+- [x] `POST /api/v1/auth/refresh` — rotate refresh token, return a new pair
+- [x] `POST /api/v1/auth/logout` — revoke session
 
 ### Tests
 
-- [ ] Unit test OTP verify — wrong code, expired code, too many attempts
-- [ ] Unit test `AuthStrategyFactory.Resolve()` — valid and invalid providers
-- [ ] Unit test refresh rotation — old refresh token rejected after use
-- [ ] E2E test request → verify → refresh → logout
+- [x] Unit test OTP verify — wrong code, expired code, too many attempts
+- [x] Unit test refresh rotation — old refresh token rejected after use, reuse revokes the session
+- [x] Repository tests against real Postgres (`postgrestest`)
+- [x] E2E request → verify → refresh → logout (manual, through the gateway)
 
 ---
 

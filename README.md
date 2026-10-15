@@ -237,7 +237,7 @@ Or use the Makefile shortcuts, e.g. `make auth-run`, `make user-run`, `make venu
 
 | Service              | Language | Port | Description                             |
 | -------------------- | -------- | ---- | --------------------------------------- |
-| gateway              | Go       | 8080 | Routes all traffic, rate limiting, auth |
+| gateway              | Go       | 8080 | Routes /api/v1, verifies access tokens |
 | auth-service         | Go       | 3001 | Phone OTP login, JWT issuing            |
 | user-service         | Go       | 3002 | Profiles, squads, device tokens         |
 | event-service        | Go       | 3003 | Outing lifecycle, RSVP, voting          |
