@@ -26,9 +26,7 @@ func (h *HistoryHandler) RecordVisit(c fiber.Ctx) error {
 
 	var req dtos.RecordVisitRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(
-			response.Fail[any](err.Error()),
-		)
+		return response.Error(c, fiber.StatusBadRequest, err)
 	}
 
 	err := h.uc.RecordVisit(c.Context(), domain.RecordVisitCommand{
@@ -45,9 +43,7 @@ func (h *HistoryHandler) RecordVisit(c fiber.Ctx) error {
 			status = fiber.StatusConflict
 		}
 
-		return c.Status(status).JSON(
-			response.Fail[any](err.Error()),
-		)
+		return response.Error(c, status, err)
 	}
 
 	return c.SendStatus(fiber.StatusCreated)
@@ -59,9 +55,7 @@ func (h *HistoryHandler) GetVisitHistory(c fiber.Ctx) error {
 
 	summaries, err := h.uc.GetVisitHistory(c.Context(), squadID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(
-			response.Fail[dtos.VisitHistoryResponse](err.Error()),
-		)
+		return response.Error(c, fiber.StatusInternalServerError, err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(

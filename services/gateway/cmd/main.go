@@ -9,8 +9,8 @@ import (
 	transporthttp "github.com/SamPariat/roundup/services/gateway/internal/transport/http"
 	"github.com/SamPariat/roundup/shared/logger"
 	"github.com/SamPariat/roundup/shared/middleware"
+	"github.com/SamPariat/roundup/shared/server"
 	"github.com/gofiber/fiber/v3"
-	"github.com/gofiber/fiber/v3/middleware/recover"
 	"go.uber.org/zap"
 )
 
@@ -19,15 +19,17 @@ func main() {
 	log := logger.New("gateway", cfg.LogLevel)
 
 	app := fiber.New()
-	app.Use(middleware.RequestID())
-	app.Use(middleware.Logging(log))
-	app.Use(recover.New())
+	app.Use(middleware.RequestID(), middleware.Logging(log), middleware.Recover(log))
 	app.Use(gatewaymw.StripIdentity())
+
+	// The gateway has no dependency of its own to check; each upstream reports
+	// its own readiness.
+	server.Health(app, log, nil)
 
 	transporthttp.RegisterRoutes(app, cfg.Upstreams, cfg.JWTPublicKey, cfg.UpstreamTimeout)
 
 	log.Info("starting gateway", zap.String("env", cfg.Env), zap.String("port", cfg.Port))
-	if err := app.Listen(":" + cfg.Port); err != nil {
-		log.Fatal("server exited with error", zap.Error(err))
+	if err := server.Run(app, cfg.Port, log); err != nil {
+		log.Error("server exited with error", zap.Error(err))
 	}
 }

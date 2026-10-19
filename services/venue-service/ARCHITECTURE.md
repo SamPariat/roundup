@@ -398,11 +398,14 @@ Unit tests live alongside source (`venue_usecase_test.go` next to `venue_usecase
 
 ---
 
+## Lifecycle
+
+- `GET /health` is liveness and never touches dependencies. `GET /ready` pings Postgres only: Redis is a cache and the use case ignores its errors, so a Redis outage slows searches but doesn't make the service unready.
+- On SIGTERM/SIGINT, `shared/server.Run` stops accepting connections and waits up to 8s for in-flight requests, then `main` closes the pool and Redis client.
+- `shared/middleware.Recover` turns a handler panic into a logged 500.
+
 ## Not Yet Implemented
 
-- Graceful shutdown on SIGTERM/SIGINT (drain Fiber, then close the pool and Redis client)
-- Health endpoints (`/healthz` liveness, `/health` readiness with Postgres + Redis ping)
-- Panic recovery middleware
 - Tracing and Prometheus metrics
 
 ---

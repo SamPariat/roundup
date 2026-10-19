@@ -27,16 +27,12 @@ func NewUserHandler(uc *application.UserUseCase) *UserHandler {
 func (h *UserHandler) Create(c fiber.Ctx) error {
 	var req dtos.CreateUserRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(
-			response.Fail[any](err.Error()),
-		)
+		return response.Error(c, fiber.StatusBadRequest, err)
 	}
 
 	user, created, err := h.uc.CreateOrGet(c.Context(), req.Phone)
 	if err != nil {
-		return c.Status(userErrorStatus(err)).JSON(
-			response.Fail[any](err.Error()),
-		)
+		return response.Error(c, userErrorStatus(err), err)
 	}
 
 	status := fiber.StatusOK
@@ -51,9 +47,7 @@ func (h *UserHandler) Create(c fiber.Ctx) error {
 func (h *UserHandler) GetMe(c fiber.Ctx) error {
 	user, err := h.uc.Get(c.Context(), middleware.UserIDFrom(c))
 	if err != nil {
-		return c.Status(userErrorStatus(err)).JSON(
-			response.Fail[any](err.Error()),
-		)
+		return response.Error(c, userErrorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.UserToResponse(user)))
@@ -63,9 +57,7 @@ func (h *UserHandler) GetMe(c fiber.Ctx) error {
 func (h *UserHandler) UpdateMe(c fiber.Ctx) error {
 	var req dtos.UpdateProfileRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(
-			response.Fail[any](err.Error()),
-		)
+		return response.Error(c, fiber.StatusBadRequest, err)
 	}
 
 	user, err := h.uc.UpdateProfile(c.Context(), domain.UpdateProfileCommand{
@@ -74,9 +66,7 @@ func (h *UserHandler) UpdateMe(c fiber.Ctx) error {
 		AvatarURL: req.AvatarURL,
 	})
 	if err != nil {
-		return c.Status(userErrorStatus(err)).JSON(
-			response.Fail[any](err.Error()),
-		)
+		return response.Error(c, userErrorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.UserToResponse(user)))
@@ -85,9 +75,7 @@ func (h *UserHandler) UpdateMe(c fiber.Ctx) error {
 // DeleteMe handles DELETE /api/v1/users/me.
 func (h *UserHandler) DeleteMe(c fiber.Ctx) error {
 	if err := h.uc.Delete(c.Context(), middleware.UserIDFrom(c)); err != nil {
-		return c.Status(userErrorStatus(err)).JSON(
-			response.Fail[any](err.Error()),
-		)
+		return response.Error(c, userErrorStatus(err), err)
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)

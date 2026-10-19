@@ -27,11 +27,11 @@ func NewAuthHandler(otp *application.OTPUseCase, tokens *application.TokenUseCas
 func (h *AuthHandler) RequestOTP(c fiber.Ctx) error {
 	var req dtos.RequestOTPRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return fail(c, fiber.StatusBadRequest, err)
+		return response.Error(c, fiber.StatusBadRequest, err)
 	}
 
 	if err := h.otp.Request(c.Context(), req.Phone); err != nil {
-		return fail(c, authErrorStatus(err), err)
+		return response.Error(c, authErrorStatus(err), err)
 	}
 
 	return c.SendStatus(fiber.StatusAccepted)
@@ -41,12 +41,12 @@ func (h *AuthHandler) RequestOTP(c fiber.Ctx) error {
 func (h *AuthHandler) VerifyOTP(c fiber.Ctx) error {
 	var req dtos.VerifyOTPRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return fail(c, fiber.StatusBadRequest, err)
+		return response.Error(c, fiber.StatusBadRequest, err)
 	}
 
 	result, err := h.otp.Verify(c.Context(), req.Phone, req.Code)
 	if err != nil {
-		return fail(c, authErrorStatus(err), err)
+		return response.Error(c, authErrorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.LoginToResponse(result)))
@@ -56,12 +56,12 @@ func (h *AuthHandler) VerifyOTP(c fiber.Ctx) error {
 func (h *AuthHandler) Refresh(c fiber.Ctx) error {
 	var req dtos.RefreshTokenRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return fail(c, fiber.StatusBadRequest, err)
+		return response.Error(c, fiber.StatusBadRequest, err)
 	}
 
 	pair, err := h.tokens.Refresh(c.Context(), req.RefreshToken)
 	if err != nil {
-		return fail(c, authErrorStatus(err), err)
+		return response.Error(c, authErrorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.TokenPairToResponse(pair)))
@@ -71,18 +71,14 @@ func (h *AuthHandler) Refresh(c fiber.Ctx) error {
 func (h *AuthHandler) Logout(c fiber.Ctx) error {
 	var req dtos.RefreshTokenRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return fail(c, fiber.StatusBadRequest, err)
+		return response.Error(c, fiber.StatusBadRequest, err)
 	}
 
 	if err := h.tokens.Logout(c.Context(), req.RefreshToken); err != nil {
-		return fail(c, authErrorStatus(err), err)
+		return response.Error(c, authErrorStatus(err), err)
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
-}
-
-func fail(c fiber.Ctx, status int, err error) error {
-	return c.Status(status).JSON(response.Fail[any](err.Error()))
 }
 
 // authErrorStatus maps domain sentinel errors to HTTP status codes.
