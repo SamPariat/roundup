@@ -1,9 +1,6 @@
 package domain
 
-import (
-	"regexp"
-	"time"
-)
+import "time"
 
 // User is a Roundup user's profile. Login credentials live in auth-service;
 // both services share the same ID.
@@ -30,12 +27,4 @@ type UpdateProfileCommand struct {
 	Name *string
 	// AvatarURL replaces the avatar URL when non-nil.
 	AvatarURL *string
-}
-
-// e164 matches phone numbers in E.164 format: a leading +, then 8–15 digits.
-var e164 = regexp.MustCompile(`^\+[1-9]\d{7,14}$`)
-
-// IsValidPhone reports whether phone is in E.164 format.
-func IsValidPhone(phone string) bool {
-	return e164.MatchString(phone)
 }

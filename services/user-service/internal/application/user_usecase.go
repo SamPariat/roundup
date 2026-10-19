@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/SamPariat/roundup/services/user-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/phone"
 )
 
 // UserUseCase handles creating, reading, updating, and deleting user profiles.
@@ -20,23 +21,23 @@ func NewUserUseCase(users domain.UserRepository, tokens domain.DeviceTokenReposi
 }
 
 // CreateOrGet returns the active user with the given phone number, creating
-// one if none exists. It is idempotent: calling it twice with the same phone
+// one if none exists. It is idempotent: calling it twice with the same number
 // returns the same user. created reports whether a new user was inserted.
-// Returns domain.ErrInvalidPhone if phone is not in E.164 format.
-func (u *UserUseCase) CreateOrGet(ctx context.Context, phone string) (user *domain.User, created bool, err error) {
-	if !domain.IsValidPhone(phone) {
+// Returns domain.ErrInvalidPhone if number is not in E.164 format.
+func (u *UserUseCase) CreateOrGet(ctx context.Context, number string) (user *domain.User, created bool, err error) {
+	if !phone.IsValid(number) {
 		return nil, false, domain.ErrInvalidPhone
 	}
 
-	user, err = u.users.GetByPhone(ctx, phone)
+	user, err = u.users.GetByPhone(ctx, number)
 	if err != nil {
 		if errors.Is(err, domain.ErrUserNotFound) {
-			user, err = u.users.Create(ctx, phone)
+			user, err = u.users.Create(ctx, number)
 			if err != nil {
 				// Another request inserted this phone between our lookup and our insert.
 				// The user exists now, so fetch it instead of failing.
 				if errors.Is(err, domain.ErrPhoneTaken) {
-					user, err = u.users.GetByPhone(ctx, phone)
+					user, err = u.users.GetByPhone(ctx, number)
 					if err != nil {
 						return nil, false, err
 					}
