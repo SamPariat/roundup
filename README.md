@@ -105,35 +105,39 @@ Deployed containers don't use env files (they are excluded from images by `.dock
 Open each `services/*/.env.beta` file and fill in the required values.
 See [Environment variables](#environment-variables) below for what you need.
 
-### 4. Start infrastructure only
+### 4. Start the databases
 
 ```bash
-make infra
+docker compose up -d
 ```
 
-Starts Postgres (one per service), Redis, Kafka, and Zookeeper. No application services yet.
+Starts one Postgres per service (auth, user, venue) and Redis. The Go services are not started by this.
 
 ```bash
-make ps   # all infra containers should show as healthy
+docker compose ps   # all containers should show as healthy
 ```
 
 ### 5. Run migrations
 
 ```bash
-make migrate-all
+make auth-migrate-up user-migrate-up venue-migrate-up
 ```
 
-### 6. Start everything
+### 6. Start the services
+
+Either in Docker (all four, logs in Docker Desktop):
 
 ```bash
-make up
+make services-up
 ```
+
+Or natively, for active development; see [Running a service locally](#running-a-service-locally-outside-docker).
 
 ### 7. Verify
 
 ```bash
-curl http://localhost:8080/health
-# {"status":"ok"}
+curl http://localhost:8080/ready
+# {"success":true,"data":{"status":"ready"}}
 ```
 
 ---
@@ -190,27 +194,26 @@ Free plan: 25 credits/month. Sufficient for development and small-scale testing.
 ## Daily workflow
 
 ```bash
-# start everything
-make up
+# databases only (always needed)
+docker compose up -d
 
-# tail logs for a specific service
-make logs s=auth-service
+# all four services in Docker, rebuilt from the current code
+make services-up
 
-# restart after a code change
-make restart s=billing-service
+# follow their logs (also in Docker Desktop: Containers → roundup-monorepo → a service → Logs)
+make services-logs
+
+# stop the services, keep the databases running
+make services-down
 
 # run tests for a service
-make test s=billing-service
+make auth-test        # also user-test, venue-test, gateway-test
 
-# open a shell inside a running container
-make shell s=redis
-
-# open psql for a service's database
-make psql s=billing
-
-# stop everything
-make down
+# stop everything (data is kept in volumes)
+docker compose --profile services down
 ```
+
+Services in Docker read the same `services/*/.env.beta` files as native runs; `docker-compose.yml` only swaps `localhost` addresses for container names. Docker and native runs use the same ports, so run `make services-down` before `make *-run`.
 
 ---
 
@@ -219,7 +222,7 @@ make down
 Faster for active development — run the service you are working on natively, with only infra in Docker.
 
 ```bash
-make infra   # start Postgres, Redis, Kafka only
+docker compose up -d   # databases only
 ```
 
 Every service is Go and runs the same way:

@@ -14,6 +14,9 @@ export APP_ENV
 
 .PHONY: install \
 	setup \
+	services-up \
+	services-down \
+	services-logs \
 	jwt-keys \
 	auth-migrate-up \
 	auth-migrate-down \
@@ -50,6 +53,19 @@ setup:
 			cp $$dir/.env.beta.example $$dir/.env.beta && echo "created $$dir/.env.beta"; \
 		fi; \
 	done
+
+# Builds and runs all four Go services in Docker alongside the databases
+# (compose "services" profile, beta env files). Logs: Docker Desktop or
+# `make services-logs`. Stop with `make services-down` before `make *-run`,
+# since both use the same ports.
+services-up:
+	docker compose --profile services up -d --build
+
+services-down:
+	docker compose --profile services stop gateway auth-service venue-service user-service
+
+services-logs:
+	docker compose --profile services logs -f gateway auth-service venue-service user-service
 
 # Generates an Ed25519 keypair for access tokens: the private key goes to
 # auth-service (signs), the public key to the gateway (verifies). Run after
