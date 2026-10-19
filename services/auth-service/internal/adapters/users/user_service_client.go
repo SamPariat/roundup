@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/SamPariat/roundup/services/auth-service/internal/domain"
+	sharedmw "github.com/SamPariat/roundup/shared/middleware"
 )
 
 // requestTimeout bounds each call so a slow user-service fails a login fast
@@ -52,6 +53,10 @@ func (c *UserServiceClient) EnsureUser(ctx context.Context, phone string) (strin
 		return "", false, err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	// Pass the login's request ID on so user-service logs the same ID.
+	if id := sharedmw.RequestIDFromContext(ctx); id != "" {
+		req.Header.Set(sharedmw.RequestIDHeader, id)
+	}
 
 	resp, err := c.http.Do(req)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/SamPariat/roundup/services/auth-service/internal/domain"
+	sharedmw "github.com/SamPariat/roundup/shared/middleware"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -85,4 +86,20 @@ func TestEnsureUserTimesOut(t *testing.T) {
 	_, _, err := client.EnsureUser(context.Background(), "+919876543210")
 
 	assert.ErrorIs(t, err, domain.ErrUserServiceUnavailable)
+}
+
+func TestEnsureUserForwardsRequestID(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Get(sharedmw.RequestIDHeader)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"success":true,"data":{"id":"` + userID + `"}}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	ctx := sharedmw.WithRequestID(context.Background(), "login-req-1")
+	_, _, err := NewUserServiceClient(srv.URL).EnsureUser(ctx, "+919876543210")
+
+	require.NoError(t, err)
+	assert.Equal(t, "login-req-1", got)
 }
