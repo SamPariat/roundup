@@ -37,7 +37,7 @@ The user-service owns user profiles and the FCM device tokens used for push noti
 │    UserRepository        — Create, GetByID, GetByPhone,          │
 │                            UpdateProfile, SoftDelete             │
 │    DeviceTokenRepository — Upsert, Delete, DeleteAllForUser      │
-│  Errors: sentinel vars + DomainError + constructor               │
+│  Errors: sentinel vars, wrapped with shared/domainerr            │
 └──────────────────────────────────────────────────────────────────┘
 All dependency arrows point inward. Domain has no outward arrows.
 ```
@@ -55,7 +55,7 @@ services/user-service/
 │   ├── domain/
 │   │   ├── user.go                      # User, UpdateProfileCommand, IsValidPhone
 │   │   ├── device_token.go              # DeviceToken, Platform, Register/RemoveDeviceTokenCommand
-│   │   ├── errors.go                    # sentinel errors + DomainError type + constructor
+│   │   ├── errors.go                    # sentinel errors (context added with shared/domainerr)
 │   │   └── port.go                      # UserRepository, DeviceTokenRepository interfaces
 │   │
 │   ├── application/

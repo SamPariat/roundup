@@ -18,6 +18,7 @@ import (
 func StripIdentity() fiber.Handler {
 	return func(c fiber.Ctx) error {
 		c.Request().Header.Del(sharedmw.UserIDHeader)
+
 		return c.Next()
 	}
 }
@@ -38,7 +39,7 @@ func RequireAuth(pub ed25519.PublicKey) fiber.Handler {
 		}
 
 		c.Request().Header.Set(sharedmw.UserIDHeader, claims.UserID)
-		c.Locals(sharedmw.UserIDLocalsKey, claims.UserID)
+		sharedmw.SetUserID(c, claims.UserID)
 
 		return c.Next()
 	}
@@ -46,5 +47,6 @@ func RequireAuth(pub ed25519.PublicKey) fiber.Handler {
 
 func unauthorized(c fiber.Ctx, msg string) error {
 	c.Set(fiber.HeaderWWWAuthenticate, "Bearer")
+
 	return c.Status(fiber.StatusUnauthorized).JSON(response.Fail[any](msg))
 }

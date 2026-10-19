@@ -143,7 +143,6 @@ services:
       AUTH_SERVICE_URL: http://auth-service:3001
       USER_SERVICE_URL: http://user-service:3002
       VENUE_SERVICE_URL: http://venue-service:3006
-      REDIS_ADDR: redis:6379
     ports:
       - "8080:8080"
     depends_on:

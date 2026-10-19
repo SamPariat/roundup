@@ -2,6 +2,7 @@ package http
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 
 	"github.com/SamPariat/roundup/services/user-service/internal/application"
@@ -46,9 +47,7 @@ func (h *DeviceTokenHandler) Register(c fiber.Ctx) error {
 func (h *DeviceTokenHandler) Remove(c fiber.Ctx) error {
 	token, err := url.PathUnescape(c.Params("token"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(
-			response.Fail[any]("token path param is not valid URL encoding"),
-		)
+		return response.Error(c, fiber.StatusBadRequest, fmt.Errorf("token path param is not valid URL encoding: %w", err))
 	}
 
 	err = h.uc.Remove(c.Context(), domain.RemoveDeviceTokenCommand{

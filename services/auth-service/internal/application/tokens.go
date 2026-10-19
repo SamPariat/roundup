@@ -13,6 +13,10 @@ import (
 	"github.com/SamPariat/roundup/shared/authtoken"
 )
 
+// refreshTokenBytes is the refresh token length before encoding: 256 bits,
+// far beyond guessing range.
+const refreshTokenBytes = 32
+
 // TokenIssuer mints access tokens (Ed25519 JWTs via shared/authtoken) and
 // opaque refresh tokens. Shared by the login and refresh use cases.
 type TokenIssuer struct {
@@ -33,6 +37,7 @@ func (i *TokenIssuer) startSession(ctx context.Context, sessions domain.SessionR
 	if err != nil {
 		return nil, err
 	}
+
 	refreshExpiresAt := i.now().Add(i.refreshTTL)
 
 	if _, err := sessions.Create(ctx, userID, hash, refreshExpiresAt); err != nil {
@@ -61,17 +66,19 @@ func (i *TokenIssuer) pair(userID, refresh string, refreshExpiresAt time.Time) (
 // store. The token has full entropy, so a fast SHA-256 is enough; slow hashes
 // like bcrypt only matter for guessable secrets such as passwords.
 func newRefreshToken() (token string, hash []byte, err error) {
-	raw := make([]byte, 32)
+	raw := make([]byte, refreshTokenBytes)
 	if _, err := rand.Read(raw); err != nil {
 		return "", nil, fmt.Errorf("generate refresh token: %w", err)
 	}
 
 	token = base64.RawURLEncoding.EncodeToString(raw)
+
 	return token, hashRefreshToken(token), nil
 }
 
 // hashRefreshToken is the lookup key a refresh token is stored under.
 func hashRefreshToken(token string) []byte {
 	sum := sha256.Sum256([]byte(token))
+
 	return sum[:]
 }

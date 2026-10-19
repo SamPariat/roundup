@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/domainerr"
 	"googlemaps.github.io/maps"
 )
 
@@ -159,7 +160,7 @@ func mapPlaceDetailsToVenueDetail(res maps.PlaceDetailsResult) *domain.VenueDeta
 // client asked for a venue that cannot exist.
 func mapDetailError(err error, placeID string) error {
 	if strings.Contains(err.Error(), "INVALID_REQUEST") {
-		return domain.NewDomainError(domain.ErrVenueNotFound, placeID)
+		return domainerr.New(domain.ErrVenueNotFound, placeID)
 	}
 
 	return mapProviderError(err)
@@ -173,13 +174,13 @@ func mapProviderError(err error) error {
 	s := err.Error()
 
 	if strings.Contains(s, "NOT_FOUND") {
-		return domain.NewDomainError(domain.ErrVenueNotFound, s)
+		return domainerr.New(domain.ErrVenueNotFound, s)
 	}
 
 	if strings.Contains(s, "REQUEST_DENIED") ||
 		strings.Contains(s, "OVER_QUERY_LIMIT") ||
 		strings.Contains(s, "UNKNOWN_ERROR") {
-		return domain.NewDomainError(domain.ErrProviderUnavailable, s)
+		return domainerr.New(domain.ErrProviderUnavailable, s)
 	}
 
 	return fmt.Errorf("places provider: %w", err)

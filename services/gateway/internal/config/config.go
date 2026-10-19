@@ -8,28 +8,34 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/SamPariat/roundup/shared/api"
 	"github.com/SamPariat/roundup/shared/authtoken"
 	"github.com/SamPariat/roundup/shared/env"
 )
+
+// defaultUpstreamTimeout is used when UPSTREAM_TIMEOUT is unset.
+const defaultUpstreamTimeout = "10s"
 
 // Config holds all runtime configuration for the gateway.
 // Fields are populated once at startup and treated as read-only thereafter.
 type Config struct {
 	// Env is the deployment environment from APP_ENV: "beta" or "prod".
 	Env string
+
 	// Port is the HTTP listen port. Defaults to 8080.
 	Port string
-	// RedisAddr is the Redis server address, reserved for rate limiting.
-	// Defaults to localhost:6379.
-	RedisAddr string
+
 	// LogLevel controls zap verbosity: debug, info, warn, or error. Defaults to info.
 	LogLevel string
+
 	// Upstreams are the base URLs requests are forwarded to. Required.
 	Upstreams Upstreams
+
 	// JWTPublicKey verifies access tokens minted by auth-service. Parsed from
 	// the PEM in JWT_PUBLIC_KEY (see `make jwt-keys`). Required.
 	JWTPublicKey ed25519.PublicKey
-	// UpstreamTimeout bounds each forwarded request. Defaults to 10s.
+
+	// UpstreamTimeout bounds each forwarded request. Defaults to defaultUpstreamTimeout.
 	UpstreamTimeout time.Duration
 }
 
@@ -52,22 +58,16 @@ func Load() *Config {
 		panic(fmt.Sprintf("JWT_PUBLIC_KEY: %v", err))
 	}
 
-	timeout, err := time.ParseDuration(env.Get("UPSTREAM_TIMEOUT", "10s"))
-	if err != nil || timeout <= 0 {
-		panic("UPSTREAM_TIMEOUT must be a positive duration like 10s")
-	}
-
 	return &Config{
-		Env:       appEnv,
-		Port:      env.Get("PORT", "8080"),
-		RedisAddr: env.Get("REDIS_ADDR", "localhost:6379"),
-		LogLevel:  env.Get("LOG_LEVEL", "info"),
+		Env:      appEnv,
+		Port:     env.Get(env.KeyPort, api.GatewayPort),
+		LogLevel: env.Get(env.KeyLogLevel, env.DefaultLogLevel),
 		Upstreams: Upstreams{
 			Auth:  env.Require("AUTH_SERVICE_URL"),
 			User:  env.Require("USER_SERVICE_URL"),
 			Venue: env.Require("VENUE_SERVICE_URL"),
 		},
 		JWTPublicKey:    publicKey,
-		UpstreamTimeout: timeout,
+		UpstreamTimeout: env.Duration("UPSTREAM_TIMEOUT", defaultUpstreamTimeout),
 	}
 }

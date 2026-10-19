@@ -8,6 +8,13 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/limiter"
 )
 
+// Auth route limits: each client IP gets authRateLimitMax requests per
+// authRateLimitWindow, counting every request.
+const (
+	authRateLimitMax    = 20
+	authRateLimitWindow = 15 * time.Minute
+)
+
 // AuthRateLimit limits how often one client may call the unauthenticated
 // /auth/* routes. It complements auth-service's per-phone limits (3 codes per
 // 15 minutes, 5 guesses per code), which can't stop one client cycling
@@ -20,6 +27,7 @@ func AuthRateLimit() fiber.Handler {
 		return c.Status(fiber.StatusTooManyRequests).
 			JSON(response.Fail[any]("too many requests, try again later"))
 	}
+
 	return limiter.New(cfg)
 }
 
@@ -27,8 +35,8 @@ func AuthRateLimit() fiber.Handler {
 // over what window.
 func authRateLimitConfig() limiter.Config {
 	return limiter.Config{
-		Max:        20,
-		Expiration: 15 * time.Minute,
+		Max:        authRateLimitMax,
+		Expiration: authRateLimitWindow,
 		KeyGenerator: func(c fiber.Ctx) string {
 			return c.IP()
 		},

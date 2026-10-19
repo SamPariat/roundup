@@ -8,6 +8,7 @@ type Platform string
 const (
 	// PlatformIOS is an Apple device.
 	PlatformIOS Platform = "iOS"
+
 	// PlatformAndroid is an Android device.
 	PlatformAndroid Platform = "Android"
 )
@@ -21,12 +22,16 @@ func (p Platform) IsValid() bool {
 type DeviceToken struct {
 	// ID is the database-assigned primary key.
 	ID int64
+
 	// UserID is the user currently logged in on the device.
 	UserID string
+
 	// Token is the FCM registration token.
 	Token string
+
 	// Platform is the device's OS.
 	Platform Platform
+
 	// CreatedAt is the UTC timestamp when the token was first registered.
 	CreatedAt time.Time
 }
@@ -35,8 +40,10 @@ type DeviceToken struct {
 type RegisterDeviceTokenCommand struct {
 	// UserID is the user registering the token.
 	UserID string
+
 	// Token is the FCM registration token.
 	Token string
+
 	// Platform is the device's OS.
 	Platform Platform
 }
@@ -45,6 +52,7 @@ type RegisterDeviceTokenCommand struct {
 type RemoveDeviceTokenCommand struct {
 	// UserID is the user removing the token. Only their own tokens can be removed.
 	UserID string
+
 	// Token is the FCM registration token.
 	Token string
 }

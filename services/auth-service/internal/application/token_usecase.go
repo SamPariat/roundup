@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/SamPariat/roundup/services/auth-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/domainerr"
 )
 
 // TokenUseCase refreshes and revokes sessions using refresh tokens.
@@ -31,6 +32,7 @@ func (u *TokenUseCase) Refresh(ctx context.Context, token string) (*domain.Token
 	if err != nil {
 		return nil, err
 	}
+
 	if stored.SessionRevoked || !u.now().Before(stored.ExpiresAt) {
 		return nil, domain.ErrInvalidRefreshToken
 	}
@@ -39,13 +41,15 @@ func (u *TokenUseCase) Refresh(ctx context.Context, token string) (*domain.Token
 		if err := u.sessions.Revoke(ctx, stored.SessionID); err != nil {
 			return nil, err
 		}
-		return nil, domain.NewDomainError(domain.ErrInvalidRefreshToken, "token reuse detected; session revoked")
+
+		return nil, domainerr.New(domain.ErrInvalidRefreshToken, "token reuse detected; session revoked")
 	}
 
 	next, hash, err := newRefreshToken()
 	if err != nil {
 		return nil, err
 	}
+
 	expiresAt := u.now().Add(u.issuer.refreshTTL)
 
 	if err := u.sessions.Rotate(ctx, stored.ID, stored.SessionID, hash, expiresAt); err != nil {

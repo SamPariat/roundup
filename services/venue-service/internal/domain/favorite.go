@@ -6,14 +6,19 @@ import "time"
 type SavedVenue struct {
 	// ID is the database-assigned primary key.
 	ID int64
+
 	// SquadID is the squad the favorite belongs to.
 	SquadID string
+
 	// UserID is the user who saved the venue.
 	UserID string
+
 	// PlaceID is the provider-assigned venue identifier (e.g., Google Place ID).
 	PlaceID string
+
 	// Name is the display name of the venue at the time it was saved.
 	Name string
+
 	// SavedAt is the UTC timestamp when the user added the venue to their favorites.
 	SavedAt time.Time
 }
@@ -22,10 +27,13 @@ type SavedVenue struct {
 type AddFavoriteCommand struct {
 	// SquadID is the squad the favorite belongs to.
 	SquadID string
+
 	// UserID is the user saving the favorite.
 	UserID string
+
 	// PlaceID is the provider-assigned venue identifier.
 	PlaceID string
+
 	// Name is the display name of the venue at the time it was saved.
 	Name string
 }
@@ -34,8 +42,10 @@ type AddFavoriteCommand struct {
 type RemoveFavoriteCommand struct {
 	// SquadID is the squad the favorite belongs to.
 	SquadID string
+
 	// UserID is the user removing the favorite.
 	UserID string
+
 	// PlaceID is the provider-assigned venue identifier.
 	PlaceID string
 }

@@ -16,8 +16,7 @@ func newTestApp() *fiber.App {
 	app := fiber.New()
 	app.Use(RequestID())
 	app.Get("/", func(c fiber.Ctx) error {
-		id, _ := c.Locals(RequestIDLocalsKey).(string)
-		return c.SendString(id)
+		return c.SendString(RequestIDFrom(c))
 	})
 
 	return app
@@ -56,6 +55,7 @@ func TestRequestIDIsInContext(t *testing.T) {
 	req.Header.Set(RequestIDHeader, "ctx-id-456")
 	resp, err := app.Test(req)
 	require.NoError(t, err)
+
 	body, _ := io.ReadAll(resp.Body)
 
 	assert.Equal(t, "ctx-id-456", string(body), "code below the handler sees the ID via context")
@@ -76,6 +76,7 @@ func TestGenerateRequestIDIgnoresClientHeader(t *testing.T) {
 	req.Header.Set(RequestIDHeader, "client-chosen-id")
 	resp, err := app.Test(req)
 	require.NoError(t, err)
+
 	body, _ := io.ReadAll(resp.Body)
 
 	require.NoError(t, uuid.Validate(string(body)), "a fresh UUID is generated")

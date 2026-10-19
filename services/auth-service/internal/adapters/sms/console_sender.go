@@ -21,5 +21,6 @@ func NewConsoleSender(log *zap.Logger) *ConsoleSender {
 // Send logs the code at info level so it can be read from the service output.
 func (s *ConsoleSender) Send(_ context.Context, phone, code string) error {
 	s.log.Info("OTP code (console sender, not sent by SMS)", zap.String("phone", phone), zap.String("code", code))
+
 	return nil
 }

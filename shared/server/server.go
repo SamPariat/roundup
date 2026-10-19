@@ -44,10 +44,12 @@ func Health(app *fiber.App, log *zap.Logger, checks map[string]Check) {
 		for name, check := range checks {
 			if err := check(ctx); err != nil {
 				log.Warn("readiness check failed", zap.String("check", name), zap.Error(err))
+
 				return c.Status(fiber.StatusServiceUnavailable).
 					JSON(response.Fail[any](name + " not ready: " + err.Error()))
 			}
 		}
+
 		return c.JSON(response.OK(fiber.Map{"status": "ready"}))
 	})
 }
@@ -61,6 +63,7 @@ func Run(app *fiber.App, port string, log *zap.Logger) error {
 
 	app.Hooks().OnPreShutdown(func() error {
 		log.Info("shutting down, draining in-flight requests")
+
 		return nil
 	})
 
@@ -74,5 +77,6 @@ func Run(app *fiber.App, port string, log *zap.Logger) error {
 	}
 
 	log.Info("server stopped")
+
 	return nil
 }

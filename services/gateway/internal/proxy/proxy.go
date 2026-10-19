@@ -37,7 +37,7 @@ func To(baseURL string, timeout time.Duration) fiber.Handler {
 	allowInternalUpstreams()
 
 	return func(c fiber.Ctx) error {
-		id, _ := c.Locals(sharedmw.RequestIDLocalsKey).(string)
+		id := sharedmw.RequestIDFrom(c)
 		if id != "" {
 			c.Request().Header.Set(sharedmw.RequestIDHeader, id)
 		}
@@ -50,6 +50,7 @@ func To(baseURL string, timeout time.Duration) fiber.Handler {
 		if id != "" {
 			c.Set(sharedmw.RequestIDHeader, id)
 		}
+
 		if err != nil {
 			return response.Error(c, fiber.StatusBadGateway, err)
 		}

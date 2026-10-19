@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/SamPariat/roundup/shared/api"
 	"github.com/SamPariat/roundup/shared/authtoken"
 	"github.com/SamPariat/roundup/shared/env"
 )
@@ -17,23 +18,31 @@ import (
 type Config struct {
 	// Env is the deployment environment from APP_ENV: "beta" or "prod".
 	Env string
+
 	// Port is the HTTP listen port. Defaults to 3001.
 	Port string
+
 	// PostgresDSN is the full Postgres connection string. Required.
 	PostgresDSN string
+
 	// UserServiceURL is user-service's base URL, called directly (not via the
 	// gateway) to find or create users at login. Required.
 	UserServiceURL string
+
 	// JWTPrivateKey signs access tokens. Parsed from the PEM in
 	// JWT_PRIVATE_KEY (see `make jwt-keys`). Required.
 	JWTPrivateKey ed25519.PrivateKey
+
 	// AccessTokenTTL is the access token lifetime. Defaults to 15m.
 	AccessTokenTTL time.Duration
+
 	// RefreshTokenTTL is the refresh token lifetime. Defaults to 720h (30 days).
 	RefreshTokenTTL time.Duration
+
 	// OTPDevCode, when set, is accepted as a valid code for any phone.
 	// Only allowed when Env is beta; Load panics if it is set in prod.
 	OTPDevCode string
+
 	// LogLevel controls zap verbosity: debug, info, warn, or error. Defaults to info.
 	LogLevel string
 }
@@ -52,14 +61,14 @@ func Load() *Config {
 
 	cfg := &Config{
 		Env:             appEnv,
-		Port:            env.Get("PORT", "3001"),
-		PostgresDSN:     env.Require("POSTGRES_DSN"),
+		Port:            env.Get(env.KeyPort, api.AuthPort),
+		PostgresDSN:     env.Require(env.KeyPostgresDSN),
 		UserServiceURL:  env.Require("USER_SERVICE_URL"),
 		JWTPrivateKey:   privateKey,
-		AccessTokenTTL:  duration("ACCESS_TOKEN_TTL", "15m"),
-		RefreshTokenTTL: duration("REFRESH_TOKEN_TTL", "720h"),
+		AccessTokenTTL:  env.Duration("ACCESS_TOKEN_TTL", "15m"),
+		RefreshTokenTTL: env.Duration("REFRESH_TOKEN_TTL", "720h"),
 		OTPDevCode:      env.Get("OTP_DEV_CODE", ""),
-		LogLevel:        env.Get("LOG_LEVEL", "info"),
+		LogLevel:        env.Get(env.KeyLogLevel, env.DefaultLogLevel),
 	}
 
 	// A fixed code that logs anyone in must never reach production.
@@ -68,13 +77,4 @@ func Load() *Config {
 	}
 
 	return cfg
-}
-
-// duration reads key as a Go duration (e.g. "15m"), panicking on bad input.
-func duration(key, defaultValue string) time.Duration {
-	d, err := time.ParseDuration(env.Get(key, defaultValue))
-	if err != nil || d <= 0 {
-		panic(fmt.Sprintf("%s must be a positive duration like 15m or 720h", key))
-	}
-	return d
 }

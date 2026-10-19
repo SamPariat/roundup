@@ -7,6 +7,7 @@ import (
 
 	"github.com/SamPariat/roundup/services/auth-service/internal/adapters/persistence/db"
 	"github.com/SamPariat/roundup/services/auth-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/domainerr"
 	"github.com/SamPariat/roundup/shared/postgres"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -34,11 +35,13 @@ func (r *PostgresSessionRepository) Create(ctx context.Context, userID string, t
 	}
 
 	var sessionID uuid.UUID
+
 	err = r.inTx(ctx, func(q *db.Queries) error {
 		sessionID, err = q.CreateSession(ctx, uid)
 		if err != nil {
 			return err
 		}
+
 		return q.CreateRefreshToken(ctx, db.CreateRefreshTokenParams{SessionID: sessionID, TokenHash: tokenHash, ExpiresAt: timestamptz(expiresAt)})
 	})
 	if err != nil {
@@ -53,8 +56,9 @@ func (r *PostgresSessionRepository) FindRefreshToken(ctx context.Context, tokenH
 	row, err := r.queries.GetRefreshToken(ctx, tokenHash)
 	if err != nil {
 		if postgres.IsNoRows(err) {
-			return nil, domain.NewDomainError(domain.ErrInvalidRefreshToken, "unknown token")
+			return nil, domainerr.New(domain.ErrInvalidRefreshToken, "unknown token")
 		}
+
 		return nil, err
 	}
 
@@ -74,7 +78,7 @@ func (r *PostgresSessionRepository) FindRefreshToken(ctx context.Context, tokenH
 func (r *PostgresSessionRepository) Rotate(ctx context.Context, oldID int64, sessionID string, newHash []byte, expiresAt time.Time) error {
 	sid, err := uuid.Parse(sessionID)
 	if err != nil {
-		return domain.NewDomainError(domain.ErrInvalidRefreshToken, "invalid session ID")
+		return domainerr.New(domain.ErrInvalidRefreshToken, "invalid session ID")
 	}
 
 	return r.inTx(ctx, func(q *db.Queries) error {
@@ -82,9 +86,11 @@ func (r *PostgresSessionRepository) Rotate(ctx context.Context, oldID int64, ses
 		if err != nil {
 			return err
 		}
+
 		if affected == 0 {
-			return domain.NewDomainError(domain.ErrInvalidRefreshToken, "token already used")
+			return domainerr.New(domain.ErrInvalidRefreshToken, "token already used")
 		}
+
 		return q.CreateRefreshToken(ctx, db.CreateRefreshTokenParams{SessionID: sid, TokenHash: newHash, ExpiresAt: timestamptz(expiresAt)})
 	})
 }
@@ -93,7 +99,7 @@ func (r *PostgresSessionRepository) Rotate(ctx context.Context, oldID int64, ses
 func (r *PostgresSessionRepository) Revoke(ctx context.Context, sessionID string) error {
 	sid, err := uuid.Parse(sessionID)
 	if err != nil {
-		return domain.NewDomainError(domain.ErrInvalidRefreshToken, "invalid session ID")
+		return domainerr.New(domain.ErrInvalidRefreshToken, "invalid session ID")
 	}
 
 	return r.queries.RevokeSession(ctx, sid)

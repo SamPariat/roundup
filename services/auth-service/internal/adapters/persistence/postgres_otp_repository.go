@@ -6,6 +6,7 @@ import (
 
 	"github.com/SamPariat/roundup/services/auth-service/internal/adapters/persistence/db"
 	"github.com/SamPariat/roundup/services/auth-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/domainerr"
 	"github.com/SamPariat/roundup/shared/postgres"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -25,6 +26,7 @@ func NewPostgresOTPRepository(pool *pgxpool.Pool) *PostgresOTPRepository {
 // CountSince returns how many codes were created for phone at or after since.
 func (r *PostgresOTPRepository) CountSince(ctx context.Context, phone string, since time.Time) (int, error) {
 	n, err := r.queries.CountOTPCodesSince(ctx, db.CountOTPCodesSinceParams{Phone: phone, CreatedAt: timestamptz(since)})
+
 	return int(n), err
 }
 
@@ -38,8 +40,9 @@ func (r *PostgresOTPRepository) Latest(ctx context.Context, phone string) (*doma
 	row, err := r.queries.GetLatestOTPCode(ctx, phone)
 	if err != nil {
 		if postgres.IsNoRows(err) {
-			return nil, domain.NewDomainError(domain.ErrInvalidCode, "no code requested")
+			return nil, domainerr.New(domain.ErrInvalidCode, "no code requested")
 		}
+
 		return nil, err
 	}
 
@@ -64,8 +67,9 @@ func (r *PostgresOTPRepository) Consume(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
+
 	if affected == 0 {
-		return domain.NewDomainError(domain.ErrInvalidCode, "code already used")
+		return domainerr.New(domain.ErrInvalidCode, "code already used")
 	}
 
 	return nil
@@ -79,5 +83,6 @@ func timePtr(ts pgtype.Timestamptz) *time.Time {
 	if !ts.Valid {
 		return nil
 	}
+
 	return &ts.Time
 }

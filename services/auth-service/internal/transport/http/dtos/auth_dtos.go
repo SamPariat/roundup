@@ -12,6 +12,7 @@ type RequestOTPRequest struct {
 type VerifyOTPRequest struct {
 	// Phone is the number the code was sent to, in E.164 format.
 	Phone string `json:"phone"`
+
 	// Code is the 6-digit code from the SMS.
 	Code string `json:"code"`
 }
@@ -27,12 +28,15 @@ type RefreshTokenRequest struct {
 type TokenPairResponse struct {
 	// AccessToken is a JWT to send as "Authorization: Bearer <token>".
 	AccessToken string `json:"accessToken"`
+
 	// AccessTokenExpiresAt is when the access token expires (RFC 3339);
 	// refresh shortly before this.
 	AccessTokenExpiresAt time.Time `json:"accessTokenExpiresAt"`
+
 	// RefreshToken replaces the previous one, which no longer works. Store it
 	// securely (Keychain / Keystore); sending an old one logs the session out.
 	RefreshToken string `json:"refreshToken"`
+
 	// RefreshTokenExpiresAt is when the refresh token expires (RFC 3339);
 	// after it, the user must log in again.
 	RefreshTokenExpiresAt time.Time `json:"refreshTokenExpiresAt"`
@@ -42,8 +46,10 @@ type TokenPairResponse struct {
 // token fields appear at the top level of the JSON object.
 type LoginResponse struct {
 	TokenPairResponse
+
 	// UserID is the logged-in user's UUID.
 	UserID string `json:"userID"`
+
 	// IsNewUser is true when this login created the account; show profile setup.
 	IsNewUser bool `json:"isNewUser"`
 }

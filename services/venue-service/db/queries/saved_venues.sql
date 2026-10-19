@@ -2,7 +2,7 @@
 INSERT INTO saved_venues (squad_id, user_id, place_id, name)
 VALUES ($1, $2, $3, $4);
 
--- name: RemoveFavorite :exec
+-- name: RemoveFavorite :execrows
 DELETE
 FROM saved_venues
 WHERE squad_id = $1

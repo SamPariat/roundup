@@ -5,6 +5,7 @@ import (
 
 	"github.com/SamPariat/roundup/services/user-service/internal/adapters/persistence/db"
 	"github.com/SamPariat/roundup/services/user-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/domainerr"
 	"github.com/SamPariat/roundup/shared/postgres"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -30,8 +31,9 @@ func (r *PostgresUserRepository) Create(ctx context.Context, phone string) (*dom
 	row, err := r.queries.CreateUser(ctx, phone)
 	if err != nil {
 		if postgres.IsUniqueViolation(err) {
-			return nil, domain.NewDomainError(domain.ErrPhoneTaken, phone)
+			return nil, domainerr.New(domain.ErrPhoneTaken, phone)
 		}
+
 		return nil, err
 	}
 
@@ -42,7 +44,7 @@ func (r *PostgresUserRepository) Create(ctx context.Context, phone string) (*dom
 func (r *PostgresUserRepository) GetByID(ctx context.Context, id string) (*domain.User, error) {
 	uid, err := uuid.Parse(id)
 	if err != nil {
-		return nil, domain.NewDomainError(domain.ErrUserNotFound, id)
+		return nil, domainerr.New(domain.ErrUserNotFound, id)
 	}
 
 	row, err := r.queries.GetUserByID(ctx, uid)
@@ -67,7 +69,7 @@ func (r *PostgresUserRepository) GetByPhone(ctx context.Context, phone string) (
 func (r *PostgresUserRepository) UpdateProfile(ctx context.Context, cmd domain.UpdateProfileCommand) (*domain.User, error) {
 	uid, err := uuid.Parse(cmd.UserID)
 	if err != nil {
-		return nil, domain.NewDomainError(domain.ErrUserNotFound, cmd.UserID)
+		return nil, domainerr.New(domain.ErrUserNotFound, cmd.UserID)
 	}
 
 	row, err := r.queries.UpdateUserProfile(ctx, db.UpdateUserProfileParams{
@@ -86,15 +88,16 @@ func (r *PostgresUserRepository) UpdateProfile(ctx context.Context, cmd domain.U
 func (r *PostgresUserRepository) SoftDelete(ctx context.Context, id string) error {
 	uid, err := uuid.Parse(id)
 	if err != nil {
-		return domain.NewDomainError(domain.ErrUserNotFound, id)
+		return domainerr.New(domain.ErrUserNotFound, id)
 	}
 
 	affected, err := r.queries.SoftDeleteUser(ctx, uid)
 	if err != nil {
 		return err
 	}
+
 	if affected == 0 {
-		return domain.NewDomainError(domain.ErrUserNotFound, id)
+		return domainerr.New(domain.ErrUserNotFound, id)
 	}
 
 	return nil
@@ -104,7 +107,7 @@ func (r *PostgresUserRepository) SoftDelete(ctx context.Context, id string) erro
 func (r *PostgresUserRepository) Upsert(ctx context.Context, cmd domain.RegisterDeviceTokenCommand) (*domain.DeviceToken, error) {
 	uid, err := uuid.Parse(cmd.UserID)
 	if err != nil {
-		return nil, domain.NewDomainError(domain.ErrUserNotFound, cmd.UserID)
+		return nil, domainerr.New(domain.ErrUserNotFound, cmd.UserID)
 	}
 
 	row, err := r.queries.UpsertDeviceToken(ctx, db.UpsertDeviceTokenParams{
@@ -129,7 +132,7 @@ func (r *PostgresUserRepository) Upsert(ctx context.Context, cmd domain.Register
 func (r *PostgresUserRepository) Delete(ctx context.Context, cmd domain.RemoveDeviceTokenCommand) error {
 	uid, err := uuid.Parse(cmd.UserID)
 	if err != nil {
-		return domain.NewDomainError(domain.ErrDeviceTokenNotFound, cmd.Token)
+		return domainerr.New(domain.ErrDeviceTokenNotFound, cmd.Token)
 	}
 
 	affected, err := r.queries.DeleteDeviceToken(ctx, db.DeleteDeviceTokenParams{
@@ -139,8 +142,9 @@ func (r *PostgresUserRepository) Delete(ctx context.Context, cmd domain.RemoveDe
 	if err != nil {
 		return err
 	}
+
 	if affected == 0 {
-		return domain.NewDomainError(domain.ErrDeviceTokenNotFound, cmd.Token)
+		return domainerr.New(domain.ErrDeviceTokenNotFound, cmd.Token)
 	}
 
 	return nil
@@ -149,12 +153,11 @@ func (r *PostgresUserRepository) Delete(ctx context.Context, cmd domain.RemoveDe
 // DeleteAllForUser removes every token registered to the user. An invalid
 // user ID owns no tokens, so it is a no-op rather than an error.
 func (r *PostgresUserRepository) DeleteAllForUser(ctx context.Context, userID string) error {
-	uid, err := uuid.Parse(userID)
-	if err != nil {
-		return nil
+	if uid, err := uuid.Parse(userID); err == nil {
+		return r.queries.DeleteDeviceTokensForUser(ctx, uid)
 	}
 
-	return r.queries.DeleteDeviceTokensForUser(ctx, uid)
+	return nil
 }
 
 // toDomainUser maps a sqlc row to a domain.User, turning NULL columns into empty strings.
@@ -168,6 +171,7 @@ func toDomainUser(row db.User) *domain.User {
 	if row.Name != nil {
 		user.Name = *row.Name
 	}
+
 	if row.AvatarUrl != nil {
 		user.AvatarURL = *row.AvatarUrl
 	}
@@ -178,7 +182,7 @@ func toDomainUser(row db.User) *domain.User {
 // notFoundOr maps pgx.ErrNoRows to ErrUserNotFound and passes any other error through.
 func notFoundOr(err error, detail string) error {
 	if postgres.IsNoRows(err) {
-		return domain.NewDomainError(domain.ErrUserNotFound, detail)
+		return domainerr.New(domain.ErrUserNotFound, detail)
 	}
 
 	return err

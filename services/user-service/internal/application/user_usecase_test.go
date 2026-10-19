@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/SamPariat/roundup/services/user-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/domainerr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -95,7 +96,7 @@ func (f *fakeTokenRepo) DeleteAllForUser(ctx context.Context, userID string) err
 const testPhone = "+919876543210"
 
 func notFound(ctx context.Context, phone string) (*domain.User, error) {
-	return nil, domain.NewDomainError(domain.ErrUserNotFound, phone)
+	return nil, domainerr.New(domain.ErrUserNotFound, phone)
 }
 
 func TestCreateOrGetRejectsInvalidPhone(t *testing.T) {
@@ -112,6 +113,7 @@ func TestCreateOrGetReturnsExistingUser(t *testing.T) {
 		getByPhoneFn: func(ctx context.Context, phone string) (*domain.User, error) { return existing, nil },
 		createFn: func(ctx context.Context, phone string) (*domain.User, error) {
 			t.Fatal("Create must not be called when the user already exists")
+
 			return nil, nil
 		},
 	}
@@ -150,10 +152,11 @@ func TestCreateOrGetHandlesConcurrentCreate(t *testing.T) {
 			if lookups == 1 {
 				return notFound(ctx, phone)
 			}
+
 			return &domain.User{ID: "winner", Phone: phone}, nil
 		},
 		createFn: func(ctx context.Context, phone string) (*domain.User, error) {
-			return nil, domain.NewDomainError(domain.ErrPhoneTaken, phone)
+			return nil, domainerr.New(domain.ErrPhoneTaken, phone)
 		},
 	}
 	uc := NewUserUseCase(repo, &fakeTokenRepo{})
@@ -188,9 +191,11 @@ func TestUpdateProfileRejectsBlankName(t *testing.T) {
 
 func TestUpdateProfileTrimsName(t *testing.T) {
 	var got domain.UpdateProfileCommand
+
 	repo := &fakeUserRepo{
 		updateProfileFn: func(ctx context.Context, cmd domain.UpdateProfileCommand) (*domain.User, error) {
 			got = cmd
+
 			return &domain.User{ID: cmd.UserID, Name: *cmd.Name}, nil
 		},
 	}
@@ -206,9 +211,11 @@ func TestUpdateProfileTrimsName(t *testing.T) {
 
 func TestDeleteRemovesDeviceTokens(t *testing.T) {
 	var clearedFor string
+
 	tokens := &fakeTokenRepo{
 		deleteAllForUserFn: func(ctx context.Context, userID string) error {
 			clearedFor = userID
+
 			return nil
 		},
 	}
@@ -223,12 +230,13 @@ func TestDeleteRemovesDeviceTokens(t *testing.T) {
 func TestDeleteSkipsTokensWhenUserMissing(t *testing.T) {
 	repo := &fakeUserRepo{
 		softDeleteFn: func(ctx context.Context, id string) error {
-			return domain.NewDomainError(domain.ErrUserNotFound, id)
+			return domainerr.New(domain.ErrUserNotFound, id)
 		},
 	}
 	tokens := &fakeTokenRepo{
 		deleteAllForUserFn: func(ctx context.Context, userID string) error {
 			t.Fatal("tokens must not be cleared when the user does not exist")
+
 			return nil
 		},
 	}

@@ -45,15 +45,7 @@ func (h *VenueHandler) Search(c fiber.Ctx) error {
 
 // GetDetail handles GET /api/v1/venues/:placeID — returns full details for a venue.
 func (h *VenueHandler) GetDetail(c fiber.Ctx) error {
-	placeID := c.Params("placeID")
-
-	if placeID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(
-			response.Fail[dtos.VenueDetailResponse]("placeID is required"),
-		)
-	}
-
-	detail, err := h.uc.GetDetail(c.Context(), placeID)
+	detail, err := h.uc.GetDetail(c.Context(), c.Params("placeID"))
 	if err != nil {
 		return response.Error(c, venueErrorStatus(err), err)
 	}

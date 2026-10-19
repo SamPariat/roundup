@@ -76,6 +76,7 @@ func VisitHistoryToResponse(summaries []domain.VisitSummary) VisitHistoryRespons
 			LastVisitedAt: s.LastVisitedAt,
 		})
 	}
+
 	return VisitHistoryResponse{History: responses}
 }
 

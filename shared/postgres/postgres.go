@@ -28,6 +28,7 @@ func Connect(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
+
 		return nil, fmt.Errorf("ping postgres: %w", err)
 	}
 
@@ -38,6 +39,7 @@ func Connect(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 // unique constraint violation.
 func IsUniqueViolation(err error) bool {
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
+
 	return ok && pgErr.Code == uniqueViolation
 }
 

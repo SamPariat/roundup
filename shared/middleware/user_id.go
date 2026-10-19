@@ -10,12 +10,12 @@ import (
 // it after validating the access token; upstream services trust it.
 const UserIDHeader = "X-User-ID"
 
-// UserIDLocalsKey is the fiber.Locals key the caller's user ID is stored under.
-const UserIDLocalsKey = "user_id"
+// userIDKey is the fiber.Locals key the caller's user ID is stored under;
+// unexported so it is only set through UserID or SetUserID.
+type userIDKey struct{}
 
 // UserID requires a valid UUID in X-User-ID, rejecting the request with 401
-// otherwise. On success the ID is stored in fiber.Locals for handlers to read
-// via UserIDFrom.
+// otherwise. On success the ID is stored for handlers to read via UserIDFrom.
 func UserID() fiber.Handler {
 	return func(c fiber.Ctx) error {
 		id := c.Get(UserIDHeader)
@@ -25,15 +25,22 @@ func UserID() fiber.Handler {
 			)
 		}
 
-		c.Locals(UserIDLocalsKey, id)
+		SetUserID(c, id)
 
 		return c.Next()
 	}
 }
 
-// UserIDFrom returns the caller's user ID stored by the UserID middleware,
-// or an empty string if the middleware did not run.
+// SetUserID records the caller's verified user ID for the rest of the
+// request. Used by UserID and by the gateway once it has checked a token.
+func SetUserID(c fiber.Ctx, id string) {
+	c.Locals(userIDKey{}, id)
+}
+
+// UserIDFrom returns the caller's user ID stored by SetUserID, or an empty
+// string if it never ran.
 func UserIDFrom(c fiber.Ctx) string {
-	id, _ := c.Locals(UserIDLocalsKey).(string)
+	id, _ := c.Locals(userIDKey{}).(string)
+
 	return id
 }

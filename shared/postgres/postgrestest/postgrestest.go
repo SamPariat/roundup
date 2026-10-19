@@ -49,6 +49,7 @@ func New(t *testing.T, migrationsDir string) *pgxpool.Pool {
 	name := "test_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	if _, err := admin.Exec(ctx, "CREATE DATABASE "+name); err != nil {
 		_ = admin.Close(ctx)
+
 		t.Fatalf("create test database: %v", err)
 	}
 
@@ -56,6 +57,7 @@ func New(t *testing.T, migrationsDir string) *pgxpool.Pool {
 	if err != nil {
 		t.Fatalf("parse %s: %v", EnvDSN, err)
 	}
+
 	cfg.ConnConfig.Database = name
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
@@ -69,6 +71,7 @@ func New(t *testing.T, migrationsDir string) *pgxpool.Pool {
 		if _, err := admin.Exec(ctx, "DROP DATABASE IF EXISTS "+name+" WITH (FORCE)"); err != nil {
 			t.Errorf("drop test database %s: %v", name, err)
 		}
+
 		_ = admin.Close(ctx)
 	})
 

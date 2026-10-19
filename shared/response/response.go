@@ -17,6 +17,6 @@ func OK[T any](data T) Response[T] {
 }
 
 // Fail returns a failed Response envelope with the given error message.
-func Fail[T any](error string) Response[T] {
-	return Response[T]{Success: false, Error: error}
+func Fail[T any](msg string) Response[T] {
+	return Response[T]{Success: false, Error: msg}
 }

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"github.com/SamPariat/roundup/shared/api"
 	"github.com/SamPariat/roundup/shared/middleware"
 	"github.com/gofiber/fiber/v3"
 )
@@ -15,7 +16,7 @@ type Handlers struct {
 // RegisterRoutes mounts all route groups onto the Fiber app.
 // All routes are versioned under /api/v1.
 func RegisterRoutes(app *fiber.App, h *Handlers) {
-	v1 := app.Group("/api/v1")
+	v1 := app.Group(api.V1)
 
 	users := v1.Group("/users")
 	// Called by auth-service after phone verification. Not a public route —
