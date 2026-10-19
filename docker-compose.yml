@@ -63,6 +63,94 @@ services:
       timeout: 5s
       retries: 5
 
+  # --- Go services (opt-in) ---------------------------------------------------
+  # Not started by plain `docker compose up`, only with the profile:
+  #   docker compose --profile services up -d --build   (or: make services-up)
+  # APP_ENV (default beta; the Makefile exports it) picks each service's
+  # gitignored .env.<APP_ENV>, e.g. `make services-up APP_ENV=prod`. A missing
+  # file stops compose before anything starts. `environment` overrides only the
+  # addresses, since inside the compose network services reach each other by
+  # name on their container port, not via localhost.
+  # Migrations are not run here: run `make *-migrate-up` against the host ports.
+
+  user-service:
+    profiles: [services]
+    build:
+      context: .
+      dockerfile: services/user-service/Dockerfile
+    image: roundup-user-service
+    container_name: roundup-user-service
+    env_file: services/user-service/.env.${APP_ENV:-beta}
+    environment:
+      APP_ENV: ${APP_ENV:-beta}
+      POSTGRES_DSN: postgres://user_user:user_pass@postgres-user:5432/users
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres-user:
+        condition: service_healthy
+
+  venue-service:
+    profiles: [services]
+    build:
+      context: .
+      dockerfile: services/venue-service/Dockerfile
+    image: roundup-venue-service
+    container_name: roundup-venue-service
+    env_file: services/venue-service/.env.${APP_ENV:-beta}
+    environment:
+      APP_ENV: ${APP_ENV:-beta}
+      POSTGRES_DSN: postgres://venue_user:venue_pass@postgres-venue:5432/venues
+      REDIS_ADDR: redis:6379
+    ports:
+      - "3006:3006"
+    depends_on:
+      postgres-venue:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  auth-service:
+    profiles: [services]
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    image: roundup-auth-service
+    container_name: roundup-auth-service
+    env_file: services/auth-service/.env.${APP_ENV:-beta}
+    environment:
+      APP_ENV: ${APP_ENV:-beta}
+      POSTGRES_DSN: postgres://auth_user:auth_pass@postgres-auth:5432/auth
+      USER_SERVICE_URL: http://user-service:3002
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+
+  gateway:
+    profiles: [services]
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    image: roundup-gateway
+    container_name: roundup-gateway
+    env_file: services/gateway/.env.${APP_ENV:-beta}
+    environment:
+      APP_ENV: ${APP_ENV:-beta}
+      AUTH_SERVICE_URL: http://auth-service:3001
+      USER_SERVICE_URL: http://user-service:3002
+      VENUE_SERVICE_URL: http://venue-service:3006
+      REDIS_ADDR: redis:6379
+    ports:
+      - "8080:8080"
+    depends_on:
+      - auth-service
+      - user-service
+      - venue-service
+
 volumes:
   auth_db_data:
   venue_db_data:
