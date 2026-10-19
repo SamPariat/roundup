@@ -18,16 +18,20 @@ const userID = "7dc92d84-1950-43d6-b676-debacf84d830"
 
 func newKeyPair(t *testing.T) (ed25519.PublicKey, ed25519.PrivateKey) {
 	t.Helper()
+
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
+
 	return pub, priv
 }
 
 // signRaw signs arbitrary claims with any method, for building tokens that Sign would never produce.
 func signRaw(t *testing.T, method jwt.SigningMethod, key any, claims jwt.RegisteredClaims) string {
 	t.Helper()
+
 	token, err := jwt.NewWithClaims(method, claims).SignedString(key)
 	require.NoError(t, err)
+
 	return token
 }
 
@@ -106,6 +110,7 @@ func TestParseKeyPEMRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	pubDER, err := x509.MarshalPKIXPublicKey(pub)
 	require.NoError(t, err)
+
 	privPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privDER}))
 	pubPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER}))
 
@@ -129,7 +134,7 @@ func TestParseKeyPEMRoundTrip(t *testing.T) {
 	}
 
 	_, err = ParsePrivateKeyPEM("not a key")
-	assert.Error(t, err)
+	require.Error(t, err)
 	_, err = ParsePublicKeyPEM(privPEM)
 	assert.Error(t, err, "a private key is not a public key")
 }

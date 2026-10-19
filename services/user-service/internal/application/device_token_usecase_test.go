@@ -16,7 +16,7 @@ import (
 func TestRegisterRejectsEmptyToken(t *testing.T) {
 	uc := NewDeviceTokenUseCase(&fakeTokenRepo{})
 
-	_, err := uc.Register(context.Background(), domain.RegisterDeviceTokenCommand{
+	_, err := uc.Register(t.Context(), domain.RegisterDeviceTokenCommand{
 		UserID: "user-1", Token: "  ", Platform: domain.PlatformIOS,
 	})
 
@@ -26,7 +26,7 @@ func TestRegisterRejectsEmptyToken(t *testing.T) {
 func TestRegisterRejectsUnknownPlatform(t *testing.T) {
 	uc := NewDeviceTokenUseCase(&fakeTokenRepo{})
 
-	_, err := uc.Register(context.Background(), domain.RegisterDeviceTokenCommand{
+	_, err := uc.Register(t.Context(), domain.RegisterDeviceTokenCommand{
 		UserID: "user-1", Token: "fcm-token", Platform: "WINDOWS",
 	})
 
@@ -35,13 +35,13 @@ func TestRegisterRejectsUnknownPlatform(t *testing.T) {
 
 func TestRegisterSavesToken(t *testing.T) {
 	repo := &fakeTokenRepo{
-		upsertFn: func(ctx context.Context, cmd domain.RegisterDeviceTokenCommand) (*domain.DeviceToken, error) {
+		upsertFn: func(_ context.Context, cmd domain.RegisterDeviceTokenCommand) (*domain.DeviceToken, error) {
 			return &domain.DeviceToken{ID: 1, UserID: cmd.UserID, Token: cmd.Token, Platform: cmd.Platform}, nil
 		},
 	}
 	uc := NewDeviceTokenUseCase(repo)
 
-	token, err := uc.Register(context.Background(), domain.RegisterDeviceTokenCommand{
+	token, err := uc.Register(t.Context(), domain.RegisterDeviceTokenCommand{
 		UserID: "user-1", Token: " fcm-token ", Platform: domain.PlatformAndroid,
 	})
 
@@ -52,13 +52,13 @@ func TestRegisterSavesToken(t *testing.T) {
 
 func TestRemovePropagatesNotFound(t *testing.T) {
 	repo := &fakeTokenRepo{
-		deleteFn: func(ctx context.Context, cmd domain.RemoveDeviceTokenCommand) error {
+		deleteFn: func(_ context.Context, cmd domain.RemoveDeviceTokenCommand) error {
 			return domainerr.New(domain.ErrDeviceTokenNotFound, cmd.Token)
 		},
 	}
 	uc := NewDeviceTokenUseCase(repo)
 
-	err := uc.Remove(context.Background(), domain.RemoveDeviceTokenCommand{UserID: "user-1", Token: "x"})
+	err := uc.Remove(t.Context(), domain.RemoveDeviceTokenCommand{UserID: "user-1", Token: "x"})
 
 	assert.ErrorIs(t, err, domain.ErrDeviceTokenNotFound)
 }

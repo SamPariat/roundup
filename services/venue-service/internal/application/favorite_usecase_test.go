@@ -72,7 +72,7 @@ func (f *fakeRepo) GetVisitHistory(ctx context.Context, squadID string) ([]domai
 func TestAddFavoriteSuccess(t *testing.T) {
 	uc := NewFavoriteUseCase(&fakeRepo{})
 
-	err := uc.AddFavorite(context.Background(), domain.AddFavoriteCommand{
+	err := uc.AddFavorite(t.Context(), domain.AddFavoriteCommand{
 		SquadID: "squad-1", UserID: "user-1", PlaceID: "abc", Name: "The Rooftop",
 	})
 
@@ -86,7 +86,7 @@ func TestAddFavoriteAlreadySaved(t *testing.T) {
 		},
 	})
 
-	err := uc.AddFavorite(context.Background(), domain.AddFavoriteCommand{})
+	err := uc.AddFavorite(t.Context(), domain.AddFavoriteCommand{})
 
 	assert.ErrorIs(t, err, domain.ErrAlreadySaved)
 }
@@ -94,7 +94,7 @@ func TestAddFavoriteAlreadySaved(t *testing.T) {
 func TestRemoveFavoriteSuccess(t *testing.T) {
 	uc := NewFavoriteUseCase(&fakeRepo{})
 
-	err := uc.RemoveFavorite(context.Background(), domain.RemoveFavoriteCommand{
+	err := uc.RemoveFavorite(t.Context(), domain.RemoveFavoriteCommand{
 		SquadID: "squad-1", UserID: "user-1", PlaceID: "abc",
 	})
 	require.NoError(t, err)
@@ -107,7 +107,7 @@ func TestRemoveFavoriteNotSaved(t *testing.T) {
 		},
 	})
 
-	err := uc.RemoveFavorite(context.Background(), domain.RemoveFavoriteCommand{})
+	err := uc.RemoveFavorite(t.Context(), domain.RemoveFavoriteCommand{})
 	assert.ErrorIs(t, err, domain.ErrNotSaved)
 }
 
@@ -119,7 +119,7 @@ func TestListFavoritesReturnsSavedVenues(t *testing.T) {
 		},
 	})
 
-	got, err := uc.ListFavorites(context.Background(), "squad-1")
+	got, err := uc.ListFavorites(t.Context(), "squad-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, saved, got)
@@ -132,7 +132,7 @@ func TestIsFavoriteTrue(t *testing.T) {
 		},
 	})
 
-	got, err := uc.IsFavorite(context.Background(), "squad-1", "user-1", "abc")
+	got, err := uc.IsFavorite(t.Context(), "squad-1", "user-1", "abc")
 	require.NoError(t, err)
 	assert.True(t, got)
 }
@@ -140,7 +140,7 @@ func TestIsFavoriteTrue(t *testing.T) {
 func TestIsFavoriteFalse(t *testing.T) {
 	uc := NewFavoriteUseCase(&fakeRepo{})
 
-	got, err := uc.IsFavorite(context.Background(), "squad-1", "user-1", "abc")
+	got, err := uc.IsFavorite(t.Context(), "squad-1", "user-1", "abc")
 	require.NoError(t, err)
 	assert.False(t, got)
 }

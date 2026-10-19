@@ -39,9 +39,11 @@ type upstream struct {
 
 func newUpstream(t *testing.T, name string) *upstream {
 	t.Helper()
+
 	u := &upstream{name: name}
 	u.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
+
 		u.mu.Lock()
 		u.got = append(u.got, seen{name, r.Method, r.URL.RequestURI(), r.Header.Get(sharedmw.UserIDHeader), r.Header.Get(sharedmw.RequestIDHeader), string(body)})
 		u.mu.Unlock()
@@ -49,6 +51,7 @@ func newUpstream(t *testing.T, name string) *upstream {
 		_ = json.NewEncoder(w).Encode(map[string]string{"from": name})
 	}))
 	t.Cleanup(u.srv.Close)
+
 	return u
 }
 
@@ -56,7 +59,9 @@ func (u *upstream) last(t *testing.T) seen {
 	t.Helper()
 	u.mu.Lock()
 	defer u.mu.Unlock()
+
 	require.NotEmpty(t, u.got, "%s received nothing", u.name)
+
 	return u.got[len(u.got)-1]
 }
 
@@ -68,6 +73,7 @@ type fixture struct {
 
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
+
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	token, _, err := authtoken.Sign(priv, userID, time.Minute)
@@ -77,18 +83,23 @@ func newFixture(t *testing.T) *fixture {
 	f.app = fiber.New()
 	f.app.Use(sharedmw.GenerateRequestID(), middleware.StripIdentity())
 	RegisterRoutes(f.app, config.Upstreams{Auth: f.auth.srv.URL, User: f.user.srv.URL, Venue: f.venue.srv.URL}, pub, 2*time.Second)
+
 	return f
 }
 
 func (f *fixture) do(t *testing.T, method, path, body string, withToken bool) *http.Response {
 	t.Helper()
+
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+
 	if withToken {
 		req.Header.Set("Authorization", "Bearer "+f.token)
 	}
+
 	resp, err := f.app.Test(req)
 	require.NoError(t, err)
+
 	return resp
 }
 
@@ -131,6 +142,7 @@ func TestProtectedRoutesNeedToken(t *testing.T) {
 		resp := f.do(t, http.MethodGet, path, "", false)
 		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, path)
 	}
+
 	assert.Empty(t, f.user.got)
 	assert.Empty(t, f.venue.got)
 }
@@ -142,6 +154,7 @@ func TestCreateUserIsBlocked(t *testing.T) {
 		resp := f.do(t, http.MethodPost, path, `{"phone":"+919876543210"}`, true)
 		assert.Equal(t, http.StatusNotFound, resp.StatusCode, path)
 	}
+
 	assert.Empty(t, f.user.got, "user-service must never see an external create")
 }
 

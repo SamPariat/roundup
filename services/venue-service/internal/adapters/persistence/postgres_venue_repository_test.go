@@ -1,7 +1,6 @@
 package persistence
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -28,12 +27,13 @@ const (
 func newRepo(t *testing.T) (*PostgresVenueRepository, *pgxpool.Pool) {
 	t.Helper()
 	pool := postgrestest.New(t, migrationsDir)
+
 	return NewPostgresVenueRepository(pool), pool
 }
 
 func addFavorite(t *testing.T, repo *PostgresVenueRepository, squadID, userID, placeID string) {
 	t.Helper()
-	require.NoError(t, repo.AddFavorite(context.Background(), domain.AddFavoriteCommand{
+	require.NoError(t, repo.AddFavorite(t.Context(), domain.AddFavoriteCommand{
 		SquadID: squadID, UserID: userID, PlaceID: placeID, Name: "Venue " + placeID,
 	}))
 }
@@ -41,7 +41,7 @@ func addFavorite(t *testing.T, repo *PostgresVenueRepository, squadID, userID, p
 // --- favorites ---
 
 func TestAddFavoriteThenIsFavorite(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	repo, _ := newRepo(t)
 
 	addFavorite(t, repo, squad, alice, "place-1")
@@ -59,7 +59,7 @@ func TestAddFavoriteTwiceReturnsErrAlreadySaved(t *testing.T) {
 	repo, _ := newRepo(t)
 	addFavorite(t, repo, squad, alice, "place-1")
 
-	err := repo.AddFavorite(context.Background(), domain.AddFavoriteCommand{SquadID: squad, UserID: alice, PlaceID: "place-1", Name: "again"})
+	err := repo.AddFavorite(t.Context(), domain.AddFavoriteCommand{SquadID: squad, UserID: alice, PlaceID: "place-1", Name: "again"})
 
 	assert.ErrorIs(t, err, domain.ErrAlreadySaved)
 }
@@ -73,12 +73,12 @@ func TestSamePlaceCanBeSavedByEachMemberAndSquad(t *testing.T) {
 }
 
 func TestRemoveFavoriteOnlyByOwner(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	repo, _ := newRepo(t)
 	addFavorite(t, repo, squad, alice, "place-1")
 
 	err := repo.RemoveFavorite(ctx, domain.RemoveFavoriteCommand{SquadID: squad, UserID: bob, PlaceID: "place-1"})
-	assert.ErrorIs(t, err, domain.ErrNotSaved, "bob cannot remove alice's favorite")
+	require.ErrorIs(t, err, domain.ErrNotSaved, "bob cannot remove alice's favorite")
 
 	require.NoError(t, repo.RemoveFavorite(ctx, domain.RemoveFavoriteCommand{SquadID: squad, UserID: alice, PlaceID: "place-1"}))
 
@@ -94,7 +94,7 @@ func TestListFavoritesIsSquadScopedNewestFirst(t *testing.T) {
 	addFavorite(t, repo, squad, bob, "place-2")
 	addFavorite(t, repo, otherSquad, alice, "place-3")
 
-	favs, err := repo.ListFavorites(context.Background(), squad)
+	favs, err := repo.ListFavorites(t.Context(), squad)
 	require.NoError(t, err)
 
 	require.Len(t, favs, 2)
@@ -106,7 +106,7 @@ func TestListFavoritesIsSquadScopedNewestFirst(t *testing.T) {
 func TestListFavoritesEmptySquad(t *testing.T) {
 	repo, _ := newRepo(t)
 
-	favs, err := repo.ListFavorites(context.Background(), squad)
+	favs, err := repo.ListFavorites(t.Context(), squad)
 
 	require.NoError(t, err)
 	assert.Empty(t, favs)
@@ -116,7 +116,7 @@ func TestListFavoritesEmptySquad(t *testing.T) {
 
 func recordVisit(t *testing.T, repo *PostgresVenueRepository, eventID, placeID string, at time.Time, spend int64) {
 	t.Helper()
-	require.NoError(t, repo.RecordVisit(context.Background(), domain.RecordVisitCommand{
+	require.NoError(t, repo.RecordVisit(t.Context(), domain.RecordVisitCommand{
 		SquadID: squad, EventID: eventID, PlaceID: placeID, Name: "Venue " + placeID, VisitedAt: at, AvgSpendInPaise: spend,
 	}))
 }
@@ -129,7 +129,7 @@ func TestVisitHistoryAggregatesPerVenueMostRecentFirst(t *testing.T) {
 	recordVisit(t, repo, "event-2", "toit", day(5), 0)
 	recordVisit(t, repo, "event-3", "byg", day(9), 90000)
 
-	history, err := repo.GetVisitHistory(context.Background(), squad)
+	history, err := repo.GetVisitHistory(t.Context(), squad)
 	require.NoError(t, err)
 
 	require.Len(t, history, 2)
@@ -145,7 +145,7 @@ func TestRecordVisitTwiceForSameEventReturnsErrVisitAlreadyRecorded(t *testing.T
 	at := time.Date(2026, 10, 1, 20, 0, 0, 0, time.UTC)
 	recordVisit(t, repo, "event-1", "toit", at, 0)
 
-	err := repo.RecordVisit(context.Background(), domain.RecordVisitCommand{
+	err := repo.RecordVisit(t.Context(), domain.RecordVisitCommand{
 		SquadID: squad, EventID: "event-1", PlaceID: "toit", Name: "Toit", VisitedAt: at,
 	})
 
@@ -158,7 +158,8 @@ func TestRecordVisitStoresZeroSpendAsNull(t *testing.T) {
 	recordVisit(t, repo, "event-2", "byg", time.Now(), 90000)
 
 	var nulls, set int
-	err := pool.QueryRow(context.Background(),
+
+	err := pool.QueryRow(t.Context(),
 		"SELECT count(*) FILTER (WHERE avg_spend_in_paise IS NULL), count(*) FILTER (WHERE avg_spend_in_paise = 90000) FROM venue_visits",
 	).Scan(&nulls, &set)
 	require.NoError(t, err)

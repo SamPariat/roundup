@@ -1,7 +1,6 @@
 package postgrestest
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -11,11 +10,11 @@ import (
 func TestNewAppliesMigrations(t *testing.T) {
 	pool := New(t, "testdata/migrations")
 
-	_, err := pool.Exec(context.Background(), "INSERT INTO widgets (name) VALUES ('a')")
+	_, err := pool.Exec(t.Context(), "INSERT INTO widgets (name) VALUES ('a')")
 	require.NoError(t, err)
 
 	var count int
-	require.NoError(t, pool.QueryRow(context.Background(), "SELECT count(*) FROM widgets").Scan(&count))
+	require.NoError(t, pool.QueryRow(t.Context(), "SELECT count(*) FROM widgets").Scan(&count))
 	assert.Equal(t, 1, count)
 }
 
@@ -23,10 +22,10 @@ func TestNewIsolatesDatabases(t *testing.T) {
 	first := New(t, "testdata/migrations")
 	second := New(t, "testdata/migrations")
 
-	_, err := first.Exec(context.Background(), "INSERT INTO widgets (name) VALUES ('only-in-first')")
+	_, err := first.Exec(t.Context(), "INSERT INTO widgets (name) VALUES ('only-in-first')")
 	require.NoError(t, err)
 
 	var count int
-	require.NoError(t, second.QueryRow(context.Background(), "SELECT count(*) FROM widgets").Scan(&count))
+	require.NoError(t, second.QueryRow(t.Context(), "SELECT count(*) FROM widgets").Scan(&count))
 	assert.Equal(t, 0, count, "each New call must get its own database")
 }

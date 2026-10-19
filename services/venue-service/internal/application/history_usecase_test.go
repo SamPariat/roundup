@@ -17,7 +17,7 @@ import (
 func TestRecordVisitSuccess(t *testing.T) {
 	uc := NewHistoryUseCase(&fakeRepo{})
 
-	err := uc.RecordVisit(context.Background(), domain.RecordVisitCommand{
+	err := uc.RecordVisit(t.Context(), domain.RecordVisitCommand{
 		SquadID:         "squad-id",
 		EventID:         "event-id",
 		PlaceID:         "place-id",
@@ -37,7 +37,7 @@ func TestRecordVisitPropagatesError(t *testing.T) {
 		},
 	})
 
-	err := uc.RecordVisit(context.Background(), domain.RecordVisitCommand{})
+	err := uc.RecordVisit(t.Context(), domain.RecordVisitCommand{})
 	assert.ErrorIs(t, err, repoErr)
 }
 
@@ -52,7 +52,7 @@ func TestGetVisitHistoryReturnsSummaries(t *testing.T) {
 		},
 	})
 
-	got, err := uc.GetVisitHistory(context.Background(), "squad-1")
+	got, err := uc.GetVisitHistory(t.Context(), "squad-1")
 	require.NoError(t, err)
 	assert.Equal(t, summaries, got)
 }
@@ -66,6 +66,6 @@ func TestGetVisitHistoryPropagatesError(t *testing.T) {
 		},
 	})
 
-	_, err := uc.GetVisitHistory(context.Background(), "squad-1")
+	_, err := uc.GetVisitHistory(t.Context(), "squad-1")
 	assert.ErrorIs(t, err, repoErr)
 }

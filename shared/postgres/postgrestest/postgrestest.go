@@ -37,7 +37,7 @@ func New(t *testing.T, migrationsDir string) *pgxpool.Pool {
 		t.Skipf("%s not set; skipping Postgres integration test", EnvDSN)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	admin, err := pgx.Connect(ctx, dsn)
 	if err != nil {
@@ -66,13 +66,17 @@ func New(t *testing.T, migrationsDir string) *pgxpool.Pool {
 	}
 
 	t.Cleanup(func() {
+		// t.Context() is already cancelled when cleanups run, so the drop
+		// keeps its values but not its cancellation.
+		cleanupCtx := context.WithoutCancel(ctx)
+
 		pool.Close()
 		// FORCE ends any connection a failed test left open.
-		if _, err := admin.Exec(ctx, "DROP DATABASE IF EXISTS "+name+" WITH (FORCE)"); err != nil {
+		if _, err := admin.Exec(cleanupCtx, "DROP DATABASE IF EXISTS "+name+" WITH (FORCE)"); err != nil {
 			t.Errorf("drop test database %s: %v", name, err)
 		}
 
-		_ = admin.Close(ctx)
+		_ = admin.Close(cleanupCtx)
 	})
 
 	migrate(t, pool, migrationsDir)
@@ -93,7 +97,7 @@ func migrate(t *testing.T, pool *pgxpool.Pool, dir string) {
 		t.Fatalf("load migrations from %s: %v", dir, err)
 	}
 
-	if _, err := provider.Up(context.Background()); err != nil {
+	if _, err := provider.Up(t.Context()); err != nil {
 		t.Fatalf("apply migrations from %s: %v", dir, err)
 	}
 }

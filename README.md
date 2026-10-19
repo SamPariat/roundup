@@ -347,7 +347,7 @@ git push origin feat/billing-service/debt-simplification
 # open PR → main
 ```
 
-**CI:** every PR runs `.github/workflows/ci.yml`: a `lint` job (gofmt, go vet, golangci-lint) and a `test` job (`go test -race` against a Postgres 18 service container, coverage in the run summary) per module, plus a Docker build per service. Merging into `main` requires the `ci-ok` check to pass.
+**CI:** every PR runs `.github/workflows/ci.yml`: a `lint` job (gofmt, go vet, golangci-lint with the root `.golangci.yml`, which also enforces gofumpt formatting and blank-line spacing) and a `test` job (`go test -race` against a Postgres 18 service container, coverage in the run summary) per module, plus a Docker build per service. Merging into `main` requires the `ci-ok` check to pass.
 
 **Commit format:** `type(scope): description`
 

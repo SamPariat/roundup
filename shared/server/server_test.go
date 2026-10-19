@@ -50,6 +50,7 @@ func TestReady(t *testing.T) {
 
 			resp, err := app.Test(httptest.NewRequest("GET", "/ready", nil))
 			require.NoError(t, err)
+
 			body, _ := io.ReadAll(resp.Body)
 
 			assert.Equal(t, tt.wantStatus, resp.StatusCode)
@@ -66,25 +67,31 @@ func TestRunDrainsInFlightRequestOnSIGTERM(t *testing.T) {
 	app.Get("/slow", func(c fiber.Ctx) error {
 		close(started)
 		time.Sleep(300 * time.Millisecond)
+
 		return c.SendString("finished")
 	})
 
 	runErr := make(chan error, 1)
 	go func() { runErr <- Run(app, port, zap.NewNop()) }()
+
 	waitForPort(t, port)
 
 	type result struct {
 		body string
 		err  error
 	}
+
 	got := make(chan result, 1)
+
 	go func() {
 		resp, err := http.Get("http://127.0.0.1:" + port + "/slow")
 		if err != nil {
 			got <- result{err: err}
+
 			return
 		}
 		defer func() { _ = resp.Body.Close() }()
+
 		b, err := io.ReadAll(resp.Body)
 		got <- result{string(b), err}
 	}()
@@ -98,7 +105,7 @@ func TestRunDrainsInFlightRequestOnSIGTERM(t *testing.T) {
 
 	select {
 	case err := <-runErr:
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	case <-time.After(ShutdownTimeout + time.Second):
 		t.Fatal("Run did not return after SIGTERM")
 	}
@@ -106,9 +113,12 @@ func TestRunDrainsInFlightRequestOnSIGTERM(t *testing.T) {
 
 func freePort(t *testing.T) string {
 	t.Helper()
+
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
+
 	defer func() { _ = l.Close() }()
+
 	return strconv.Itoa(l.Addr().(*net.TCPAddr).Port)
 }
 
@@ -119,6 +129,7 @@ func waitForPort(t *testing.T, port string) {
 		if err == nil {
 			_ = conn.Close()
 		}
+
 		return err == nil
 	}, 2*time.Second, 10*time.Millisecond)
 }

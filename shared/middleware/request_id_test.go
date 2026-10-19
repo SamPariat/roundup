@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"io"
 	"net/http/httptest"
 	"testing"
@@ -62,7 +61,7 @@ func TestRequestIDIsInContext(t *testing.T) {
 }
 
 func TestRequestIDFromContextEmptyWhenUnset(t *testing.T) {
-	assert.Empty(t, RequestIDFromContext(context.Background()))
+	assert.Empty(t, RequestIDFromContext(t.Context()))
 }
 
 func TestGenerateRequestIDIgnoresClientHeader(t *testing.T) {

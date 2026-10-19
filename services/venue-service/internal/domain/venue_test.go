@@ -14,7 +14,7 @@ func TestSearchParamsValidate(t *testing.T) {
 		mutate  func(p *SearchParams)
 		wantErr bool
 	}{
-		{"Valid", func(p *SearchParams) {}, false},
+		{"Valid", func(_ *SearchParams) {}, false},
 		{"BoundaryValues", func(p *SearchParams) { p.Latitude, p.Longitude, p.RadiusInMeters = -90, 180, 50000 }, false},
 		{"LatitudeTooLow", func(p *SearchParams) { p.Latitude = -90.01 }, true},
 		{"LatitudeTooHigh", func(p *SearchParams) { p.Latitude = 90.01 }, true},
@@ -37,6 +37,7 @@ func TestSearchParamsValidate(t *testing.T) {
 			if tt.wantErr != (err != nil) {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
+
 			if tt.wantErr && !errors.Is(err, ErrInvalidSearch) {
 				t.Fatalf("Validate() error = %v, want ErrInvalidSearch", err)
 			}

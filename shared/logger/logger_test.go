@@ -58,14 +58,17 @@ func captureStdout(t *testing.T, fn func()) string {
 	original := os.Stdout
 	r, w, err := os.Pipe()
 	require.NoError(t, err)
+
 	os.Stdout = w
 
 	fn()
 
 	require.NoError(t, w.Close())
+
 	os.Stdout = original
 
 	var buf strings.Builder
+
 	_, err = io.Copy(&buf, bufio.NewReader(r))
 	require.NoError(t, err)
 

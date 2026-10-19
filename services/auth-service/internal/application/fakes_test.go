@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -26,10 +27,13 @@ type clock struct{ t time.Time }
 func (c *clock) now() time.Time          { return c.t }
 func (c *clock) advance(d time.Duration) { c.t = c.t.Add(d) }
 func newClock() *clock                   { return &clock{t: time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC)} }
+
 func newKeys(t *testing.T) (ed25519.PublicKey, ed25519.PrivateKey) {
 	t.Helper()
+
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
+
 	return pub, priv
 }
 
@@ -42,31 +46,37 @@ type fakeOTPRepo struct {
 
 func (f *fakeOTPRepo) CountSince(_ context.Context, phone string, since time.Time) (int, error) {
 	n := 0
+
 	for _, c := range f.codes {
 		if c.Phone == phone && !c.ExpiresAt.Add(-domain.OTPTTL).Before(since) {
 			n++
 		}
 	}
+
 	return n, nil
 }
 
 func (f *fakeOTPRepo) Create(_ context.Context, phone string, hash []byte, expiresAt time.Time) error {
 	f.codes = append(f.codes, &domain.OTPCode{ID: int64(len(f.codes) + 1), Phone: phone, CodeHash: hash, ExpiresAt: expiresAt})
+
 	return nil
 }
 
 func (f *fakeOTPRepo) Latest(_ context.Context, phone string) (*domain.OTPCode, error) {
-	for i := len(f.codes) - 1; i >= 0; i-- {
-		if f.codes[i].Phone == phone {
-			c := *f.codes[i]
+	for _, v := range slices.Backward(f.codes) {
+		if v.Phone == phone {
+			c := *v
+
 			return &c, nil
 		}
 	}
+
 	return nil, domain.ErrInvalidCode
 }
 
 func (f *fakeOTPRepo) IncrementAttempts(_ context.Context, id int64) error {
 	f.codes[id-1].Attempts++
+
 	return nil
 }
 
@@ -74,8 +84,10 @@ func (f *fakeOTPRepo) Consume(_ context.Context, id int64) error {
 	if f.codes[id-1].ConsumedAt != nil {
 		return domain.ErrInvalidCode
 	}
+
 	now := f.clock.now()
 	f.codes[id-1].ConsumedAt = &now
+
 	return nil
 }
 
@@ -85,6 +97,7 @@ type fakeSender struct{ sent map[string]string }
 
 func (f *fakeSender) Send(_ context.Context, phone, code string) error {
 	f.sent[phone] = code
+
 	return nil
 }
 
@@ -101,6 +114,7 @@ func (f *fakeUsers) EnsureUser(context.Context, string) (string, bool, error) {
 	if f.err != nil {
 		return "", false, f.err
 	}
+
 	return testUserID, f.created, nil
 }
 
@@ -124,6 +138,7 @@ func (f *fakeSessions) add(sessionID, userID string, hash []byte, expiresAt time
 func (f *fakeSessions) Create(_ context.Context, userID string, hash []byte, expiresAt time.Time) (string, error) {
 	sessionID := fmt.Sprintf("session-%d", len(f.revoked)+len(f.tokens)+1)
 	f.add(sessionID, userID, hash, expiresAt)
+
 	return sessionID, nil
 }
 
@@ -132,8 +147,10 @@ func (f *fakeSessions) FindRefreshToken(_ context.Context, hash []byte) (*domain
 	if !ok {
 		return nil, domain.ErrInvalidRefreshToken
 	}
+
 	c := *t
 	c.SessionRevoked = f.revoked[t.SessionID]
+
 	return &c, nil
 }
 
@@ -143,16 +160,20 @@ func (f *fakeSessions) Rotate(_ context.Context, oldID int64, sessionID string, 
 			if t.UsedAt != nil {
 				return domain.ErrInvalidRefreshToken
 			}
+
 			now := time.Now()
 			t.UsedAt = &now
 			f.add(sessionID, t.UserID, newHash, expiresAt)
+
 			return nil
 		}
 	}
+
 	return domain.ErrInvalidRefreshToken
 }
 
 func (f *fakeSessions) Revoke(_ context.Context, sessionID string) error {
 	f.revoked[sessionID] = true
+
 	return nil
 }

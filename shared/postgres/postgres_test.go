@@ -32,13 +32,13 @@ func TestIsNoRows(t *testing.T) {
 }
 
 func TestConnectRejectsInvalidDSN(t *testing.T) {
-	_, err := Connect(context.Background(), "not a dsn ::")
+	_, err := Connect(t.Context(), "not a dsn ::")
 
 	require.Error(t, err)
 }
 
 func TestConnectFailsWhenDatabaseUnreachable(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 	defer cancel()
 
 	// Port 1 is never a Postgres server, so the ping must fail.
