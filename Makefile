@@ -55,7 +55,7 @@ setup:
 	done
 
 # Builds and runs all four Go services in Docker alongside the databases
-# (compose "services" profile, beta env files). Logs: Docker Desktop or
+# (compose "services" profile, services/*/.env.$(APP_ENV)). Logs: Docker Desktop or
 # `make services-logs`. Stop with `make services-down` before `make *-run`,
 # since both use the same ports.
 services-up:

@@ -213,7 +213,7 @@ make auth-test        # also user-test, venue-test, gateway-test
 docker compose --profile services down
 ```
 
-Services in Docker read the same `services/*/.env.beta` files as native runs; `docker-compose.yml` only swaps `localhost` addresses for container names. Docker and native runs use the same ports, so run `make services-down` before `make *-run`.
+Services in Docker read the same `services/*/.env.<APP_ENV>` files as native runs (`make services-up APP_ENV=prod` for prod; beta by default); `docker-compose.yml` only swaps `localhost` addresses for container names. Docker and native runs use the same ports, so run `make services-down` before `make *-run`.
 
 ---
 
