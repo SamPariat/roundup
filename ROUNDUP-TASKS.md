@@ -125,6 +125,8 @@
 
 ### Observability
 
+- [x] Graceful shutdown on SIGTERM and panic recovery on every service (`shared/server.Run`, `shared/middleware.Recover`)
+
 - [ ] Set up Grafana Cloud account (free tier)
 - [ ] Configure Loki log shipping (Vector sidecar)
 - [ ] Create Grafana dashboard — request rate per service
@@ -173,9 +175,9 @@ Access tokens are Ed25519 JWTs: the gateway verifies them locally with auth-serv
 
 ### Rate limiting
 
-- [ ] Rate limit `/api/v1/auth/*` by IP (protects OTP sending)
+- [x] Rate limit `/api/v1/auth/*` by IP: 20 requests per 15 minutes, in memory per gateway instance (protects OTP sending)
 - [ ] Rate limit by user ID for authenticated routes
-- [ ] Return `429 Too Many Requests` with `Retry-After` header
+- [x] Return `429 Too Many Requests` with `Retry-After` header
 
 ### Load balancing
 
@@ -184,7 +186,7 @@ Access tokens are Ed25519 JWTs: the gateway verifies them locally with auth-serv
 ### Observability
 
 - [x] Log every request: method, path, status, duration, requestId
-- [x] Expose `/health` endpoint — returns 200 if healthy
+- [x] Expose `/health` (liveness) and `/ready` (readiness) on every service via `shared/server`
 - [ ] Expose `/metrics` endpoint for Prometheus
 - [ ] Request count, latency histogram and upstream error count per route
 

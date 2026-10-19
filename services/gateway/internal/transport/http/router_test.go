@@ -153,9 +153,8 @@ func TestUpstreamDownIsBadGateway(t *testing.T) {
 	assert.Equal(t, http.StatusBadGateway, resp.StatusCode)
 }
 
-func TestHealthAndUnbuiltServices(t *testing.T) {
+func TestUnbuiltServices(t *testing.T) {
 	f := newFixture(t)
 
-	assert.Equal(t, http.StatusOK, f.do(t, http.MethodGet, "/health", "", false).StatusCode)
 	assert.Equal(t, http.StatusNotImplemented, f.do(t, http.MethodGet, "/api/v1/events/123", "", false).StatusCode)
 }

@@ -26,9 +26,7 @@ func NewDeviceTokenHandler(uc *application.DeviceTokenUseCase) *DeviceTokenHandl
 func (h *DeviceTokenHandler) Register(c fiber.Ctx) error {
 	var req dtos.RegisterDeviceTokenRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(
-			response.Fail[any](err.Error()),
-		)
+		return response.Error(c, fiber.StatusBadRequest, err)
 	}
 
 	token, err := h.uc.Register(c.Context(), domain.RegisterDeviceTokenCommand{
@@ -37,9 +35,7 @@ func (h *DeviceTokenHandler) Register(c fiber.Ctx) error {
 		Platform: domain.Platform(req.Platform),
 	})
 	if err != nil {
-		return c.Status(deviceTokenErrorStatus(err)).JSON(
-			response.Fail[any](err.Error()),
-		)
+		return response.Error(c, deviceTokenErrorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(response.OK(dtos.DeviceTokenToResponse(token)))
@@ -60,9 +56,7 @@ func (h *DeviceTokenHandler) Remove(c fiber.Ctx) error {
 		Token:  token,
 	})
 	if err != nil {
-		return c.Status(deviceTokenErrorStatus(err)).JSON(
-			response.Fail[any](err.Error()),
-		)
+		return response.Error(c, deviceTokenErrorStatus(err), err)
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)

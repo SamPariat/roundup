@@ -13,16 +13,15 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// RegisterRoutes mounts /health and the /api/v1 routes. Client-sent identity
-// headers must already be stripped (middleware.StripIdentity, mounted globally).
+// RegisterRoutes mounts the /api/v1 routes. Client-sent identity headers must
+// already be stripped (middleware.StripIdentity, mounted globally).
 func RegisterRoutes(app *fiber.App, upstreams config.Upstreams, pub ed25519.PublicKey, timeout time.Duration) {
-	app.Get("/health", healthHandler)
-
 	auth := middleware.RequireAuth(pub)
 	v1 := app.Group("/api/v1")
 
-	// Public: login and token refresh are how a client gets a token.
-	v1.All("/auth/*", proxy.To(upstreams.Auth, timeout))
+	// Public: login and token refresh are how a client gets a token. Being
+	// unauthenticated, they are rate limited per client IP.
+	v1.All("/auth/*", middleware.AuthRateLimit(), proxy.To(upstreams.Auth, timeout))
 
 	// Creating users is internal: auth-service calls user-service directly at
 	// login. Registered before the /users group so it wins.
@@ -36,11 +35,6 @@ func RegisterRoutes(app *fiber.App, upstreams config.Upstreams, pub ed25519.Publ
 	for _, name := range []string{"events", "billing", "media", "realtime"} {
 		v1.All("/"+name+"/*", notImplementedHandler)
 	}
-}
-
-// healthHandler reports liveness for orchestration and uptime checks.
-func healthHandler(c fiber.Ctx) error {
-	return c.JSON(fiber.Map{"status": "ok"})
 }
 
 func notFoundHandler(c fiber.Ctx) error {

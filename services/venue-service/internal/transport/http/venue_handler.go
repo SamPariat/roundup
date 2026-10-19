@@ -24,9 +24,7 @@ func NewVenueHandler(uc *application.VenueUseCase) *VenueHandler {
 func (h *VenueHandler) Search(c fiber.Ctx) error {
 	var req dtos.SearchRequest
 	if err := c.Bind().Query(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(
-			response.Fail[dtos.SearchResponse](err.Error()),
-		)
+		return response.Error(c, fiber.StatusBadRequest, err)
 	}
 
 	venues, err := h.uc.Search(c.Context(), domain.SearchParams{
@@ -37,9 +35,7 @@ func (h *VenueHandler) Search(c fiber.Ctx) error {
 		Type:           req.Type,
 	})
 	if err != nil {
-		return c.Status(venueErrorStatus(err)).JSON(
-			response.Fail[dtos.SearchResponse](err.Error()),
-		)
+		return response.Error(c, venueErrorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(
@@ -59,9 +55,7 @@ func (h *VenueHandler) GetDetail(c fiber.Ctx) error {
 
 	detail, err := h.uc.GetDetail(c.Context(), placeID)
 	if err != nil {
-		return c.Status(venueErrorStatus(err)).JSON(
-			response.Fail[dtos.VenueDetailResponse](err.Error()),
-		)
+		return response.Error(c, venueErrorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(

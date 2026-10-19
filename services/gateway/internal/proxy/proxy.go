@@ -51,7 +51,7 @@ func To(baseURL string, timeout time.Duration) fiber.Handler {
 			c.Set(sharedmw.RequestIDHeader, id)
 		}
 		if err != nil {
-			return c.Status(fiber.StatusBadGateway).JSON(response.Fail[any]("upstream service unavailable"))
+			return response.Error(c, fiber.StatusBadGateway, err)
 		}
 
 		return nil

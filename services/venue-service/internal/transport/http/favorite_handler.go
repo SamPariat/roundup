@@ -29,9 +29,7 @@ func (h *FavoriteHandler) AddFavorite(c fiber.Ctx) error {
 
 	var req dtos.AddFavoriteRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(
-			response.Fail[any](err.Error()),
-		)
+		return response.Error(c, fiber.StatusBadRequest, err)
 	}
 
 	err := h.uc.AddFavorite(c.Context(), domain.AddFavoriteCommand{
@@ -41,9 +39,7 @@ func (h *FavoriteHandler) AddFavorite(c fiber.Ctx) error {
 		Name:    req.Name,
 	})
 	if err != nil {
-		return c.Status(favoriteErrorStatus(err)).JSON(
-			response.Fail[any](err.Error()),
-		)
+		return response.Error(c, favoriteErrorStatus(err), err)
 	}
 
 	return c.SendStatus(fiber.StatusCreated)
@@ -61,9 +57,7 @@ func (h *FavoriteHandler) RemoveFavorite(c fiber.Ctx) error {
 		PlaceID: placeID,
 	})
 	if err != nil {
-		return c.Status(favoriteErrorStatus(err)).JSON(
-			response.Fail[any](err.Error()),
-		)
+		return response.Error(c, favoriteErrorStatus(err), err)
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
@@ -75,9 +69,7 @@ func (h *FavoriteHandler) ListFavorites(c fiber.Ctx) error {
 
 	favorites, err := h.uc.ListFavorites(c.Context(), squadID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(
-			response.Fail[dtos.FavoritesResponse](err.Error()),
-		)
+		return response.Error(c, fiber.StatusInternalServerError, err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(
@@ -93,9 +85,7 @@ func (h *FavoriteHandler) IsFavorite(c fiber.Ctx) error {
 
 	isFav, err := h.uc.IsFavorite(c.Context(), squadID, userID, placeID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(
-			response.Fail[dtos.IsFavoriteResponse](err.Error()),
-		)
+		return response.Error(c, fiber.StatusInternalServerError, err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(

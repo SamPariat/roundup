@@ -16,6 +16,7 @@ import (
 	"github.com/SamPariat/roundup/shared/logger"
 	"github.com/SamPariat/roundup/shared/middleware"
 	"github.com/SamPariat/roundup/shared/postgres"
+	"github.com/SamPariat/roundup/shared/server"
 	"github.com/gofiber/fiber/v3"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -46,7 +47,8 @@ func main() {
 	historyUC := application.NewHistoryUseCase(venueRepo)
 
 	app := fiber.New()
-	app.Use(middleware.RequestID(), middleware.Logging(log))
+	app.Use(middleware.RequestID(), middleware.Logging(log), middleware.Recover(log))
+	server.Health(app, log, map[string]server.Check{"postgres": pool.Ping})
 	transporthttp.RegisterRoutes(app, &transporthttp.Handlers{
 		Venue:    transporthttp.NewVenueHandler(venueUC),
 		Favorite: transporthttp.NewFavoriteHandler(favoriteUC),
@@ -54,7 +56,9 @@ func main() {
 	})
 
 	log.Info("starting venue-service", zap.String("env", cfg.Env), zap.String("port", cfg.Port))
-	if err := app.Listen(":" + cfg.Port); err != nil {
-		log.Fatal("server exited with error", zap.Error(err))
+	if err := server.Run(app, cfg.Port, log); err != nil {
+		log.Error("server exited with error", zap.Error(err))
 	}
+	pool.Close()
+	_ = redisClient.Close()
 }
