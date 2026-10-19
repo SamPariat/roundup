@@ -3,21 +3,29 @@
 // and never read from the environment again outside this package.
 package config
 
-import "github.com/SamPariat/roundup/shared/env"
+import (
+	"github.com/SamPariat/roundup/shared/api"
+	"github.com/SamPariat/roundup/shared/env"
+)
 
 // Config holds all runtime configuration for the venue-service.
 // Fields are populated once at startup and treated as read-only thereafter.
 type Config struct {
 	// Env is the deployment environment from APP_ENV: "beta" or "prod".
 	Env string
+
 	// Port is the HTTP listen port. Defaults to 3006.
 	Port string
+
 	// PostgresDSN is the full Postgres connection string. Required.
 	PostgresDSN string
+
 	// RedisAddr is the Redis server address. Defaults to localhost:6379.
 	RedisAddr string
+
 	// GoogleMapsAPIKey is the Google Maps Places API key. Required.
 	GoogleMapsAPIKey string
+
 	// LogLevel controls zap verbosity: debug, info, warn, or error. Defaults to info.
 	LogLevel string
 }
@@ -31,10 +39,10 @@ func Load() *Config {
 
 	return &Config{
 		Env:              appEnv,
-		Port:             env.Get("PORT", "3006"),
-		PostgresDSN:      env.Require("POSTGRES_DSN"),
+		Port:             env.Get(env.KeyPort, api.VenuePort),
+		PostgresDSN:      env.Require(env.KeyPostgresDSN),
 		RedisAddr:        env.Get("REDIS_ADDR", "localhost:6379"),
 		GoogleMapsAPIKey: env.Require("GOOGLE_MAPS_API_KEY"),
-		LogLevel:         env.Get("LOG_LEVEL", "info"),
+		LogLevel:         env.Get(env.KeyLogLevel, env.DefaultLogLevel),
 	}
 }

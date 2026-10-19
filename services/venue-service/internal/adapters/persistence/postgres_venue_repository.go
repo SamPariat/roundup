@@ -2,10 +2,10 @@ package persistence
 
 import (
 	"context"
-	"time"
 
 	"github.com/SamPariat/roundup/services/venue-service/internal/adapters/persistence/db"
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/domainerr"
 	"github.com/SamPariat/roundup/shared/postgres"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -33,18 +33,19 @@ func (r *PostgresVenueRepository) AddFavorite(ctx context.Context, cmd domain.Ad
 	})
 	if err != nil {
 		if postgres.IsUniqueViolation(err) {
-			return domain.NewDomainError(domain.ErrAlreadySaved, cmd.PlaceID)
+			return domainerr.New(domain.ErrAlreadySaved, cmd.PlaceID)
 		}
+
 		return err
 	}
 
 	return nil
 }
 
-// RemoveFavorite deletes a saved favorite. Returns ErrNotSaved if the user has
-// not saved this venue in the squad.
+// RemoveFavorite deletes a saved favorite in one statement. Returns
+// ErrNotSaved if the user has not saved this venue in the squad.
 func (r *PostgresVenueRepository) RemoveFavorite(ctx context.Context, cmd domain.RemoveFavoriteCommand) error {
-	exists, err := r.queries.IsFavorite(ctx, db.IsFavoriteParams{
+	affected, err := r.queries.RemoveFavorite(ctx, db.RemoveFavoriteParams{
 		SquadID: cmd.SquadID,
 		UserID:  cmd.UserID,
 		PlaceID: cmd.PlaceID,
@@ -52,15 +53,12 @@ func (r *PostgresVenueRepository) RemoveFavorite(ctx context.Context, cmd domain
 	if err != nil {
 		return err
 	}
-	if !exists {
-		return domain.NewDomainError(domain.ErrNotSaved, cmd.PlaceID)
+
+	if affected == 0 {
+		return domainerr.New(domain.ErrNotSaved, cmd.PlaceID)
 	}
 
-	return r.queries.RemoveFavorite(ctx, db.RemoveFavoriteParams{
-		SquadID: cmd.SquadID,
-		UserID:  cmd.UserID,
-		PlaceID: cmd.PlaceID,
-	})
+	return nil
 }
 
 // ListFavorites returns all saved venues for the given squad, ordered by most recently saved.
@@ -87,16 +85,11 @@ func (r *PostgresVenueRepository) ListFavorites(ctx context.Context, squadID str
 
 // IsFavorite reports whether the given (squadID, userID, placeID) combination is saved.
 func (r *PostgresVenueRepository) IsFavorite(ctx context.Context, squadID, userID, placeID string) (bool, error) {
-	isFavorite, err := r.queries.IsFavorite(ctx, db.IsFavoriteParams{
+	return r.queries.IsFavorite(ctx, db.IsFavoriteParams{
 		SquadID: squadID,
 		UserID:  userID,
 		PlaceID: placeID,
 	})
-	if err != nil {
-		return false, err
-	}
-
-	return isFavorite, nil
 }
 
 // RecordVisit inserts a new venue visit record for the squad. A zero
@@ -111,11 +104,15 @@ func (r *PostgresVenueRepository) RecordVisit(ctx context.Context, cmd domain.Re
 		VisitedAt:       pgtype.Timestamptz{Time: cmd.VisitedAt, Valid: true},
 		AvgSpendInPaise: pgtype.Int8{Int64: cmd.AvgSpendInPaise, Valid: cmd.AvgSpendInPaise > 0},
 	})
-	if postgres.IsUniqueViolation(err) {
-		return domain.NewDomainError(domain.ErrVisitAlreadyRecorded, cmd.EventID+"/"+cmd.PlaceID)
+	if err != nil {
+		if postgres.IsUniqueViolation(err) {
+			return domainerr.New(domain.ErrVisitAlreadyRecorded, cmd.EventID+"/"+cmd.PlaceID)
+		}
+
+		return err
 	}
 
-	return err
+	return nil
 }
 
 // GetVisitHistory returns aggregated visit summaries for all venues visited by the squad.
@@ -131,24 +128,9 @@ func (r *PostgresVenueRepository) GetVisitHistory(ctx context.Context, squadID s
 			PlaceID:       row.PlaceID,
 			Name:          row.Name,
 			VisitCount:    row.VisitCount,
-			LastVisitedAt: toTime(row.LastVisitedAt),
+			LastVisitedAt: row.LastVisitedAt.Time,
 		})
 	}
 
 	return result, nil
-}
-
-// toTime safely asserts an interface{} scanned from a pgx aggregate to time.Time.
-// pgx v5 returns time.Time for timestamptz columns, but aggregate functions like
-// MAX() produce interface{} — this helper handles both cases gracefully.
-func toTime(v interface{}) time.Time {
-	if t, ok := v.(time.Time); ok {
-		return t
-	}
-
-	if ts, ok := v.(pgtype.Timestamptz); ok {
-		return ts.Time
-	}
-
-	return time.Time{}
 }

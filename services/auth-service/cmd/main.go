@@ -12,6 +12,7 @@ import (
 	"github.com/SamPariat/roundup/services/auth-service/internal/application"
 	"github.com/SamPariat/roundup/services/auth-service/internal/config"
 	transporthttp "github.com/SamPariat/roundup/services/auth-service/internal/transport/http"
+	"github.com/SamPariat/roundup/shared/api"
 	"github.com/SamPariat/roundup/shared/env"
 	"github.com/SamPariat/roundup/shared/logger"
 	"github.com/SamPariat/roundup/shared/middleware"
@@ -23,7 +24,7 @@ import (
 
 func main() {
 	cfg := config.Load()
-	log := logger.New("auth-service", cfg.LogLevel)
+	log := logger.New(api.AuthService, cfg.LogLevel)
 
 	// Only a console sender exists so far; prod needs a real SMS provider.
 	if cfg.Env == env.Prod {
@@ -51,9 +52,11 @@ func main() {
 		Auth: transporthttp.NewAuthHandler(otpUC, tokenUC),
 	})
 
-	log.Info("starting auth-service", zap.String("env", cfg.Env), zap.String("port", cfg.Port))
+	log.Info("starting "+api.AuthService, zap.String("env", cfg.Env), zap.String("port", cfg.Port))
+
 	if err := server.Run(app, cfg.Port, log); err != nil {
 		log.Error("server exited with error", zap.Error(err))
 	}
+
 	pool.Close()
 }

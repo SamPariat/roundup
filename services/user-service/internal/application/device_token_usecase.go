@@ -24,6 +24,7 @@ func (u *DeviceTokenUseCase) Register(ctx context.Context, cmd domain.RegisterDe
 	if cmd.Token == "" {
 		return nil, domain.ErrInvalidToken
 	}
+
 	if !cmd.Platform.IsValid() {
 		return nil, domain.ErrInvalidPlatform
 	}

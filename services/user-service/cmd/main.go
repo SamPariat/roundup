@@ -10,6 +10,7 @@ import (
 	"github.com/SamPariat/roundup/services/user-service/internal/application"
 	"github.com/SamPariat/roundup/services/user-service/internal/config"
 	transporthttp "github.com/SamPariat/roundup/services/user-service/internal/transport/http"
+	"github.com/SamPariat/roundup/shared/api"
 	"github.com/SamPariat/roundup/shared/logger"
 	"github.com/SamPariat/roundup/shared/middleware"
 	"github.com/SamPariat/roundup/shared/postgres"
@@ -20,7 +21,7 @@ import (
 
 func main() {
 	cfg := config.Load()
-	log := logger.New("user-service", cfg.LogLevel)
+	log := logger.New(api.UserService, cfg.LogLevel)
 
 	pool, err := postgres.Connect(context.Background(), cfg.PostgresDSN)
 	if err != nil {
@@ -40,9 +41,11 @@ func main() {
 		DeviceToken: transporthttp.NewDeviceTokenHandler(deviceTokenUC),
 	})
 
-	log.Info("starting user-service", zap.String("env", cfg.Env), zap.String("port", cfg.Port))
+	log.Info("starting "+api.UserService, zap.String("env", cfg.Env), zap.String("port", cfg.Port))
+
 	if err := server.Run(app, cfg.Port, log); err != nil {
 		log.Error("server exited with error", zap.Error(err))
 	}
+
 	pool.Close()
 }

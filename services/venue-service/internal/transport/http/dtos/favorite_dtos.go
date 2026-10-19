@@ -7,6 +7,7 @@ import "time"
 type AddFavoriteRequest struct {
 	// PlaceID is the Google Place ID of the venue.
 	PlaceID string `json:"placeID"`
+
 	// Name is the venue's display name, stored so lists render without a provider call.
 	Name string `json:"name"`
 }
@@ -15,12 +16,16 @@ type AddFavoriteRequest struct {
 type SavedVenueResponse struct {
 	// ID is the server-assigned ID of the favorite.
 	ID int64 `json:"id"`
+
 	// PlaceID is the Google Place ID of the venue.
 	PlaceID string `json:"placeID"`
+
 	// Name is the venue's display name at the time it was saved.
 	Name string `json:"name"`
+
 	// UserID is the squad member who saved it.
 	UserID string `json:"userID"`
+
 	// SavedAt is when it was saved, as an RFC 3339 timestamp.
 	SavedAt time.Time `json:"savedAt"`
 }

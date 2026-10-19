@@ -17,11 +17,10 @@ func Recover(log *zap.Logger) fiber.Handler {
 	return func(c fiber.Ctx) (err error) {
 		defer func() {
 			if r := recover(); r != nil {
-				requestID, _ := c.Locals(RequestIDLocalsKey).(string)
 				log.Error("panic recovered",
 					zap.Any("panic", r),
 					zap.ByteString("stack", debug.Stack()),
-					zap.String("request_id", requestID),
+					zap.String("request_id", RequestIDFrom(c)),
 				)
 				err = response.Error(c, fiber.StatusInternalServerError, fmt.Errorf("panic: %v", r))
 			}

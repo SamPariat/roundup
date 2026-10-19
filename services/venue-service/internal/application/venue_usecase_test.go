@@ -52,10 +52,6 @@ func (f *fakeCache) SetDetail(_ context.Context, _ string, _ *domain.VenueDetail
 	return nil
 }
 
-func (f *fakeCache) InvalidateDetail(_ context.Context, _ string) error {
-	return nil
-}
-
 func (f *fakeProvider) SearchNearby(ctx context.Context, params domain.SearchParams) ([]domain.Venue, error) {
 	if f.searchNearbyFn != nil {
 		return f.searchNearbyFn(ctx, params)
@@ -98,6 +94,7 @@ func TestSearchCacheMissCallsProvider(t *testing.T) {
 		&fakeProvider{
 			searchNearbyFn: func(_ context.Context, _ domain.SearchParams) ([]domain.Venue, error) {
 				providerCalled = true
+
 				return providerVenues, nil
 			},
 		},
@@ -141,12 +138,14 @@ func TestSearchInvalidParamsSkipsCacheAndProvider(t *testing.T) {
 		&fakeProvider{
 			searchNearbyFn: func(_ context.Context, _ domain.SearchParams) ([]domain.Venue, error) {
 				called = true
+
 				return nil, nil
 			},
 		},
 		&fakeCache{
 			getNearbyFn: func(_ context.Context, _ string) ([]domain.Venue, error) {
 				called = true
+
 				return nil, nil
 			},
 		},
@@ -184,6 +183,7 @@ func TestGetDetailCacheMissCallsProvider(t *testing.T) {
 		&fakeProvider{
 			getDetailFn: func(_ context.Context, _ string) (*domain.VenueDetail, error) {
 				providerCalled = true
+
 				return detail, nil
 			},
 		},

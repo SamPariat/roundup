@@ -7,6 +7,7 @@ package env
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -20,6 +21,16 @@ const (
 	Beta = "beta"
 	Prod = "prod"
 )
+
+// Keys every service reads, so each config spells them the same way.
+const (
+	KeyPort        = "PORT"
+	KeyLogLevel    = "LOG_LEVEL"
+	KeyPostgresDSN = "POSTGRES_DSN"
+)
+
+// DefaultLogLevel is used when LOG_LEVEL is unset.
+const DefaultLogLevel = "info"
 
 // Load reads .env.<APP_ENV> from the working directory into the process
 // environment and returns the environment name. A missing file is not an
@@ -70,4 +81,16 @@ func Get(key, defaultValue string) string {
 	}
 
 	return defaultValue
+}
+
+// Duration returns the value of a key parsed as a Go duration (e.g. "15m"),
+// or defaultValue parsed the same way if the key is unset or empty. Panics if
+// the result is not a positive duration.
+func Duration(key, defaultValue string) time.Duration {
+	d, err := time.ParseDuration(Get(key, defaultValue))
+	if err != nil || d <= 0 {
+		panic(key + " must be a positive duration like 10s, 15m or 720h")
+	}
+
+	return d
 }

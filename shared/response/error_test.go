@@ -26,11 +26,13 @@ func TestError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var logged any
+			var logged error
+
 			app := fiber.New()
 			app.Get("/", func(c fiber.Ctx) error {
 				err := Error(c, tt.status, tt.err)
-				logged = c.Locals(ErrorLocalsKey)
+				logged = ErrorFrom(c)
+
 				return err
 			})
 

@@ -42,7 +42,7 @@ The venue-service wraps the Google Places API but must allow swapping the provid
 │    VenueCache      — GetNearby/Set, GetDetail/Set, Invalidate    │
 │    VenueRepository — AddFavorite, RemoveFavorite, ListFavorites, │
 │                      IsFavorite, RecordVisit, GetVisitHistory    │
-│  Errors: sentinel vars + DomainError + constructor               │
+│  Errors: sentinel vars, wrapped with shared/domainerr            │
 └──────────────────────────────────────────────────────────────────┘
 All dependency arrows point inward. Domain has no outward arrows.
 ```
@@ -61,7 +61,7 @@ services/venue-service/
 │   │   ├── venue.go                     # Venue, VenueDetail, PhotoRef, Review, SearchParams
 │   │   ├── favorite.go                  # SavedVenue, AddFavoriteCommand, RemoveFavoriteCommand
 │   │   ├── visit.go                     # RecordVisitCommand, VisitSummary
-│   │   ├── errors.go                    # sentinel errors + DomainError type + constructor
+│   │   ├── errors.go                    # sentinel errors (context added with shared/domainerr)
 │   │   └── port.go                      # PlaceProvider, VenueCache, VenueRepository interfaces
 │   │
 │   ├── application/
@@ -130,7 +130,6 @@ type VenueCache interface {
     SetNearby(ctx context.Context, key string, venues []Venue) error
     GetDetail(ctx context.Context, placeID string) (*VenueDetail, error)
     SetDetail(ctx context.Context, placeID string, detail *VenueDetail) error
-    InvalidateDetail(ctx context.Context, placeID string) error
 }
 
 // VenueRepository — swap Postgres for any DB by writing a new adapter
@@ -359,10 +358,10 @@ The `RedisCacheAdapter` implements `domain.VenueCache`. All cache operations are
 
 | Data | Key | TTL |
 |---|---|---|
-| Nearby search | `venue-search: {lat}:{lng}:{radius}:{query}:{type}` | 10 min |
-| Venue detail | `{placeID}` | 10 min |
+| Nearby search | `venue:search:{lat}:{lng}:{radius}:{query}:{type}` | 10 min |
+| Venue detail | `venue:detail:{placeID}` | 10 min |
 
-The TTL is a single value passed to `NewRedisCacheAdapter` in `main.go` and applied to every write.
+Every key is namespaced under `venue:` so entries never collide with other users of the same Redis. The TTL is `cache.DefaultTTL`, passed to `NewRedisCacheAdapter` in `main.go` and applied to every write.
 
 ### Cache Miss Flow
 
@@ -380,7 +379,7 @@ Client ──► VenueUseCase.Search()
                └── return results
 ```
 
-There is no active invalidation — entries expire via TTL. `InvalidateDetail` exists on the port for future use. Values are stored as JSON via `encoding/json`.
+There is no active invalidation — entries expire via TTL. Values are stored as JSON via `encoding/json`.
 
 ---
 

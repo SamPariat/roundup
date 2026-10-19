@@ -13,6 +13,9 @@ import (
 	"github.com/SamPariat/roundup/shared/phone"
 )
 
+// codeBase is the number of values each code digit can take (0–9).
+const codeBase = 10
+
 // OTPUseCase handles phone login: sending a one-time code, then exchanging a
 // correct code for a session and tokens.
 type OTPUseCase struct {
@@ -49,6 +52,7 @@ func (u *OTPUseCase) Request(ctx context.Context, number string) error {
 	if err != nil {
 		return err
 	}
+
 	if recent >= domain.MaxOTPRequestsPerWindow {
 		return domain.ErrTooManyRequests
 	}
@@ -81,6 +85,7 @@ func (u *OTPUseCase) Verify(ctx context.Context, number, code string) (*domain.L
 	if err != nil {
 		return nil, err
 	}
+
 	if otp.ConsumedAt != nil || !u.now().Before(otp.ExpiresAt) {
 		return nil, domain.ErrInvalidCode
 	}
@@ -95,6 +100,7 @@ func (u *OTPUseCase) Verify(ctx context.Context, number, code string) (*domain.L
 		if err := u.otps.IncrementAttempts(ctx, otp.ID); err != nil {
 			return nil, err
 		}
+
 		return nil, domain.ErrInvalidCode
 	}
 
@@ -131,6 +137,7 @@ func (u *OTPUseCase) codeMatches(number, code string, storedHash []byte) bool {
 // different phones never share a hash.
 func hashCode(number, code string) []byte {
 	sum := sha256.Sum256([]byte(number + ":" + code))
+
 	return sum[:]
 }
 
@@ -138,7 +145,7 @@ func hashCode(number, code string) []byte {
 func randomCode() (string, error) {
 	limit := big.NewInt(1)
 	for range domain.OTPLength {
-		limit.Mul(limit, big.NewInt(10))
+		limit.Mul(limit, big.NewInt(codeBase))
 	}
 
 	n, err := rand.Int(rand.Reader, limit)

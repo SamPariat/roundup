@@ -21,6 +21,7 @@ import (
 const (
 	// Issuer is the iss claim: tokens are only ever minted by auth-service.
 	Issuer = "roundup-auth"
+
 	// Audience is the aud claim: tokens are only valid for the Roundup API.
 	Audience = "roundup"
 )
@@ -34,6 +35,7 @@ var ErrInvalidToken = errors.New("invalid access token")
 type Claims struct {
 	// UserID is the authenticated user's UUID (the sub claim).
 	UserID string
+
 	// ExpiresAt is when the token stops being accepted.
 	ExpiresAt time.Time
 }
@@ -63,6 +65,7 @@ func Sign(priv ed25519.PrivateKey, userID string, ttl time.Duration) (string, ti
 // Every failure wraps ErrInvalidToken.
 func Verify(pub ed25519.PublicKey, token string) (Claims, error) {
 	var claims jwt.RegisteredClaims
+
 	_, err := jwt.ParseWithClaims(token, &claims,
 		func(*jwt.Token) (any, error) { return pub, nil },
 		jwt.WithValidMethods([]string{jwt.SigningMethodEdDSA.Alg()}),
@@ -71,7 +74,7 @@ func Verify(pub ed25519.PublicKey, token string) (Claims, error) {
 		jwt.WithExpirationRequired(),
 	)
 	if err != nil {
-		return Claims{}, fmt.Errorf("%w: %v", ErrInvalidToken, err)
+		return Claims{}, fmt.Errorf("%w: %w", ErrInvalidToken, err)
 	}
 
 	if _, err := uuid.Parse(claims.Subject); err != nil {

@@ -30,27 +30,27 @@ func (u *UserUseCase) CreateOrGet(ctx context.Context, number string) (user *dom
 	}
 
 	user, err = u.users.GetByPhone(ctx, number)
+	if err == nil {
+		return user, false, nil
+	}
+
+	if !errors.Is(err, domain.ErrUserNotFound) {
+		return nil, false, err
+	}
+
+	user, err = u.users.Create(ctx, number)
+	if err == nil {
+		return user, true, nil
+	}
+
+	if !errors.Is(err, domain.ErrPhoneTaken) {
+		return nil, false, err
+	}
+
+	// Another request inserted this phone between our lookup and our insert.
+	// The user exists now, so fetch it instead of failing.
+	user, err = u.users.GetByPhone(ctx, number)
 	if err != nil {
-		if errors.Is(err, domain.ErrUserNotFound) {
-			user, err = u.users.Create(ctx, number)
-			if err != nil {
-				// Another request inserted this phone between our lookup and our insert.
-				// The user exists now, so fetch it instead of failing.
-				if errors.Is(err, domain.ErrPhoneTaken) {
-					user, err = u.users.GetByPhone(ctx, number)
-					if err != nil {
-						return nil, false, err
-					}
-
-					return user, false, nil
-				}
-
-				return nil, false, err
-			}
-
-			return user, true, nil
-		}
-
 		return nil, false, err
 	}
 
@@ -71,6 +71,7 @@ func (u *UserUseCase) UpdateProfile(ctx context.Context, cmd domain.UpdateProfil
 		if trimmed == "" {
 			return nil, domain.ErrInvalidName
 		}
+
 		cmd.Name = &trimmed
 	}
 

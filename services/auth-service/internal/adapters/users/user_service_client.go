@@ -11,12 +11,22 @@ import (
 	"time"
 
 	"github.com/SamPariat/roundup/services/auth-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/api"
+	"github.com/SamPariat/roundup/shared/domainerr"
 	sharedmw "github.com/SamPariat/roundup/shared/middleware"
+	"github.com/gofiber/fiber/v3"
 )
 
 // requestTimeout bounds each call so a slow user-service fails a login fast
 // instead of hanging it.
 const requestTimeout = 3 * time.Second
+
+// createUserResponse is the part of user-service's response envelope we read.
+type createUserResponse struct {
+	Data struct {
+		ID string `json:"id"`
+	} `json:"data"`
+}
 
 // UserServiceClient implements domain.UserDirectory by calling user-service's
 // internal POST /api/v1/users endpoint directly (not through the gateway,
@@ -32,13 +42,6 @@ func NewUserServiceClient(baseURL string) *UserServiceClient {
 	return &UserServiceClient{baseURL: baseURL, http: &http.Client{Timeout: requestTimeout}}
 }
 
-// createUserResponse is the part of user-service's response envelope we read.
-type createUserResponse struct {
-	Data struct {
-		ID string `json:"id"`
-	} `json:"data"`
-}
-
 // EnsureUser finds or creates the user with this phone. user-service answers
 // 201 for a new user and 200 for an existing one; anything else, including a
 // timeout or a response without an ID, is ErrUserServiceUnavailable.
@@ -48,11 +51,12 @@ func (c *UserServiceClient) EnsureUser(ctx context.Context, phone string) (strin
 		return "", false, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/v1/users", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+api.UsersPath, bytes.NewReader(body))
 	if err != nil {
 		return "", false, err
 	}
-	req.Header.Set("Content-Type", "application/json")
+
+	req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 	// Pass the login's request ID on so user-service logs the same ID.
 	if id := sharedmw.RequestIDFromContext(ctx); id != "" {
 		req.Header.Set(sharedmw.RequestIDHeader, id)
@@ -77,5 +81,5 @@ func (c *UserServiceClient) EnsureUser(ctx context.Context, phone string) (strin
 }
 
 func unavailable(detail string) error {
-	return domain.NewDomainError(domain.ErrUserServiceUnavailable, detail)
+	return domainerr.New(domain.ErrUserServiceUnavailable, detail)
 }

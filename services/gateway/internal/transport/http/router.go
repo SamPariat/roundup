@@ -9,6 +9,7 @@ import (
 	"github.com/SamPariat/roundup/services/gateway/internal/config"
 	"github.com/SamPariat/roundup/services/gateway/internal/middleware"
 	"github.com/SamPariat/roundup/services/gateway/internal/proxy"
+	"github.com/SamPariat/roundup/shared/api"
 	"github.com/SamPariat/roundup/shared/response"
 	"github.com/gofiber/fiber/v3"
 )
@@ -17,7 +18,7 @@ import (
 // already be stripped (middleware.StripIdentity, mounted globally).
 func RegisterRoutes(app *fiber.App, upstreams config.Upstreams, pub ed25519.PublicKey, timeout time.Duration) {
 	auth := middleware.RequireAuth(pub)
-	v1 := app.Group("/api/v1")
+	v1 := app.Group(api.V1)
 
 	// Public: login and token refresh are how a client gets a token. Being
 	// unauthenticated, they are rate limited per client IP.
@@ -25,7 +26,7 @@ func RegisterRoutes(app *fiber.App, upstreams config.Upstreams, pub ed25519.Publ
 
 	// Creating users is internal: auth-service calls user-service directly at
 	// login. Registered before the /users group so it wins.
-	v1.Post("/users", notFoundHandler)
+	app.Post(api.UsersPath, notFoundHandler)
 
 	v1.Group("/users", auth).All("/*", proxy.To(upstreams.User, timeout))
 	v1.Group("/venues", auth).All("/*", proxy.To(upstreams.Venue, timeout))

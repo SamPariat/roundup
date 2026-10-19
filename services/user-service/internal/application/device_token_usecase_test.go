@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/SamPariat/roundup/services/user-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/domainerr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -52,7 +53,7 @@ func TestRegisterSavesToken(t *testing.T) {
 func TestRemovePropagatesNotFound(t *testing.T) {
 	repo := &fakeTokenRepo{
 		deleteFn: func(ctx context.Context, cmd domain.RemoveDeviceTokenCommand) error {
-			return domain.NewDomainError(domain.ErrDeviceTokenNotFound, cmd.Token)
+			return domainerr.New(domain.ErrDeviceTokenNotFound, cmd.Token)
 		},
 	}
 	uc := NewDeviceTokenUseCase(repo)

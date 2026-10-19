@@ -7,6 +7,9 @@ import (
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 )
 
+// searchKeyPrefix namespaces search entries in the cache.
+const searchKeyPrefix = "venue:search:"
+
 // VenueUseCase orchestrates venue search and detail lookups using a cache-first strategy.
 type VenueUseCase struct {
 	provider domain.PlaceProvider
@@ -67,7 +70,7 @@ func (u *VenueUseCase) GetDetail(ctx context.Context, placeID string) (*domain.V
 // The key encodes all filter fields so that different searches never collide.
 func buildCacheKey(params domain.SearchParams) string {
 	return fmt.Sprintf(
-		"venue-search: %f:%f:%d:%s:%s",
+		searchKeyPrefix+"%f:%f:%d:%s:%s",
 		params.Latitude,
 		params.Longitude,
 		params.RadiusInMeters,

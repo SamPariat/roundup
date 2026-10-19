@@ -38,12 +38,7 @@ func (h *HistoryHandler) RecordVisit(c fiber.Ctx) error {
 		AvgSpendInPaise: req.AvgSpendInPaise,
 	})
 	if err != nil {
-		status := fiber.StatusInternalServerError
-		if errors.Is(err, domain.ErrVisitAlreadyRecorded) {
-			status = fiber.StatusConflict
-		}
-
-		return response.Error(c, status, err)
+		return response.Error(c, historyErrorStatus(err), err)
 	}
 
 	return c.SendStatus(fiber.StatusCreated)
@@ -61,4 +56,14 @@ func (h *HistoryHandler) GetVisitHistory(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(
 		response.OK(dtos.VisitHistoryToResponse(summaries)),
 	)
+}
+
+// historyErrorStatus maps domain sentinel errors to HTTP status codes for visit history.
+func historyErrorStatus(err error) int {
+	switch {
+	case errors.Is(err, domain.ErrVisitAlreadyRecorded):
+		return fiber.StatusConflict
+	default:
+		return fiber.StatusInternalServerError
+	}
 }

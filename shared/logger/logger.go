@@ -11,7 +11,7 @@ import (
 )
 
 // New builds a console logger that tags every line with the service name and
-// level, e.g. "12:00:00.000	[gateway]	[INFO]	starting gateway	{"port": "8080"}".
+// level, e.g. "12:00:00.000	[INFO]	[gateway]	starting gateway	{"port": "8080"}".
 // Level must be a valid zapcore level string: debug, info, warn, or error.
 // Panics at startup if the level is invalid.
 func New(service, level string) *zap.Logger {

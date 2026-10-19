@@ -330,22 +330,21 @@ TEST_POSTGRES_DSN="postgres://user_user:user_pass@localhost:5434/users?sslmode=d
 ## Branching
 
 ```
-main   ← always deployable, protected — never commit directly
-  └── dev ← integration branch — all PRs target here
-        └── feat/service-name/what-it-does
+main   ← always deployable, protected: PRs only, and the ci-ok check must pass
+  └── feat/service-name/what-it-does
 ```
 
 ```bash
 # create a branch
-git checkout dev && git pull origin dev
+git checkout main && git pull origin main
 git checkout -b feat/billing-service/debt-simplification
 
-# before opening a PR — rebase onto latest dev
+# before opening a PR — rebase onto latest main
 git fetch origin
-git rebase origin/dev
+git rebase origin/main
 git push origin feat/billing-service/debt-simplification
 
-# open PR → dev  (not main)
+# open PR → main
 ```
 
 **CI:** every PR runs `.github/workflows/ci.yml`: a `lint` job (gofmt, go vet, golangci-lint) and a `test` job (`go test -race` against a Postgres 18 service container, coverage in the run summary) per module, plus a Docker build per service. Merging into `main` requires the `ci-ok` check to pass.

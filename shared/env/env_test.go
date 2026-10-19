@@ -3,6 +3,7 @@ package env
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -76,6 +77,7 @@ func TestAppEnv(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv(AppEnvKey, tt.value) // restores the original value after the test
+
 			if tt.unset {
 				require.NoError(t, os.Unsetenv(AppEnvKey))
 			}
@@ -84,8 +86,10 @@ func TestAppEnv(t *testing.T) {
 			if tt.wantErr {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), AppEnvKey, "error must name the variable")
+
 				return
 			}
+
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 		})
@@ -97,4 +101,22 @@ func TestLoadPanicsWithoutAppEnv(t *testing.T) {
 	require.NoError(t, os.Unsetenv(AppEnvKey))
 
 	assert.Panics(t, func() { Load() })
+}
+
+func TestDuration(t *testing.T) {
+	t.Run("ParsesValue", func(t *testing.T) {
+		t.Setenv("ROUNDUP_TEST_DURATION", "15m")
+		assert.Equal(t, 15*time.Minute, Duration("ROUNDUP_TEST_DURATION", "1s"))
+	})
+
+	t.Run("FallsBackToDefault", func(t *testing.T) {
+		assert.Equal(t, 720*time.Hour, Duration("ROUNDUP_TEST_DURATION_UNSET", "720h"))
+	})
+
+	for _, value := range []string{"soon", "0s", "-5m"} {
+		t.Run("PanicsOn"+value, func(t *testing.T) {
+			t.Setenv("ROUNDUP_TEST_DURATION_BAD", value)
+			assert.Panics(t, func() { Duration("ROUNDUP_TEST_DURATION_BAD", "1s") })
+		})
+	}
 }
