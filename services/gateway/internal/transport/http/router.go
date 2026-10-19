@@ -14,7 +14,7 @@ import (
 )
 
 // RegisterRoutes mounts the /api/v1 routes. Client-sent identity headers must
-// already be stripped (middleware.StripIdentity, mounted globally).
+// already be stripped (middleware.StripInternalHeaders, mounted globally).
 func RegisterRoutes(app *fiber.App, upstreams config.Upstreams, pub ed25519.PublicKey, timeout time.Duration) {
 	auth := middleware.RequireAuth(pub)
 	v1 := app.Group("/api/v1")
