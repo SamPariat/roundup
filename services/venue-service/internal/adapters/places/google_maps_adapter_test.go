@@ -6,6 +6,7 @@ import (
 
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"googlemaps.github.io/maps"
 )
 
@@ -29,8 +30,8 @@ func TestMapProviderError(t *testing.T) {
 			if tt.wantSentinel != nil {
 				assert.ErrorIs(t, err, tt.wantSentinel)
 			} else {
-				assert.False(t, errors.Is(err, domain.ErrVenueNotFound))
-				assert.False(t, errors.Is(err, domain.ErrProviderUnavailable))
+				require.NotErrorIs(t, err, domain.ErrVenueNotFound)
+				assert.NotErrorIs(t, err, domain.ErrProviderUnavailable)
 			}
 		})
 	}
@@ -76,7 +77,7 @@ func TestMapPlaceResultToVenuePhotoRefDimensions(t *testing.T) {
 
 	venue := mapPlaceResultToVenue(res)
 
-	assert.True(t, len(venue.PhotoRefs) == len(res.Photos))
+	assert.Len(t, res.Photos, len(venue.PhotoRefs))
 	assert.Equal(t, domain.PhotoRef{Reference: "ref1", Width: 1600, Height: 900}, venue.PhotoRefs[0])
 	assert.Equal(t, domain.PhotoRef{Reference: "ref2", Width: 800, Height: 600}, venue.PhotoRefs[1])
 }

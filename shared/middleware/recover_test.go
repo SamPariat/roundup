@@ -22,6 +22,7 @@ func TestRecoverTurnsPanicIntoLogged500(t *testing.T) {
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/boom", nil))
 	require.NoError(t, err)
+
 	body, _ := io.ReadAll(resp.Body)
 
 	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)

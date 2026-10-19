@@ -1,0 +1,47 @@
+# Shared golangci-lint config for every Go module in the workspace. CI and the
+# pre-commit hook run golangci-lint inside each module; it finds this file by
+# walking up to the repo root.
+version: "2"
+
+linters:
+  # Defaults (errcheck, govet, ineffassign, staticcheck, unused) plus:
+  enable:
+    # Errors and correctness
+    - errorlint # wrap with %w, compare with errors.Is/As
+    - nilerr # returning nil after checking err != nil
+    - unparam # parameters that always receive the same value
+    # Modern Go and tidy code
+    - intrange # for i := 0; i < n; i++ -> for i := range n
+    - perfsprint # fmt.Errorf("x") -> errors.New("x"), and similar
+    - mnd # magic numbers -> named constants
+    - misspell
+    - dupword
+    - revive
+    # Tests
+    - testifylint
+    - usetesting # context.Background() -> t.Context(), os.Setenv -> t.Setenv
+    # Spacing
+    - nlreturn # blank line before return/break/continue
+    - whitespace # no blank first/last line inside a block
+    - wsl_v5 # blank lines around blocks and between unrelated statements
+
+  settings:
+    revive:
+      rules:
+        - name: package-comments
+        - name: redefines-builtin-id
+        - name: unused-parameter
+
+  exclusions:
+    generated: lax # sqlc output in */db/ is left as generated
+    rules:
+      # Fixtures are full of literal sizes and limits by design.
+      - path: _test\.go
+        linters: [mnd]
+
+formatters:
+  enable:
+    - gofumpt # stricter gofmt
+    - goimports
+  exclusions:
+    generated: lax

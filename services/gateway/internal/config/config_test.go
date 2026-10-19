@@ -14,6 +14,7 @@ import (
 
 func setRequired(t *testing.T) {
 	t.Helper()
+
 	pub, _, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	der, err := x509.MarshalPKIXPublicKey(pub)
@@ -45,6 +46,7 @@ func TestLoadPanics(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			setRequired(t)
+
 			for k, v := range env {
 				t.Setenv(k, v)
 			}

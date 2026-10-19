@@ -95,14 +95,14 @@ func (f *fakeTokenRepo) DeleteAllForUser(ctx context.Context, userID string) err
 
 const testPhone = "+919876543210"
 
-func notFound(ctx context.Context, phone string) (*domain.User, error) {
+func notFound(_ context.Context, phone string) (*domain.User, error) {
 	return nil, domainerr.New(domain.ErrUserNotFound, phone)
 }
 
 func TestCreateOrGetRejectsInvalidPhone(t *testing.T) {
 	uc := NewUserUseCase(&fakeUserRepo{}, &fakeTokenRepo{})
 
-	_, _, err := uc.CreateOrGet(context.Background(), "98765")
+	_, _, err := uc.CreateOrGet(t.Context(), "98765")
 
 	assert.ErrorIs(t, err, domain.ErrInvalidPhone)
 }
@@ -110,8 +110,8 @@ func TestCreateOrGetRejectsInvalidPhone(t *testing.T) {
 func TestCreateOrGetReturnsExistingUser(t *testing.T) {
 	existing := &domain.User{ID: "user-1", Phone: testPhone}
 	repo := &fakeUserRepo{
-		getByPhoneFn: func(ctx context.Context, phone string) (*domain.User, error) { return existing, nil },
-		createFn: func(ctx context.Context, phone string) (*domain.User, error) {
+		getByPhoneFn: func(_ context.Context, _ string) (*domain.User, error) { return existing, nil },
+		createFn: func(_ context.Context, _ string) (*domain.User, error) {
 			t.Fatal("Create must not be called when the user already exists")
 
 			return nil, nil
@@ -119,7 +119,7 @@ func TestCreateOrGetReturnsExistingUser(t *testing.T) {
 	}
 	uc := NewUserUseCase(repo, &fakeTokenRepo{})
 
-	user, created, err := uc.CreateOrGet(context.Background(), testPhone)
+	user, created, err := uc.CreateOrGet(t.Context(), testPhone)
 
 	require.NoError(t, err)
 	assert.False(t, created)
@@ -129,13 +129,13 @@ func TestCreateOrGetReturnsExistingUser(t *testing.T) {
 func TestCreateOrGetCreatesNewUser(t *testing.T) {
 	repo := &fakeUserRepo{
 		getByPhoneFn: notFound,
-		createFn: func(ctx context.Context, phone string) (*domain.User, error) {
+		createFn: func(_ context.Context, phone string) (*domain.User, error) {
 			return &domain.User{ID: "new-user", Phone: phone}, nil
 		},
 	}
 	uc := NewUserUseCase(repo, &fakeTokenRepo{})
 
-	user, created, err := uc.CreateOrGet(context.Background(), testPhone)
+	user, created, err := uc.CreateOrGet(t.Context(), testPhone)
 
 	require.NoError(t, err)
 	assert.True(t, created)
@@ -155,13 +155,13 @@ func TestCreateOrGetHandlesConcurrentCreate(t *testing.T) {
 
 			return &domain.User{ID: "winner", Phone: phone}, nil
 		},
-		createFn: func(ctx context.Context, phone string) (*domain.User, error) {
+		createFn: func(_ context.Context, phone string) (*domain.User, error) {
 			return nil, domainerr.New(domain.ErrPhoneTaken, phone)
 		},
 	}
 	uc := NewUserUseCase(repo, &fakeTokenRepo{})
 
-	user, created, err := uc.CreateOrGet(context.Background(), testPhone)
+	user, created, err := uc.CreateOrGet(t.Context(), testPhone)
 
 	require.NoError(t, err)
 	assert.False(t, created)
@@ -171,11 +171,11 @@ func TestCreateOrGetHandlesConcurrentCreate(t *testing.T) {
 func TestCreateOrGetPropagatesLookupFailure(t *testing.T) {
 	dbDown := errors.New("connection refused")
 	repo := &fakeUserRepo{
-		getByPhoneFn: func(ctx context.Context, phone string) (*domain.User, error) { return nil, dbDown },
+		getByPhoneFn: func(_ context.Context, _ string) (*domain.User, error) { return nil, dbDown },
 	}
 	uc := NewUserUseCase(repo, &fakeTokenRepo{})
 
-	_, _, err := uc.CreateOrGet(context.Background(), testPhone)
+	_, _, err := uc.CreateOrGet(t.Context(), testPhone)
 
 	assert.ErrorIs(t, err, dbDown)
 }
@@ -184,7 +184,7 @@ func TestUpdateProfileRejectsBlankName(t *testing.T) {
 	uc := NewUserUseCase(&fakeUserRepo{}, &fakeTokenRepo{})
 	blank := "   "
 
-	_, err := uc.UpdateProfile(context.Background(), domain.UpdateProfileCommand{UserID: "user-1", Name: &blank})
+	_, err := uc.UpdateProfile(t.Context(), domain.UpdateProfileCommand{UserID: "user-1", Name: &blank})
 
 	assert.ErrorIs(t, err, domain.ErrInvalidName)
 }
@@ -193,7 +193,7 @@ func TestUpdateProfileTrimsName(t *testing.T) {
 	var got domain.UpdateProfileCommand
 
 	repo := &fakeUserRepo{
-		updateProfileFn: func(ctx context.Context, cmd domain.UpdateProfileCommand) (*domain.User, error) {
+		updateProfileFn: func(_ context.Context, cmd domain.UpdateProfileCommand) (*domain.User, error) {
 			got = cmd
 
 			return &domain.User{ID: cmd.UserID, Name: *cmd.Name}, nil
@@ -202,7 +202,7 @@ func TestUpdateProfileTrimsName(t *testing.T) {
 	uc := NewUserUseCase(repo, &fakeTokenRepo{})
 	name := "  Priya  "
 
-	user, err := uc.UpdateProfile(context.Background(), domain.UpdateProfileCommand{UserID: "user-1", Name: &name})
+	user, err := uc.UpdateProfile(t.Context(), domain.UpdateProfileCommand{UserID: "user-1", Name: &name})
 
 	require.NoError(t, err)
 	assert.Equal(t, "Priya", *got.Name)
@@ -213,7 +213,7 @@ func TestDeleteRemovesDeviceTokens(t *testing.T) {
 	var clearedFor string
 
 	tokens := &fakeTokenRepo{
-		deleteAllForUserFn: func(ctx context.Context, userID string) error {
+		deleteAllForUserFn: func(_ context.Context, userID string) error {
 			clearedFor = userID
 
 			return nil
@@ -221,7 +221,7 @@ func TestDeleteRemovesDeviceTokens(t *testing.T) {
 	}
 	uc := NewUserUseCase(&fakeUserRepo{}, tokens)
 
-	err := uc.Delete(context.Background(), "user-1")
+	err := uc.Delete(t.Context(), "user-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, "user-1", clearedFor)
@@ -229,12 +229,12 @@ func TestDeleteRemovesDeviceTokens(t *testing.T) {
 
 func TestDeleteSkipsTokensWhenUserMissing(t *testing.T) {
 	repo := &fakeUserRepo{
-		softDeleteFn: func(ctx context.Context, id string) error {
+		softDeleteFn: func(_ context.Context, id string) error {
 			return domainerr.New(domain.ErrUserNotFound, id)
 		},
 	}
 	tokens := &fakeTokenRepo{
-		deleteAllForUserFn: func(ctx context.Context, userID string) error {
+		deleteAllForUserFn: func(_ context.Context, _ string) error {
 			t.Fatal("tokens must not be cleared when the user does not exist")
 
 			return nil
@@ -242,7 +242,7 @@ func TestDeleteSkipsTokensWhenUserMissing(t *testing.T) {
 	}
 	uc := NewUserUseCase(repo, tokens)
 
-	err := uc.Delete(context.Background(), "missing")
+	err := uc.Delete(t.Context(), "missing")
 
 	assert.ErrorIs(t, err, domain.ErrUserNotFound)
 }

@@ -1,7 +1,6 @@
 package persistence
 
 import (
-	"context"
 	"crypto/sha256"
 	"testing"
 	"time"
@@ -24,13 +23,14 @@ const (
 
 func hash(s string) []byte {
 	sum := sha256.Sum256([]byte(s))
+
 	return sum[:]
 }
 
 // --- OTP codes ---
 
 func TestOTPCountSinceAndLatest(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := NewPostgresOTPRepository(postgrestest.New(t, migrationsDir))
 	before := time.Now().Add(-time.Second)
 
@@ -55,13 +55,13 @@ func TestOTPCountSinceAndLatest(t *testing.T) {
 func TestOTPLatestNeverRequested(t *testing.T) {
 	repo := NewPostgresOTPRepository(postgrestest.New(t, migrationsDir))
 
-	_, err := repo.Latest(context.Background(), phone)
+	_, err := repo.Latest(t.Context(), phone)
 
 	assert.ErrorIs(t, err, domain.ErrInvalidCode)
 }
 
 func TestOTPAttemptsAndConsumeOnce(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := NewPostgresOTPRepository(postgrestest.New(t, migrationsDir))
 	require.NoError(t, repo.Create(ctx, phone, hash("111111"), time.Now().Add(5*time.Minute)))
 	code, err := repo.Latest(ctx, phone)
@@ -82,7 +82,7 @@ func TestOTPAttemptsAndConsumeOnce(t *testing.T) {
 // --- sessions and refresh tokens ---
 
 func TestSessionCreateAndFind(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := NewPostgresSessionRepository(postgrestest.New(t, migrationsDir))
 	expires := time.Now().Add(time.Hour).Truncate(time.Microsecond)
 
@@ -102,7 +102,7 @@ func TestSessionCreateAndFind(t *testing.T) {
 }
 
 func TestSessionRotateMarksOldUsedOnce(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := NewPostgresSessionRepository(postgrestest.New(t, migrationsDir))
 	sessionID, err := repo.Create(ctx, userID, hash("refresh-1"), time.Now().Add(time.Hour))
 	require.NoError(t, err)
@@ -114,18 +114,19 @@ func TestSessionRotateMarksOldUsedOnce(t *testing.T) {
 	first, err = repo.FindRefreshToken(ctx, hash("refresh-1"))
 	require.NoError(t, err)
 	assert.NotNil(t, first.UsedAt)
+
 	second, err := repo.FindRefreshToken(ctx, hash("refresh-2"))
 	require.NoError(t, err)
 	assert.Equal(t, sessionID, second.SessionID, "rotation stays on the same session")
 
 	err = repo.Rotate(ctx, first.ID, sessionID, hash("refresh-3"), time.Now().Add(time.Hour))
-	assert.ErrorIs(t, err, domain.ErrInvalidRefreshToken, "a used token cannot rotate again")
+	require.ErrorIs(t, err, domain.ErrInvalidRefreshToken, "a used token cannot rotate again")
 	_, err = repo.FindRefreshToken(ctx, hash("refresh-3"))
 	assert.ErrorIs(t, err, domain.ErrInvalidRefreshToken, "the failed rotation wrote nothing")
 }
 
 func TestSessionRevoke(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := NewPostgresSessionRepository(postgrestest.New(t, migrationsDir))
 	sessionID, err := repo.Create(ctx, userID, hash("refresh-1"), time.Now().Add(time.Hour))
 	require.NoError(t, err)

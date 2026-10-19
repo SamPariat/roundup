@@ -23,11 +23,13 @@ func TestAuthRateLimitBlocksAfterMax(t *testing.T) {
 	call := func() int {
 		resp, err := app.Test(httptest.NewRequest(http.MethodPost, "/api/v1/auth/otp/request", nil))
 		require.NoError(t, err)
+
 		return resp.StatusCode
 	}
 
 	for i := range cfg.Max {
 		require.Equal(t, fiber.StatusAccepted, call(), "request %d is within the limit", i+1)
 	}
+
 	assert.Equal(t, fiber.StatusTooManyRequests, call())
 }

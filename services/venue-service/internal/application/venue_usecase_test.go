@@ -81,7 +81,7 @@ func TestSearchCacheHit(t *testing.T) {
 		},
 	)
 
-	got, err := uc.Search(context.Background(), validSearch)
+	got, err := uc.Search(t.Context(), validSearch)
 	require.NoError(t, err)
 	assert.Equal(t, cached, got)
 }
@@ -105,7 +105,7 @@ func TestSearchCacheMissCallsProvider(t *testing.T) {
 		},
 	)
 
-	got, err := uc.Search(context.Background(), validSearch)
+	got, err := uc.Search(t.Context(), validSearch)
 	require.NoError(t, err)
 	assert.True(t, providerCalled)
 	assert.Equal(t, providerVenues, got)
@@ -127,7 +127,7 @@ func TestSearchProviderErrorReturnsError(t *testing.T) {
 		},
 	)
 
-	_, err := uc.Search(context.Background(), validSearch)
+	_, err := uc.Search(t.Context(), validSearch)
 	assert.ErrorIs(t, err, providerErr)
 }
 
@@ -151,15 +151,15 @@ func TestSearchInvalidParamsSkipsCacheAndProvider(t *testing.T) {
 		},
 	)
 
-	_, err := uc.Search(context.Background(), domain.SearchParams{})
-	assert.ErrorIs(t, err, domain.ErrInvalidSearch)
+	_, err := uc.Search(t.Context(), domain.SearchParams{})
+	require.ErrorIs(t, err, domain.ErrInvalidSearch)
 	assert.False(t, called, "cache and provider must not be called for invalid params")
 }
 
 // --- GetDetail tests ---
 
 func TestGetDetailCacheHit(t *testing.T) {
-	cached := &domain.VenueDetail{Venue: domain.Venue{PlaceID: "abc"}}
+	cached := &domain.VenueDetail{PlaceID: "abc"}
 
 	uc := NewVenueUseCase(
 		&fakeProvider{},
@@ -170,13 +170,13 @@ func TestGetDetailCacheHit(t *testing.T) {
 		},
 	)
 
-	got, err := uc.GetDetail(context.Background(), "abc")
+	got, err := uc.GetDetail(t.Context(), "abc")
 	require.NoError(t, err)
 	assert.Equal(t, cached, got)
 }
 
 func TestGetDetailCacheMissCallsProvider(t *testing.T) {
-	detail := &domain.VenueDetail{Venue: domain.Venue{PlaceID: "abc"}}
+	detail := &domain.VenueDetail{PlaceID: "abc"}
 	providerCalled := false
 
 	uc := NewVenueUseCase(
@@ -194,7 +194,7 @@ func TestGetDetailCacheMissCallsProvider(t *testing.T) {
 		},
 	)
 
-	got, err := uc.GetDetail(context.Background(), "abc")
+	got, err := uc.GetDetail(t.Context(), "abc")
 	require.NoError(t, err)
 	assert.True(t, providerCalled)
 	assert.Equal(t, detail, got)
@@ -214,6 +214,6 @@ func TestGetDetailProviderErrorReturnsError(t *testing.T) {
 		},
 	)
 
-	_, err := uc.GetDetail(context.Background(), "abc")
+	_, err := uc.GetDetail(t.Context(), "abc")
 	assert.ErrorIs(t, err, domain.ErrVenueNotFound)
 }

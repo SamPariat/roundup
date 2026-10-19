@@ -28,19 +28,23 @@ func echoApp(pub ed25519.PublicKey) *fiber.App {
 	app.Get("/public", func(c fiber.Ctx) error {
 		return c.SendString(c.Get(sharedmw.UserIDHeader))
 	})
+
 	return app
 }
 
 func call(t *testing.T, app *fiber.App, path string, headers map[string]string) (int, string) {
 	t.Helper()
+
 	req := httptest.NewRequest(http.MethodGet, path, nil)
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
+
 	resp, err := app.Test(req)
 	require.NoError(t, err)
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
+
 	return resp.StatusCode, string(body)
 }
 
@@ -74,11 +78,13 @@ func TestRequireAuth(t *testing.T) {
 	}
 
 	app := echoApp(pub)
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			code, body := call(t, app, "/private", tt.headers)
 
 			assert.Equal(t, tt.wantCode, code)
+
 			if tt.wantBody != "" {
 				assert.Equal(t, tt.wantBody, body)
 			}

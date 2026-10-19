@@ -1,7 +1,6 @@
 package application
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -23,6 +22,7 @@ type otpFixture struct {
 
 func newOTPFixture(t *testing.T, devCode string) *otpFixture {
 	t.Helper()
+
 	clk := newClock()
 	pub, priv := newKeys(t)
 	f := &otpFixture{
@@ -37,13 +37,15 @@ func newOTPFixture(t *testing.T, devCode string) *otpFixture {
 	issuer.now = clk.now
 	f.uc = NewOTPUseCase(f.otps, f.sender, f.users, f.sessions, issuer, devCode)
 	f.uc.now = clk.now
+
 	return f
 }
 
 // requestCode requests a code and returns the one that was "sent".
 func (f *otpFixture) requestCode(t *testing.T) string {
 	t.Helper()
-	require.NoError(t, f.uc.Request(context.Background(), testPhone))
+	require.NoError(t, f.uc.Request(t.Context(), testPhone))
+
 	return f.sender.sent[testPhone]
 }
 
@@ -64,7 +66,7 @@ func TestRequestSendsCodeAndStoresOnlyItsHash(t *testing.T) {
 func TestRequestRejectsInvalidPhone(t *testing.T) {
 	f := newOTPFixture(t, "")
 
-	assert.ErrorIs(t, f.uc.Request(context.Background(), "98765"), domain.ErrInvalidPhone)
+	require.ErrorIs(t, f.uc.Request(t.Context(), "98765"), domain.ErrInvalidPhone)
 	assert.Empty(t, f.sender.sent)
 }
 
@@ -74,10 +76,10 @@ func TestRequestRateLimitPerPhone(t *testing.T) {
 		f.requestCode(t)
 	}
 
-	assert.ErrorIs(t, f.uc.Request(context.Background(), testPhone), domain.ErrTooManyRequests)
+	require.ErrorIs(t, f.uc.Request(t.Context(), testPhone), domain.ErrTooManyRequests)
 
 	f.clock.advance(domain.OTPRequestWindow + time.Second)
-	assert.NoError(t, f.uc.Request(context.Background(), testPhone), "window has passed")
+	assert.NoError(t, f.uc.Request(t.Context(), testPhone), "window has passed")
 }
 
 // --- Verify ---
@@ -86,7 +88,7 @@ func TestVerifyCorrectCodeLogsIn(t *testing.T) {
 	f := newOTPFixture(t, "")
 	code := f.requestCode(t)
 
-	result, err := f.uc.Verify(context.Background(), testPhone, code)
+	result, err := f.uc.Verify(t.Context(), testPhone, code)
 	require.NoError(t, err)
 
 	assert.Equal(t, testUserID, result.UserID)
@@ -97,7 +99,7 @@ func TestVerifyCorrectCodeLogsIn(t *testing.T) {
 	require.NoError(t, err, "access token must verify with the matching public key")
 	assert.Equal(t, testUserID, claims.UserID)
 
-	_, err = f.uc.Verify(context.Background(), testPhone, code)
+	_, err = f.uc.Verify(t.Context(), testPhone, code)
 	assert.ErrorIs(t, err, domain.ErrInvalidCode, "a code works only once")
 }
 
@@ -105,7 +107,7 @@ func TestVerifyExistingUserIsNotNew(t *testing.T) {
 	f := newOTPFixture(t, "")
 	f.users.created = false
 
-	result, err := f.uc.Verify(context.Background(), testPhone, f.requestCode(t))
+	result, err := f.uc.Verify(t.Context(), testPhone, f.requestCode(t))
 
 	require.NoError(t, err)
 	assert.False(t, result.IsNewUser)
@@ -117,19 +119,25 @@ func TestVerifyRejects(t *testing.T) {
 		setup func(f *otpFixture) (phone, code string)
 		want  error
 	}{
-		{"WrongCode", func(f *otpFixture) (string, string) { f.requestCode(t); return testPhone, "abcdef" }, domain.ErrInvalidCode},
-		{"NeverRequested", func(f *otpFixture) (string, string) { return testPhone, "123456" }, domain.ErrInvalidCode},
+		{"WrongCode", func(f *otpFixture) (string, string) {
+			f.requestCode(t)
+
+			return testPhone, "abcdef"
+		}, domain.ErrInvalidCode},
+		{"NeverRequested", func(_ *otpFixture) (string, string) { return testPhone, "123456" }, domain.ErrInvalidCode},
 		{"Expired", func(f *otpFixture) (string, string) {
 			code := f.requestCode(t)
 			f.clock.advance(domain.OTPTTL)
+
 			return testPhone, code
 		}, domain.ErrInvalidCode},
 		{"OlderCodeAfterNewerRequested", func(f *otpFixture) (string, string) {
 			old := f.requestCode(t)
 			f.requestCode(t)
+
 			return testPhone, old
 		}, domain.ErrInvalidCode},
-		{"InvalidPhone", func(f *otpFixture) (string, string) { return "98765", "123456" }, domain.ErrInvalidPhone},
+		{"InvalidPhone", func(_ *otpFixture) (string, string) { return "98765", "123456" }, domain.ErrInvalidPhone},
 	}
 
 	for _, tt := range tests {
@@ -137,9 +145,9 @@ func TestVerifyRejects(t *testing.T) {
 			f := newOTPFixture(t, "")
 			phone, code := tt.setup(f)
 
-			_, err := f.uc.Verify(context.Background(), phone, code)
+			_, err := f.uc.Verify(t.Context(), phone, code)
 
-			assert.ErrorIs(t, err, tt.want)
+			require.ErrorIs(t, err, tt.want)
 			assert.Zero(t, f.users.calls, "user-service must not be called for a rejected code")
 		})
 	}
@@ -149,7 +157,7 @@ func TestVerifyWrongCodeCountsAnAttempt(t *testing.T) {
 	f := newOTPFixture(t, "")
 	f.requestCode(t)
 
-	_, _ = f.uc.Verify(context.Background(), testPhone, "not-it")
+	_, _ = f.uc.Verify(t.Context(), testPhone, "not-it")
 
 	assert.Equal(t, 1, f.otps.codes[0].Attempts)
 }
@@ -159,12 +167,12 @@ func TestVerifyUserServiceDownLeavesCodeUsable(t *testing.T) {
 	code := f.requestCode(t)
 	f.users.err = domain.ErrUserServiceUnavailable
 
-	_, err := f.uc.Verify(context.Background(), testPhone, code)
+	_, err := f.uc.Verify(t.Context(), testPhone, code)
 	require.ErrorIs(t, err, domain.ErrUserServiceUnavailable)
 	assert.Nil(t, f.otps.codes[0].ConsumedAt, "code must stay usable for a retry")
 
 	f.users.err = nil
-	_, err = f.uc.Verify(context.Background(), testPhone, code)
+	_, err = f.uc.Verify(t.Context(), testPhone, code)
 	assert.NoError(t, err, "retry with the same code succeeds")
 }
 
@@ -172,7 +180,7 @@ func TestVerifyAcceptsDevCodeWhenConfigured(t *testing.T) {
 	f := newOTPFixture(t, "123456")
 	f.requestCode(t)
 
-	_, err := f.uc.Verify(context.Background(), testPhone, "123456")
+	_, err := f.uc.Verify(t.Context(), testPhone, "123456")
 
 	assert.NoError(t, err)
 }
@@ -180,7 +188,7 @@ func TestVerifyAcceptsDevCodeWhenConfigured(t *testing.T) {
 func TestVerifyDevCodeStillNeedsARequestedCode(t *testing.T) {
 	f := newOTPFixture(t, "123456")
 
-	_, err := f.uc.Verify(context.Background(), testPhone, "123456")
+	_, err := f.uc.Verify(t.Context(), testPhone, "123456")
 
 	assert.ErrorIs(t, err, domain.ErrInvalidCode, "the dev code skips the SMS, not the request step")
 }
@@ -190,6 +198,7 @@ func TestRandomCodeIsAlwaysSixDigits(t *testing.T) {
 		code, err := randomCode()
 		require.NoError(t, err)
 		require.Len(t, code, domain.OTPLength)
+
 		for _, r := range code {
 			require.True(t, r >= '0' && r <= '9', code)
 		}
@@ -209,13 +218,14 @@ func TestVerifyAttemptLimit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newOTPFixture(t, "")
+
 			code := f.requestCode(t)
 			for range tt.wrongGuesses {
-				_, err := f.uc.Verify(context.Background(), testPhone, "abcdef")
+				_, err := f.uc.Verify(t.Context(), testPhone, "abcdef")
 				require.ErrorIs(t, err, domain.ErrInvalidCode)
 			}
 
-			_, err := f.uc.Verify(context.Background(), testPhone, code)
+			_, err := f.uc.Verify(t.Context(), testPhone, code)
 
 			if tt.want == nil {
 				assert.NoError(t, err)
@@ -229,12 +239,13 @@ func TestVerifyAttemptLimit(t *testing.T) {
 func TestVerifyNewCodeResetsAttemptLimit(t *testing.T) {
 	f := newOTPFixture(t, "")
 	f.requestCode(t)
+
 	for range domain.MaxOTPAttempts {
-		_, _ = f.uc.Verify(context.Background(), testPhone, "abcdef")
+		_, _ = f.uc.Verify(t.Context(), testPhone, "abcdef")
 	}
 
 	fresh := f.requestCode(t)
-	_, err := f.uc.Verify(context.Background(), testPhone, fresh)
+	_, err := f.uc.Verify(t.Context(), testPhone, fresh)
 
 	assert.NoError(t, err, "a newly requested code has its own attempt budget")
 }

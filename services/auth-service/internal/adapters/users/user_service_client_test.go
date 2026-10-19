@@ -1,7 +1,6 @@
 package users
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -18,9 +17,11 @@ const userID = "7dc92d84-1950-43d6-b676-debacf84d830"
 
 func userService(t *testing.T, status int, body string) *httptest.Server {
 	t.Helper()
+
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPost, r.Method)
 		assert.Equal(t, "/api/v1/users", r.URL.Path)
+
 		var req map[string]string
 		assert.NoError(t, json.NewDecoder(r.Body).Decode(&req))
 		assert.Equal(t, "+919876543210", req["phone"])
@@ -29,6 +30,7 @@ func userService(t *testing.T, status int, body string) *httptest.Server {
 		_, _ = w.Write([]byte(body))
 	}))
 	t.Cleanup(srv.Close)
+
 	return srv
 }
 
@@ -54,12 +56,14 @@ func TestEnsureUser(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client := NewUserServiceClient(userService(t, tt.status, tt.body).URL)
 
-			id, created, err := client.EnsureUser(context.Background(), "+919876543210")
+			id, created, err := client.EnsureUser(t.Context(), "+919876543210")
 
 			if tt.wantErr {
 				assert.ErrorIs(t, err, domain.ErrUserServiceUnavailable)
+
 				return
 			}
+
 			require.NoError(t, err)
 			assert.Equal(t, userID, id)
 			assert.Equal(t, tt.wantCreated, created)
@@ -70,7 +74,7 @@ func TestEnsureUser(t *testing.T) {
 func TestEnsureUserUnreachable(t *testing.T) {
 	client := NewUserServiceClient("http://127.0.0.1:1")
 
-	_, _, err := client.EnsureUser(context.Background(), "+919876543210")
+	_, _, err := client.EnsureUser(t.Context(), "+919876543210")
 
 	assert.ErrorIs(t, err, domain.ErrUserServiceUnavailable)
 }
@@ -83,21 +87,23 @@ func TestEnsureUserTimesOut(t *testing.T) {
 	client := NewUserServiceClient(srv.URL)
 	client.http.Timeout = 50 * time.Millisecond
 
-	_, _, err := client.EnsureUser(context.Background(), "+919876543210")
+	_, _, err := client.EnsureUser(t.Context(), "+919876543210")
 
 	assert.ErrorIs(t, err, domain.ErrUserServiceUnavailable)
 }
 
 func TestEnsureUserForwardsRequestID(t *testing.T) {
 	var got string
+
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got = r.Header.Get(sharedmw.RequestIDHeader)
+
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"success":true,"data":{"id":"` + userID + `"}}`))
 	}))
 	t.Cleanup(srv.Close)
 
-	ctx := sharedmw.WithRequestID(context.Background(), "login-req-1")
+	ctx := sharedmw.WithRequestID(t.Context(), "login-req-1")
 	_, _, err := NewUserServiceClient(srv.URL).EnsureUser(ctx, "+919876543210")
 
 	require.NoError(t, err)
