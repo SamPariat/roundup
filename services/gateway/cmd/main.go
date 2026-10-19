@@ -19,7 +19,7 @@ func main() {
 	log := logger.New("gateway", cfg.LogLevel)
 
 	app := fiber.New()
-	app.Use(middleware.RequestID(), middleware.Logging(log), middleware.Recover(log))
+	app.Use(middleware.GenerateRequestID(), middleware.Logging(log), middleware.Recover(log))
 	app.Use(gatewaymw.StripIdentity())
 
 	// The gateway has no dependency of its own to check; each upstream reports

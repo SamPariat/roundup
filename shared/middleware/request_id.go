@@ -31,22 +31,35 @@ func RequestIDFromContext(ctx context.Context) string {
 	return id
 }
 
-// RequestID reads X-Request-Id from the incoming request, generating a
-// UUID v4 if absent. It stores the ID in fiber.Locals and in the request's
-// context.Context (for code below the handler, such as HTTP clients), and
-// echoes it on the response so callers and upstream services can correlate
-// logs.
+// RequestID is for internal services: it reuses the X-Request-Id the gateway
+// forwarded, generating a UUID v4 only if absent (e.g. a direct call in
+// local development).
 func RequestID() fiber.Handler {
 	return func(c fiber.Ctx) error {
 		id := c.Get(RequestIDHeader)
 		if id == "" {
 			id = uuid.NewString()
 		}
-
-		c.Locals(RequestIDLocalsKey, id)
-		c.SetContext(WithRequestID(c.Context(), id))
-		c.Set(RequestIDHeader, id)
-
-		return c.Next()
+		return withID(c, id)
 	}
+}
+
+// GenerateRequestID is for the gateway, where requests come from the
+// internet: it always generates a UUID v4 and ignores any X-Request-Id the
+// client sent, so every ID in the logs is gateway-made. The proxy overwrites
+// the header with this ID before forwarding.
+func GenerateRequestID() fiber.Handler {
+	return func(c fiber.Ctx) error {
+		return withID(c, uuid.NewString())
+	}
+}
+
+// withID stores id in fiber.Locals and in the request's context.Context (for
+// code below the handler, such as HTTP clients), and echoes it on the
+// response so callers and upstream services can correlate logs.
+func withID(c fiber.Ctx, id string) error {
+	c.Locals(RequestIDLocalsKey, id)
+	c.SetContext(WithRequestID(c.Context(), id))
+	c.Set(RequestIDHeader, id)
+	return c.Next()
 }

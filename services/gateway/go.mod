@@ -5,6 +5,7 @@ go 1.27.0
 require (
 	github.com/SamPariat/roundup/shared v0.0.0
 	github.com/gofiber/fiber/v3 v3.6.1
+	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/zap v1.28.0
 )
@@ -13,7 +14,6 @@ require (
 	github.com/gofiber/schema v1.8.8 // indirect
 	github.com/gofiber/utils/v2 v2.6.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/klauspost/compress v1.20.3 // indirect
 	github.com/mattn/go-colorable v0.1.16 // indirect

@@ -17,6 +17,7 @@ import (
 	"github.com/SamPariat/roundup/shared/authtoken"
 	sharedmw "github.com/SamPariat/roundup/shared/middleware"
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -74,7 +75,7 @@ func newFixture(t *testing.T) *fixture {
 
 	f := &fixture{auth: newUpstream(t, "auth"), user: newUpstream(t, "user"), venue: newUpstream(t, "venue"), token: token}
 	f.app = fiber.New()
-	f.app.Use(sharedmw.RequestID(), middleware.StripIdentity())
+	f.app.Use(sharedmw.GenerateRequestID(), middleware.StripIdentity())
 	RegisterRoutes(f.app, config.Upstreams{Auth: f.auth.srv.URL, User: f.user.srv.URL, Venue: f.venue.srv.URL}, pub, 2*time.Second)
 	return f
 }
@@ -157,4 +158,19 @@ func TestUnbuiltServices(t *testing.T) {
 	f := newFixture(t)
 
 	assert.Equal(t, http.StatusNotImplemented, f.do(t, http.MethodGet, "/api/v1/events/123", "", false).StatusCode)
+}
+
+func TestClientRequestIDIsReplaced(t *testing.T) {
+	f := newFixture(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/me", nil)
+	req.Header.Set("Authorization", "Bearer "+f.token)
+	req.Header.Set(sharedmw.RequestIDHeader, "client-chosen-id")
+
+	resp, err := f.app.Test(req)
+	require.NoError(t, err)
+
+	got := f.user.last(t).RequestID
+	require.NoError(t, uuid.Validate(got), "the gateway generates a UUID")
+	assert.NotEqual(t, "client-chosen-id", got, "a client-sent request ID never reaches upstream")
+	assert.Equal(t, got, resp.Header.Get(sharedmw.RequestIDHeader), "caller sees the gateway's ID")
 }

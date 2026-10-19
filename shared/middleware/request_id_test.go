@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -62,4 +63,21 @@ func TestRequestIDIsInContext(t *testing.T) {
 
 func TestRequestIDFromContextEmptyWhenUnset(t *testing.T) {
 	assert.Empty(t, RequestIDFromContext(context.Background()))
+}
+
+func TestGenerateRequestIDIgnoresClientHeader(t *testing.T) {
+	app := fiber.New()
+	app.Use(GenerateRequestID())
+	app.Get("/", func(c fiber.Ctx) error {
+		return c.SendString(RequestIDFromContext(c.Context()))
+	})
+
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set(RequestIDHeader, "client-chosen-id")
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	body, _ := io.ReadAll(resp.Body)
+
+	require.NoError(t, uuid.Validate(string(body)), "a fresh UUID is generated")
+	assert.Equal(t, string(body), resp.Header.Get(RequestIDHeader))
 }
