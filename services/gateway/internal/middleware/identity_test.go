@@ -21,7 +21,7 @@ const userID = "7dc92d84-1950-43d6-b676-debacf84d830"
 // echoApp returns an app whose only route replies with the X-User-ID it received.
 func echoApp(pub ed25519.PublicKey) *fiber.App {
 	app := fiber.New()
-	app.Use(StripInternalHeaders())
+	app.Use(StripIdentity())
 	app.Get("/private", RequireAuth(pub), func(c fiber.Ctx) error {
 		return c.SendString(c.Get(sharedmw.UserIDHeader))
 	})
@@ -86,7 +86,7 @@ func TestRequireAuth(t *testing.T) {
 	}
 }
 
-func TestStripInternalHeadersRemovesUserIDOnPublicRoutes(t *testing.T) {
+func TestStripIdentityOnPublicRoutes(t *testing.T) {
 	pub, _, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 

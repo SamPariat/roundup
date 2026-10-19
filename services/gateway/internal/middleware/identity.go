@@ -12,17 +12,12 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// StripInternalHeaders removes headers that only the gateway may set, so a
-// client can't supply them:
-//   - X-User-ID: upstream services trust it completely; only RequireAuth sets it.
-//   - X-Request-Id: the gateway generates every request ID, so IDs in the logs
-//     are always gateway-made UUIDs, never client-chosen strings.
-//
-// Mount it first, before RequestID, which would otherwise reuse a client value.
-func StripInternalHeaders() fiber.Handler {
+// StripIdentity removes any X-User-ID the client sent. Upstream services
+// trust that header completely, so only RequireAuth may set it. Mount it
+// globally, before any route.
+func StripIdentity() fiber.Handler {
 	return func(c fiber.Ctx) error {
 		c.Request().Header.Del(sharedmw.UserIDHeader)
-		c.Request().Header.Del(sharedmw.RequestIDHeader)
 		return c.Next()
 	}
 }

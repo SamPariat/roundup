@@ -19,9 +19,8 @@ func main() {
 	log := logger.New("gateway", cfg.LogLevel)
 
 	app := fiber.New()
-	// StripInternalHeaders runs first so RequestID always generates a new ID
-	// instead of reusing one the client sent.
-	app.Use(gatewaymw.StripInternalHeaders(), middleware.RequestID(), middleware.Logging(log), middleware.Recover(log))
+	app.Use(middleware.GenerateRequestID(), middleware.Logging(log), middleware.Recover(log))
+	app.Use(gatewaymw.StripIdentity())
 
 	// The gateway has no dependency of its own to check; each upstream reports
 	// its own readiness.

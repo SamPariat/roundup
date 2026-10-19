@@ -75,7 +75,7 @@ func newFixture(t *testing.T) *fixture {
 
 	f := &fixture{auth: newUpstream(t, "auth"), user: newUpstream(t, "user"), venue: newUpstream(t, "venue"), token: token}
 	f.app = fiber.New()
-	f.app.Use(middleware.StripInternalHeaders(), sharedmw.RequestID())
+	f.app.Use(sharedmw.GenerateRequestID(), middleware.StripIdentity())
 	RegisterRoutes(f.app, config.Upstreams{Auth: f.auth.srv.URL, User: f.user.srv.URL, Venue: f.venue.srv.URL}, pub, 2*time.Second)
 	return f
 }
