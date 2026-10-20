@@ -72,6 +72,8 @@ Access tokens are not revoked by logout. They expire within 15 minutes; that is 
 
 ## HTTP Routes
 
+The full request/response contract is in [`shared/api/openapi.yaml`](../../shared/api/openapi.yaml) (Swagger UI at `localhost:8080/docs`); this table is an overview.
+
 | Method | Path | Success | Errors |
 |---|---|---|---|
 | POST | `/api/v1/auth/otp/request` | 202 | 400 bad phone, 429 too many requests |

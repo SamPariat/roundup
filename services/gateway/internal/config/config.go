@@ -37,6 +37,10 @@ type Config struct {
 
 	// UpstreamTimeout bounds each forwarded request. Defaults to defaultUpstreamTimeout.
 	UpstreamTimeout time.Duration
+
+	// DocsEnabled serves Swagger UI at /docs. True only when DOCS_ENABLED is
+	// exactly "true" (set in .env.beta); anything else, or unset, is false.
+	DocsEnabled bool
 }
 
 // Upstreams holds each service's base URL, e.g. "http://localhost:3002".
@@ -69,5 +73,6 @@ func Load() *Config {
 		},
 		JWTPublicKey:    publicKey,
 		UpstreamTimeout: env.Duration("UPSTREAM_TIMEOUT", defaultUpstreamTimeout),
+		DocsEnabled:     env.Get("DOCS_ENABLED", "") == "true",
 	}
 }

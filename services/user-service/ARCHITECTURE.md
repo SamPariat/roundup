@@ -189,6 +189,8 @@ app.Listen(":" + cfg.Port) // 3002
 
 ## HTTP Routes
 
+The full request/response contract is in [`shared/api/openapi.yaml`](../../shared/api/openapi.yaml) (Swagger UI at `localhost:8080/docs`); this table is an overview.
+
 All routes are versioned under `/api/v1`. Routes under `/users/me` require the `X-User-ID` header (set by the gateway after token validation) and are wrapped in `middleware.UserID()`.
 
 | Method | Path | Handler | Use-case | Success |

@@ -29,6 +29,10 @@ func main() {
 
 	transporthttp.RegisterRoutes(app, cfg.Upstreams, cfg.JWTPublicKey, cfg.UpstreamTimeout)
 
+	if cfg.DocsEnabled {
+		transporthttp.RegisterDocs(app)
+	}
+
 	log.Info("starting "+api.Gateway, zap.String("env", cfg.Env), zap.String("port", cfg.Port))
 
 	if err := server.Run(app, cfg.Port, log); err != nil {

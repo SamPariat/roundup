@@ -1,0 +1,1118 @@
+openapi: 3.0.3
+
+info:
+  title: Roundup API
+  version: 1.0.0
+  description: |
+    The public API of Roundup, as served by the gateway.
+
+    - **Clients only talk to the gateway.** It verifies the access token,
+      forwards the request to the owning service (auth, user or venue) and
+      returns its response unchanged. An upstream that is down or slow
+      answers 502.
+    - **Every response is an envelope:** `{"success": true, "data": ...}` or
+      `{"success": false, "error": "..."}`. Responses documented as having no
+      body (202, 204 and some 201s) have no envelope either.
+    - **Request IDs:** the gateway generates a fresh `X-Request-ID` for every
+      request (a client-sent one is ignored) and returns it on the response.
+      Quote it when reporting a problem.
+    - `/api/v1/events`, `/billing`, `/media` and `/realtime` are reserved and
+      answer 501 until those services exist.
+
+    This file is checked against every service's router in tests
+    (`TestRoutesAreDocumented`), so a new route fails CI until it is added here.
+
+servers:
+  - url: http://localhost:8080
+    description: Gateway (local)
+
+tags:
+  - name: Auth
+    description: Phone OTP login and token refresh. Rate limited to 20 requests per 15 minutes per client IP.
+  - name: Users
+    description: The signed-in user's profile.
+  - name: Device tokens
+    description: Push notification tokens for the signed-in user.
+  - name: Venues
+    description: Venue search and details, backed by Google Places.
+  - name: Favorites
+    description: Venues a user saved for a squad.
+  - name: History
+    description: Venues a squad has visited.
+  - name: Health
+    description: Liveness and readiness probes. Every service exposes these.
+  - name: Internal
+    description: Service-to-service routes. Not reachable through the gateway.
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ─── Auth ────────────────────────────────────────────────────────────────
+
+  /api/v1/auth/otp/request:
+    post:
+      tags: [Auth]
+      operationId: requestOTP
+      summary: Send a login code by SMS
+      description: |
+        Sends a 6-digit code to the phone, valid for 5 minutes. At most 3 codes
+        per phone per 15 minutes.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestOTPRequest'
+      responses:
+        '202':
+          description: Code sent. No body.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/auth/otp/verify:
+    post:
+      tags: [Auth]
+      operationId: verifyOTP
+      summary: Exchange a login code for tokens
+      description: |
+        Verifies the code and returns an access/refresh token pair. Creates the
+        user on first login (`isNewUser: true`). After 5 wrong attempts the code
+        is burned and a new one must be requested.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyOTPRequest'
+      responses:
+        '200':
+          description: Logged in.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/InvalidCode'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      operationId: refreshTokens
+      summary: Rotate the token pair
+      description: |
+        Returns a new access and refresh token. The old refresh token stops
+        working; presenting it again revokes the whole session.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: New token pair.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TokenPair'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/InvalidRefreshToken'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: Revoke the session
+      description: Revokes the session the refresh token belongs to. Logging out twice is not an error.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '204':
+          description: Logged out. No body.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/InvalidRefreshToken'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ─── Users ───────────────────────────────────────────────────────────────
+
+  /api/v1/users/me:
+    get:
+      tags: [Users]
+      operationId: getMe
+      summary: Get my profile
+      responses:
+        '200':
+          $ref: '#/components/responses/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [Users]
+      operationId: updateMe
+      summary: Update my profile
+      description: Only the fields present in the body change.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Users]
+      operationId: deleteMe
+      summary: Delete my account
+      description: Soft-deletes the user and removes all their device tokens.
+      responses:
+        '204':
+          description: Deleted. No body.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/users/me/device-tokens:
+    post:
+      tags: [Device tokens]
+      operationId: registerDeviceToken
+      summary: Register a push token
+      description: Idempotent. Registering an existing token updates its platform and keeps the original `createdAt`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDeviceTokenRequest'
+      responses:
+        '201':
+          description: Registered.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DeviceToken'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/users/me/device-tokens/{token}:
+    delete:
+      tags: [Device tokens]
+      operationId: removeDeviceToken
+      summary: Remove a push token
+      parameters:
+        - name: token
+          in: path
+          required: true
+          description: The token, URL-encoded (FCM tokens contain `:`).
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Removed. No body.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ─── Venues ──────────────────────────────────────────────────────────────
+
+  /api/v1/venues:
+    get:
+      tags: [Venues]
+      operationId: searchVenues
+      summary: Search venues near a point
+      description: Results are cached for 10 minutes. No pagination.
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+            minimum: -90
+            maximum: 90
+          example: 19.076
+        - name: lng
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+            minimum: -180
+            maximum: 180
+          example: 72.8777
+        - name: radius
+          in: query
+          required: true
+          description: Search radius in meters.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50000
+          example: 2000
+        - name: query
+          in: query
+          description: Optional keyword, e.g. "rooftop".
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: Optional Google place type, e.g. "restaurant".
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Matching venues.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SearchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/venues/{placeID}:
+    get:
+      tags: [Venues]
+      operationId: getVenue
+      summary: Get venue details
+      parameters:
+        - $ref: '#/components/parameters/PlaceID'
+      responses:
+        '200':
+          description: The venue with phone, website, hours and reviews.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/VenueDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ─── Favorites ───────────────────────────────────────────────────────────
+
+  /api/v1/squads/{squadID}/favorites:
+    parameters:
+      - $ref: '#/components/parameters/SquadID'
+    get:
+      tags: [Favorites]
+      operationId: listFavorites
+      summary: List my saved venues for a squad
+      description: Newest first.
+      responses:
+        '200':
+          description: Saved venues.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/FavoritesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Favorites]
+      operationId: addFavorite
+      summary: Save a venue for a squad
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddFavoriteRequest'
+      responses:
+        '201':
+          description: Saved. No body.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/squads/{squadID}/favorites/{placeID}:
+    parameters:
+      - $ref: '#/components/parameters/SquadID'
+      - $ref: '#/components/parameters/PlaceID'
+    delete:
+      tags: [Favorites]
+      operationId: removeFavorite
+      summary: Unsave a venue
+      responses:
+        '204':
+          description: Removed. No body.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/squads/{squadID}/favorites/{placeID}/check:
+    parameters:
+      - $ref: '#/components/parameters/SquadID'
+      - $ref: '#/components/parameters/PlaceID'
+    get:
+      tags: [Favorites]
+      operationId: isFavorite
+      summary: Check whether I saved a venue
+      responses:
+        '200':
+          description: Whether the venue is saved.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/IsFavoriteResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ─── History ─────────────────────────────────────────────────────────────
+
+  /api/v1/squads/{squadID}/history:
+    parameters:
+      - $ref: '#/components/parameters/SquadID'
+    get:
+      tags: [History]
+      operationId: getVisitHistory
+      summary: List venues the squad visited
+      description: One entry per venue, with how often and when last it was visited.
+      responses:
+        '200':
+          description: Visit summary per venue.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/VisitHistoryResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [History]
+      operationId: recordVisit
+      summary: Record a visit
+      description: A visit is unique per squad, event and venue.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordVisitRequest'
+      responses:
+        '201':
+          description: Recorded. No body.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ─── Internal ────────────────────────────────────────────────────────────
+
+  /api/v1/users:
+    servers:
+      - url: http://localhost:3002
+        description: user-service (direct; the gateway answers 404)
+    post:
+      tags: [Internal]
+      operationId: createOrGetUser
+      summary: Create or fetch a user by phone
+      description: |
+        Called by auth-service after a code is verified. Returns the existing
+        user if the phone is already registered. Blocked at the gateway.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/User'
+        '200':
+          $ref: '#/components/responses/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ─── Health ──────────────────────────────────────────────────────────────
+
+  /health:
+    get:
+      tags: [Health]
+      operationId: health
+      summary: Liveness
+      description: Always 200 while the process is up. Never checks dependencies.
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Status'
+
+  /ready:
+    get:
+      tags: [Health]
+      operationId: ready
+      summary: Readiness
+      description: 200 once every dependency (e.g. Postgres) answers within 2 seconds.
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Status'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        The `accessToken` from `/auth/otp/verify` or `/auth/refresh`: an
+        EdDSA-signed JWT valid for 15 minutes. The gateway verifies it and
+        forwards the user ID to the service as `X-User-ID`.
+
+  headers:
+    X-Request-ID:
+      description: Generated by the gateway for every request; appears in every service's logs.
+      schema:
+        type: string
+        format: uuid
+
+  parameters:
+    SquadID:
+      name: squadID
+      in: path
+      required: true
+      schema:
+        type: string
+    PlaceID:
+      name: placeID
+      in: path
+      required: true
+      description: Google Places ID.
+      schema:
+        type: string
+      example: ChIJN1t_tDeuEmsRUsoyG83frY4
+
+  responses:
+    User:
+      description: The user.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/X-Request-ID'
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/SuccessEnvelope'
+              - type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/User'
+    Status:
+      description: The service is up.
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/SuccessEnvelope'
+              - type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [status]
+                    properties:
+                      status:
+                        type: string
+                        enum: [ok, ready]
+    BadRequest:
+      description: The body, a query parameter or a path parameter is invalid.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: phone must be in E.164 format, e.g. +919876543210
+    Unauthorized:
+      description: The bearer token is missing, invalid or expired.
+      headers:
+        WWW-Authenticate:
+          schema:
+            type: string
+            example: Bearer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: invalid or expired access token
+    InvalidCode:
+      description: The code is wrong, expired, already used or was never requested.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: invalid or expired code
+    InvalidRefreshToken:
+      description: The refresh token is unknown, expired or revoked.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: invalid refresh token
+    NotFound:
+      description: The resource does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: user not found
+    Conflict:
+      description: The resource already exists.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: 'venue already saved: ChIJN1t_tDeuEmsRUsoyG83frY4'
+    TooManyRequests:
+      description: Rate limited, either per client IP at the gateway or per phone at auth-service.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: too many code requests, try again later
+    BadGateway:
+      description: The gateway could not reach the upstream service in time.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ServiceUnavailable:
+      description: A dependency (another service, Google Places, Postgres) is unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: place provider unavailable
+    InternalError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    # ─── Envelope ──────────────────────────────────────────────────────────
+
+    SuccessEnvelope:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+    ErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: string
+
+    # ─── Auth ──────────────────────────────────────────────────────────────
+
+    Phone:
+      type: string
+      description: E.164 phone number.
+      pattern: '^\+[1-9]\d{7,14}$'
+      example: '+919876543210'
+    RequestOTPRequest:
+      type: object
+      required: [phone]
+      properties:
+        phone:
+          $ref: '#/components/schemas/Phone'
+    VerifyOTPRequest:
+      type: object
+      required: [phone, code]
+      properties:
+        phone:
+          $ref: '#/components/schemas/Phone'
+        code:
+          type: string
+          pattern: '^\d{6}$'
+          example: '123456'
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+    TokenPair:
+      type: object
+      required: [accessToken, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt]
+      properties:
+        accessToken:
+          type: string
+          description: 'Send as `Authorization: Bearer <accessToken>`.'
+        accessTokenExpiresAt:
+          type: string
+          format: date-time
+        refreshToken:
+          type: string
+          description: Opaque; rotates on every refresh.
+        refreshTokenExpiresAt:
+          type: string
+          format: date-time
+    LoginResponse:
+      allOf:
+        - $ref: '#/components/schemas/TokenPair'
+        - type: object
+          required: [userID, isNewUser]
+          properties:
+            userID:
+              type: string
+              format: uuid
+            isNewUser:
+              type: boolean
+              description: True on the first login; the app should ask for a name.
+
+    # ─── Users ─────────────────────────────────────────────────────────────
+
+    CreateUserRequest:
+      type: object
+      required: [phone]
+      properties:
+        phone:
+          $ref: '#/components/schemas/Phone'
+    User:
+      type: object
+      required: [id, phone, name, avatarURL, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        phone:
+          $ref: '#/components/schemas/Phone'
+        name:
+          type: string
+          description: Empty until the user sets one.
+        avatarURL:
+          type: string
+          description: Empty when unset.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    UpdateProfileRequest:
+      type: object
+      description: Omitted fields are left unchanged.
+      properties:
+        name:
+          type: string
+          description: Trimmed; must not be blank.
+          example: Sam
+        avatarURL:
+          type: string
+          description: An empty string clears it.
+    RegisterDeviceTokenRequest:
+      type: object
+      required: [token, platform]
+      properties:
+        token:
+          type: string
+          description: FCM or APNs token. Must not be blank.
+        platform:
+          $ref: '#/components/schemas/Platform'
+    Platform:
+      type: string
+      enum: [iOS, Android]
+    DeviceToken:
+      type: object
+      required: [id, token, platform, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        token:
+          type: string
+        platform:
+          $ref: '#/components/schemas/Platform'
+        createdAt:
+          type: string
+          format: date-time
+
+    # ─── Venues ────────────────────────────────────────────────────────────
+
+    PhotoRef:
+      type: object
+      required: [reference, width, height]
+      properties:
+        reference:
+          type: string
+          description: Google Places photo reference.
+        width:
+          type: integer
+        height:
+          type: integer
+    Review:
+      type: object
+      required: [authorName, rating, text, publishedAt]
+      properties:
+        authorName:
+          type: string
+        rating:
+          type: number
+          format: float
+        text:
+          type: string
+        publishedAt:
+          type: string
+          format: date-time
+    Venue:
+      type: object
+      required: [placeID, name, address, latitude, longitude, averageRating, priceLevel, types, isOpen, photoRefs]
+      properties:
+        placeID:
+          type: string
+        name:
+          type: string
+        address:
+          type: string
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        averageRating:
+          type: number
+          format: float
+          description: 1–5, or 0 when unrated.
+        priceLevel:
+          type: integer
+          minimum: 0
+          maximum: 4
+        types:
+          type: array
+          items:
+            type: string
+        isOpen:
+          type: boolean
+          nullable: true
+          description: Null when Google does not know.
+        photoRefs:
+          type: array
+          items:
+            $ref: '#/components/schemas/PhotoRef'
+    VenueDetail:
+      allOf:
+        - $ref: '#/components/schemas/Venue'
+        - type: object
+          required: [phoneNumber, website, openingHours, reviews, editorialSummary]
+          properties:
+            phoneNumber:
+              type: string
+            website:
+              type: string
+            openingHours:
+              type: array
+              items:
+                type: string
+              example: ['Monday: 12:00 – 11:00 PM']
+            reviews:
+              type: array
+              maxItems: 5
+              items:
+                $ref: '#/components/schemas/Review'
+            editorialSummary:
+              type: string
+    SearchResponse:
+      type: object
+      required: [venues]
+      properties:
+        venues:
+          type: array
+          items:
+            $ref: '#/components/schemas/Venue'
+
+    # ─── Favorites ─────────────────────────────────────────────────────────
+
+    AddFavoriteRequest:
+      type: object
+      required: [placeID, name]
+      properties:
+        placeID:
+          type: string
+        name:
+          type: string
+    SavedVenue:
+      type: object
+      required: [id, placeID, name, userID, savedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        placeID:
+          type: string
+        name:
+          type: string
+        userID:
+          type: string
+          format: uuid
+        savedAt:
+          type: string
+          format: date-time
+    FavoritesResponse:
+      type: object
+      required: [favorites]
+      properties:
+        favorites:
+          type: array
+          items:
+            $ref: '#/components/schemas/SavedVenue'
+    IsFavoriteResponse:
+      type: object
+      required: [isFavorite]
+      properties:
+        isFavorite:
+          type: boolean
+
+    # ─── History ───────────────────────────────────────────────────────────
+
+    RecordVisitRequest:
+      type: object
+      required: [eventID, placeID, name, visitedAt]
+      properties:
+        eventID:
+          type: string
+        placeID:
+          type: string
+        name:
+          type: string
+        visitedAt:
+          type: string
+          format: date-time
+        avgSpendInPaise:
+          type: integer
+          format: int64
+          description: Average spend per person in paise. 0 or omitted means unknown.
+    VisitSummary:
+      type: object
+      required: [placeID, name, visitCount, lastVisitedAt]
+      properties:
+        placeID:
+          type: string
+        name:
+          type: string
+        visitCount:
+          type: integer
+          format: int64
+        lastVisitedAt:
+          type: string
+          format: date-time
+    VisitHistoryResponse:
+      type: object
+      required: [history]
+      properties:
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/VisitSummary'
