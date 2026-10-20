@@ -14,6 +14,7 @@ import (
 
 	"github.com/SamPariat/roundup/services/gateway/internal/config"
 	"github.com/SamPariat/roundup/services/gateway/internal/middleware"
+	"github.com/SamPariat/roundup/shared/api"
 	"github.com/SamPariat/roundup/shared/authtoken"
 	sharedmw "github.com/SamPariat/roundup/shared/middleware"
 	"github.com/gofiber/fiber/v3"
@@ -186,4 +187,21 @@ func TestClientRequestIDIsReplaced(t *testing.T) {
 	require.NoError(t, uuid.Validate(got), "the gateway generates a UUID")
 	assert.NotEqual(t, "client-chosen-id", got, "a client-sent request ID never reaches upstream")
 	assert.Equal(t, got, resp.Header.Get(sharedmw.RequestIDHeader), "caller sees the gateway's ID")
+}
+
+func TestRegisterDocs(t *testing.T) {
+	app := fiber.New()
+	RegisterDocs(app)
+
+	page, err := app.Test(httptest.NewRequest(http.MethodGet, "/docs", nil))
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, page.StatusCode)
+	assert.Contains(t, page.Header.Get(fiber.HeaderContentType), "text/html")
+
+	spec, err := app.Test(httptest.NewRequest(http.MethodGet, "/docs/openapi.yaml", nil))
+	require.NoError(t, err)
+
+	body, _ := io.ReadAll(spec.Body)
+	assert.Equal(t, http.StatusOK, spec.StatusCode)
+	assert.Equal(t, api.Spec, body)
 }

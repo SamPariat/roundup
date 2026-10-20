@@ -258,6 +258,8 @@ app.Listen(":" + cfg.Port) // 3006
 
 ## HTTP Routes
 
+The full request/response contract is in [`shared/api/openapi.yaml`](../../shared/api/openapi.yaml) (Swagger UI at `localhost:8080/docs`); this table is an overview.
+
 All routes are versioned under `/api/v1`.
 
 | Method | Path | Handler | Use-case | Success |

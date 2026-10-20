@@ -1020,8 +1020,8 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 
 ### API contracts
 
-- [ ] Document all REST endpoints in OpenAPI 3.0 YAML
-- [ ] Host Swagger UI for dev environment
+- [x] Document all REST endpoints in OpenAPI 3.0 YAML
+- [x] Host Swagger UI for dev environment
 - [ ] Write contract tests between gateway and each service (Pact)
 - [ ] Version all APIs (`/api/v1/`)
 

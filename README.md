@@ -256,6 +256,12 @@ Or use the Makefile shortcuts, e.g. `make auth-run`, `make user-run`, `make venu
 
 All services share Redis on `6379` and Kafka on `9092`. All HTTP routes are versioned under `/api/v1` (e.g. `/api/v1/users/me`).
 
+### API docs
+
+Every route is described in one OpenAPI 3 document, [`shared/api/openapi.yaml`](shared/api/openapi.yaml). With the services running (`make services-up`), Swagger UI is at **http://localhost:8080/docs**: use "Authorize" with an `accessToken` from `/auth/otp/verify` to try the protected routes. The gateway serves it only when `DOCS_ENABLED=true`, as in `.env.beta`; prod leaves it off.
+
+Each service's `TestRoutesAreDocumented` compares its router with the spec, so adding, removing or renaming a route fails CI until `openapi.yaml` is updated to match.
+
 > **Later:** AI features — deferred, will be revisited.
 
 ---
