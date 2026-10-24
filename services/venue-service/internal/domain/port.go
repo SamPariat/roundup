@@ -13,6 +13,10 @@ type PlaceProvider interface {
 	// for an unknown or malformed placeID, and ErrProviderUnavailable when the
 	// provider rejects or cannot serve the request.
 	GetDetail(ctx context.Context, placeID string) (*VenueDetail, error)
+
+	// Photo streams a venue photo at most maxWidth pixels wide. Returns
+	// ErrPhotoNotFound for an unknown reference.
+	Photo(ctx context.Context, reference string, maxWidth int) (*Photo, error)
 }
 
 // VenueCache abstracts the caching layer (Redis, in-memory, etc.).
