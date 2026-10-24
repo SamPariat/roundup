@@ -20,7 +20,7 @@ func NewVenueHandler(uc *application.VenueUseCase) *VenueHandler {
 	return &VenueHandler{uc: uc}
 }
 
-// Search handles GET /api/v1/venues — returns nearby venues matching the query params.
+// Search handles GET /api/v1/venues: nearby venues matching the query params.
 func (h *VenueHandler) Search(c fiber.Ctx) error {
 	var req dtos.SearchRequest
 	if err := c.Bind().Query(&req); err != nil {
@@ -38,24 +38,20 @@ func (h *VenueHandler) Search(c fiber.Ctx) error {
 		return response.Error(c, venueErrorStatus(err), err)
 	}
 
-	return c.Status(fiber.StatusOK).JSON(
-		response.OK(dtos.VenuesToSearchResponse(venues)),
-	)
+	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.VenuesToSearchResponse(venues)))
 }
 
-// GetDetail handles GET /api/v1/venues/:placeID — returns full details for a venue.
+// GetDetail handles GET /api/v1/venues/:placeID: full details for one venue.
 func (h *VenueHandler) GetDetail(c fiber.Ctx) error {
 	detail, err := h.uc.GetDetail(c.Context(), c.Params("placeID"))
 	if err != nil {
 		return response.Error(c, venueErrorStatus(err), err)
 	}
 
-	return c.Status(fiber.StatusOK).JSON(
-		response.OK(dtos.VenueDetailToResponse(*detail)),
-	)
+	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.VenueDetailToResponse(*detail)))
 }
 
-// venueErrorStatus maps domain sentinel errors to HTTP status codes.
+// venueErrorStatus maps domain sentinel errors to HTTP status codes for venues.
 func venueErrorStatus(err error) int {
 	switch {
 	case errors.Is(err, domain.ErrInvalidSearch):

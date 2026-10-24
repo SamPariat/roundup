@@ -20,10 +20,10 @@ func NewHistoryUseCase(visits domain.VenueRepository, squads domain.SquadDirecto
 	return &HistoryUseCase{visits: visits, squads: squads}
 }
 
-// RecordVisit stores a new venue visit for the squad.
+// Record stores a new venue visit for the squad.
 // Returns domain.ErrSquadNotFound if cmd.UserID is not in the squad and
 // domain.ErrVisitAlreadyRecorded if this event's visit is already recorded.
-func (u *HistoryUseCase) RecordVisit(ctx context.Context, cmd domain.RecordVisitCommand) error {
+func (u *HistoryUseCase) Record(ctx context.Context, cmd domain.RecordVisitCommand) error {
 	if err := u.squads.EnsureMember(ctx, cmd.SquadID, cmd.UserID); err != nil {
 		return err
 	}
@@ -31,9 +31,9 @@ func (u *HistoryUseCase) RecordVisit(ctx context.Context, cmd domain.RecordVisit
 	return u.visits.RecordVisit(ctx, cmd)
 }
 
-// GetVisitHistory returns aggregated visit summaries for all venues visited by the squad.
+// List returns aggregated visit summaries for all venues visited by the squad.
 // Returns domain.ErrSquadNotFound if userID is not in the squad.
-func (u *HistoryUseCase) GetVisitHistory(ctx context.Context, squadID, userID string) ([]domain.VisitSummary, error) {
+func (u *HistoryUseCase) List(ctx context.Context, squadID, userID string) ([]domain.VisitSummary, error) {
 	if err := u.squads.EnsureMember(ctx, squadID, userID); err != nil {
 		return nil, err
 	}

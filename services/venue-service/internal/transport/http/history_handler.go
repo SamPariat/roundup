@@ -23,17 +23,15 @@ func NewHistoryHandler(uc *application.HistoryUseCase) *HistoryHandler {
 	return &HistoryHandler{uc: uc}
 }
 
-// RecordVisit handles POST /api/v1/squads/:squadID/history.
-func (h *HistoryHandler) RecordVisit(c fiber.Ctx) error {
-	squadID := c.Params("squadID")
-
+// Record handles POST /api/v1/squads/:squadID/history.
+func (h *HistoryHandler) Record(c fiber.Ctx) error {
 	var req dtos.RecordVisitRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return response.Error(c, fiber.StatusBadRequest, err)
 	}
 
-	err := h.uc.RecordVisit(c.Context(), domain.RecordVisitCommand{
-		SquadID:         squadID,
+	err := h.uc.Record(c.Context(), domain.RecordVisitCommand{
+		SquadID:         c.Params("squadID"),
 		UserID:          middleware.UserIDFrom(c),
 		EventID:         req.EventID,
 		PlaceID:         req.PlaceID,
@@ -48,27 +46,23 @@ func (h *HistoryHandler) RecordVisit(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusCreated)
 }
 
-// GetVisitHistory handles GET /api/v1/squads/:squadID/history.
-func (h *HistoryHandler) GetVisitHistory(c fiber.Ctx) error {
-	squadID := c.Params("squadID")
-
-	summaries, err := h.uc.GetVisitHistory(c.Context(), squadID, middleware.UserIDFrom(c))
+// List handles GET /api/v1/squads/:squadID/history.
+func (h *HistoryHandler) List(c fiber.Ctx) error {
+	summaries, err := h.uc.List(c.Context(), c.Params("squadID"), middleware.UserIDFrom(c))
 	if err != nil {
 		return response.Error(c, historyErrorStatus(err), err)
 	}
 
-	return c.Status(fiber.StatusOK).JSON(
-		response.OK(dtos.VisitHistoryToResponse(summaries)),
-	)
+	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.VisitHistoryToResponse(summaries)))
 }
 
 // historyErrorStatus maps domain sentinel errors to HTTP status codes for visit history.
 func historyErrorStatus(err error) int {
 	switch {
-	case errors.Is(err, domain.ErrVisitAlreadyRecorded):
-		return fiber.StatusConflict
 	case errors.Is(err, domain.ErrSquadNotFound):
 		return fiber.StatusNotFound
+	case errors.Is(err, domain.ErrVisitAlreadyRecorded):
+		return fiber.StatusConflict
 	case errors.Is(err, domain.ErrUserServiceUnavailable):
 		return fiber.StatusServiceUnavailable
 	default:

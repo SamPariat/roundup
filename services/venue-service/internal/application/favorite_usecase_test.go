@@ -124,17 +124,17 @@ func TestNonMembersNeverReachTheRepository(t *testing.T) {
 	history := NewHistoryUseCase(mustNotTouchRepo(t), notMember)
 	ctx := t.Context()
 
-	_, listErr := favorites.ListFavorites(ctx, "squad-1", "stranger")
-	_, checkErr := favorites.IsFavorite(ctx, "squad-1", "stranger", "abc")
-	_, historyErr := history.GetVisitHistory(ctx, "squad-1", "stranger")
+	_, listErr := favorites.List(ctx, "squad-1", "stranger")
+	_, checkErr := favorites.IsSaved(ctx, "squad-1", "stranger", "abc")
+	_, historyErr := history.List(ctx, "squad-1", "stranger")
 
 	for name, err := range map[string]error{
-		"AddFavorite":     favorites.AddFavorite(ctx, domain.AddFavoriteCommand{SquadID: "squad-1", UserID: "stranger"}),
-		"RemoveFavorite":  favorites.RemoveFavorite(ctx, domain.RemoveFavoriteCommand{SquadID: "squad-1", UserID: "stranger"}),
-		"ListFavorites":   listErr,
-		"IsFavorite":      checkErr,
-		"RecordVisit":     history.RecordVisit(ctx, domain.RecordVisitCommand{SquadID: "squad-1", UserID: "stranger"}),
-		"GetVisitHistory": historyErr,
+		"favorites.Add":     favorites.Add(ctx, domain.AddFavoriteCommand{SquadID: "squad-1", UserID: "stranger"}),
+		"favorites.Remove":  favorites.Remove(ctx, domain.RemoveFavoriteCommand{SquadID: "squad-1", UserID: "stranger"}),
+		"favorites.List":    listErr,
+		"favorites.IsSaved": checkErr,
+		"history.Record":    history.Record(ctx, domain.RecordVisitCommand{SquadID: "squad-1", UserID: "stranger"}),
+		"history.List":      historyErr,
 	} {
 		assert.ErrorIs(t, err, domain.ErrSquadNotFound, name)
 	}
@@ -143,7 +143,7 @@ func TestNonMembersNeverReachTheRepository(t *testing.T) {
 func TestAddFavoriteSuccess(t *testing.T) {
 	uc := NewFavoriteUseCase(&fakeVenueRepo{}, fakeSquadDirectory{})
 
-	err := uc.AddFavorite(t.Context(), domain.AddFavoriteCommand{
+	err := uc.Add(t.Context(), domain.AddFavoriteCommand{
 		SquadID: "squad-1", UserID: "user-1", PlaceID: "abc", Name: "The Rooftop",
 	})
 
@@ -157,7 +157,7 @@ func TestAddFavoriteAlreadySaved(t *testing.T) {
 		},
 	}, fakeSquadDirectory{})
 
-	err := uc.AddFavorite(t.Context(), domain.AddFavoriteCommand{})
+	err := uc.Add(t.Context(), domain.AddFavoriteCommand{})
 
 	assert.ErrorIs(t, err, domain.ErrAlreadySaved)
 }
@@ -165,7 +165,7 @@ func TestAddFavoriteAlreadySaved(t *testing.T) {
 func TestRemoveFavoriteSuccess(t *testing.T) {
 	uc := NewFavoriteUseCase(&fakeVenueRepo{}, fakeSquadDirectory{})
 
-	err := uc.RemoveFavorite(t.Context(), domain.RemoveFavoriteCommand{
+	err := uc.Remove(t.Context(), domain.RemoveFavoriteCommand{
 		SquadID: "squad-1", UserID: "user-1", PlaceID: "abc",
 	})
 	require.NoError(t, err)
@@ -178,7 +178,7 @@ func TestRemoveFavoriteNotSaved(t *testing.T) {
 		},
 	}, fakeSquadDirectory{})
 
-	err := uc.RemoveFavorite(t.Context(), domain.RemoveFavoriteCommand{})
+	err := uc.Remove(t.Context(), domain.RemoveFavoriteCommand{})
 	assert.ErrorIs(t, err, domain.ErrNotSaved)
 }
 
@@ -190,7 +190,7 @@ func TestListFavoritesReturnsSavedVenues(t *testing.T) {
 		},
 	}, fakeSquadDirectory{})
 
-	got, err := uc.ListFavorites(t.Context(), "squad-1", "user-1")
+	got, err := uc.List(t.Context(), "squad-1", "user-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, saved, got)
@@ -203,7 +203,7 @@ func TestIsFavoriteTrue(t *testing.T) {
 		},
 	}, fakeSquadDirectory{})
 
-	got, err := uc.IsFavorite(t.Context(), "squad-1", "user-1", "abc")
+	got, err := uc.IsSaved(t.Context(), "squad-1", "user-1", "abc")
 	require.NoError(t, err)
 	assert.True(t, got)
 }
@@ -211,7 +211,7 @@ func TestIsFavoriteTrue(t *testing.T) {
 func TestIsFavoriteFalse(t *testing.T) {
 	uc := NewFavoriteUseCase(&fakeVenueRepo{}, fakeSquadDirectory{})
 
-	got, err := uc.IsFavorite(t.Context(), "squad-1", "user-1", "abc")
+	got, err := uc.IsSaved(t.Context(), "squad-1", "user-1", "abc")
 	require.NoError(t, err)
 	assert.False(t, got)
 }

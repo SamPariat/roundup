@@ -20,10 +20,10 @@ func NewFavoriteUseCase(favorites domain.VenueRepository, squads domain.SquadDir
 	return &FavoriteUseCase{favorites: favorites, squads: squads}
 }
 
-// AddFavorite saves a venue as a favorite for the user within their squad.
+// Add saves a venue as a favorite for the user within their squad.
 // Returns domain.ErrSquadNotFound if the user is not in the squad and
 // domain.ErrAlreadySaved if the venue is already in their favorites.
-func (u *FavoriteUseCase) AddFavorite(ctx context.Context, cmd domain.AddFavoriteCommand) error {
+func (u *FavoriteUseCase) Add(ctx context.Context, cmd domain.AddFavoriteCommand) error {
 	if err := u.squads.EnsureMember(ctx, cmd.SquadID, cmd.UserID); err != nil {
 		return err
 	}
@@ -31,10 +31,10 @@ func (u *FavoriteUseCase) AddFavorite(ctx context.Context, cmd domain.AddFavorit
 	return u.favorites.AddFavorite(ctx, cmd)
 }
 
-// RemoveFavorite removes a saved venue from the user's favorites within their squad.
+// Remove removes a saved venue from the user's favorites within their squad.
 // Returns domain.ErrSquadNotFound if the user is not in the squad and
 // domain.ErrNotSaved if the venue is not in their favorites.
-func (u *FavoriteUseCase) RemoveFavorite(ctx context.Context, cmd domain.RemoveFavoriteCommand) error {
+func (u *FavoriteUseCase) Remove(ctx context.Context, cmd domain.RemoveFavoriteCommand) error {
 	if err := u.squads.EnsureMember(ctx, cmd.SquadID, cmd.UserID); err != nil {
 		return err
 	}
@@ -42,9 +42,9 @@ func (u *FavoriteUseCase) RemoveFavorite(ctx context.Context, cmd domain.RemoveF
 	return u.favorites.RemoveFavorite(ctx, cmd)
 }
 
-// ListFavorites returns all venues saved as favorites by any member of the squad.
+// List returns all venues saved as favorites by any member of the squad.
 // Returns domain.ErrSquadNotFound if userID is not in the squad.
-func (u *FavoriteUseCase) ListFavorites(ctx context.Context, squadID, userID string) ([]domain.SavedVenue, error) {
+func (u *FavoriteUseCase) List(ctx context.Context, squadID, userID string) ([]domain.SavedVenue, error) {
 	if err := u.squads.EnsureMember(ctx, squadID, userID); err != nil {
 		return nil, err
 	}
@@ -52,9 +52,9 @@ func (u *FavoriteUseCase) ListFavorites(ctx context.Context, squadID, userID str
 	return u.favorites.ListFavorites(ctx, squadID)
 }
 
-// IsFavorite reports whether the given venue is in the user's favorites for the squad.
+// IsSaved reports whether the given venue is in the user's favorites for the squad.
 // Returns domain.ErrSquadNotFound if userID is not in the squad.
-func (u *FavoriteUseCase) IsFavorite(ctx context.Context, squadID, userID, placeID string) (bool, error) {
+func (u *FavoriteUseCase) IsSaved(ctx context.Context, squadID, userID, placeID string) (bool, error) {
 	if err := u.squads.EnsureMember(ctx, squadID, userID); err != nil {
 		return false, err
 	}

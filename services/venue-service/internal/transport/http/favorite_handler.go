@@ -23,17 +23,15 @@ func NewFavoriteHandler(uc *application.FavoriteUseCase) *FavoriteHandler {
 	return &FavoriteHandler{uc: uc}
 }
 
-// AddFavorite handles POST /api/v1/squads/:squadID/favorites.
-func (h *FavoriteHandler) AddFavorite(c fiber.Ctx) error {
-	squadID := c.Params("squadID")
-
+// Add handles POST /api/v1/squads/:squadID/favorites.
+func (h *FavoriteHandler) Add(c fiber.Ctx) error {
 	var req dtos.AddFavoriteRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return response.Error(c, fiber.StatusBadRequest, err)
 	}
 
-	err := h.uc.AddFavorite(c.Context(), domain.AddFavoriteCommand{
-		SquadID: squadID,
+	err := h.uc.Add(c.Context(), domain.AddFavoriteCommand{
+		SquadID: c.Params("squadID"),
 		UserID:  middleware.UserIDFrom(c),
 		PlaceID: req.PlaceID,
 		Name:    req.Name,
@@ -45,16 +43,12 @@ func (h *FavoriteHandler) AddFavorite(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusCreated)
 }
 
-// RemoveFavorite handles DELETE /api/v1/squads/:squadID/favorites/:placeID.
-func (h *FavoriteHandler) RemoveFavorite(c fiber.Ctx) error {
-	squadID := c.Params("squadID")
-	placeID := c.Params("placeID")
-	userID := middleware.UserIDFrom(c)
-
-	err := h.uc.RemoveFavorite(c.Context(), domain.RemoveFavoriteCommand{
-		SquadID: squadID,
-		UserID:  userID,
-		PlaceID: placeID,
+// Remove handles DELETE /api/v1/squads/:squadID/favorites/:placeID.
+func (h *FavoriteHandler) Remove(c fiber.Ctx) error {
+	err := h.uc.Remove(c.Context(), domain.RemoveFavoriteCommand{
+		SquadID: c.Params("squadID"),
+		UserID:  middleware.UserIDFrom(c),
+		PlaceID: c.Params("placeID"),
 	})
 	if err != nil {
 		return response.Error(c, favoriteErrorStatus(err), err)
@@ -63,43 +57,33 @@ func (h *FavoriteHandler) RemoveFavorite(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
-// ListFavorites handles GET /api/v1/squads/:squadID/favorites.
-func (h *FavoriteHandler) ListFavorites(c fiber.Ctx) error {
-	squadID := c.Params("squadID")
-
-	favorites, err := h.uc.ListFavorites(c.Context(), squadID, middleware.UserIDFrom(c))
+// List handles GET /api/v1/squads/:squadID/favorites.
+func (h *FavoriteHandler) List(c fiber.Ctx) error {
+	favorites, err := h.uc.List(c.Context(), c.Params("squadID"), middleware.UserIDFrom(c))
 	if err != nil {
 		return response.Error(c, favoriteErrorStatus(err), err)
 	}
 
-	return c.Status(fiber.StatusOK).JSON(
-		response.OK(dtos.FavoritesToResponse(favorites)),
-	)
+	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.FavoritesToResponse(favorites)))
 }
 
-// IsFavorite handles GET /api/v1/squads/:squadID/favorites/:placeID/check.
-func (h *FavoriteHandler) IsFavorite(c fiber.Ctx) error {
-	squadID := c.Params("squadID")
-	placeID := c.Params("placeID")
-	userID := middleware.UserIDFrom(c)
-
-	isFav, err := h.uc.IsFavorite(c.Context(), squadID, userID, placeID)
+// IsSaved handles GET /api/v1/squads/:squadID/favorites/:placeID/check.
+func (h *FavoriteHandler) IsSaved(c fiber.Ctx) error {
+	isFavorite, err := h.uc.IsSaved(c.Context(), c.Params("squadID"), middleware.UserIDFrom(c), c.Params("placeID"))
 	if err != nil {
 		return response.Error(c, favoriteErrorStatus(err), err)
 	}
 
-	return c.Status(fiber.StatusOK).JSON(
-		response.OK(dtos.IsFavoriteResponse{IsFavorite: isFav}),
-	)
+	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.IsFavoriteResponse{IsFavorite: isFavorite}))
 }
 
 // favoriteErrorStatus maps domain sentinel errors to HTTP status codes for favorites.
 func favoriteErrorStatus(err error) int {
 	switch {
-	case errors.Is(err, domain.ErrAlreadySaved):
-		return fiber.StatusConflict
 	case errors.Is(err, domain.ErrNotSaved), errors.Is(err, domain.ErrSquadNotFound):
 		return fiber.StatusNotFound
+	case errors.Is(err, domain.ErrAlreadySaved):
+		return fiber.StatusConflict
 	case errors.Is(err, domain.ErrUserServiceUnavailable):
 		return fiber.StatusServiceUnavailable
 	default:

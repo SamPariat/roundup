@@ -66,8 +66,8 @@ services/venue-service/
 │   │
 │   ├── application/
 │   │   ├── venue_usecase.go             # Search (cache-first), GetDetail (cache-first)
-│   │   ├── favorite_usecase.go          # AddFavorite, RemoveFavorite, ListFavorites, IsFavorite
-│   │   └── history_usecase.go           # RecordVisit, GetVisitHistory
+│   │   ├── favorite_usecase.go          # Add, Remove, List, IsSaved
+│   │   └── history_usecase.go           # Record, List
 │   │
 │   ├── adapters/
 │   │   ├── places/
@@ -267,12 +267,12 @@ All routes are versioned under `/api/v1`.
 |---|---|---|---|---|
 | GET | /api/v1/venues | VenueHandler.Search | VenueUseCase.Search | 200 |
 | GET | /api/v1/venues/:placeID | VenueHandler.GetDetail | VenueUseCase.GetDetail | 200 |
-| GET | /api/v1/squads/:squadID/favorites | FavoriteHandler.ListFavorites | FavoriteUseCase.ListFavorites | 200 |
-| GET | /api/v1/squads/:squadID/favorites/:placeID/check | FavoriteHandler.IsFavorite | FavoriteUseCase.IsFavorite | 200 |
-| POST | /api/v1/squads/:squadID/favorites | FavoriteHandler.AddFavorite | FavoriteUseCase.AddFavorite | 201 |
-| DELETE | /api/v1/squads/:squadID/favorites/:placeID | FavoriteHandler.RemoveFavorite | FavoriteUseCase.RemoveFavorite | 204 |
-| GET | /api/v1/squads/:squadID/history | HistoryHandler.GetVisitHistory | HistoryUseCase.GetVisitHistory | 200 |
-| POST | /api/v1/squads/:squadID/history | HistoryHandler.RecordVisit | HistoryUseCase.RecordVisit | 201 |
+| GET | /api/v1/squads/:squadID/favorites | FavoriteHandler.List | FavoriteUseCase.List | 200 |
+| GET | /api/v1/squads/:squadID/favorites/:placeID/check | FavoriteHandler.IsSaved | FavoriteUseCase.IsSaved | 200 |
+| POST | /api/v1/squads/:squadID/favorites | FavoriteHandler.Add | FavoriteUseCase.Add | 201 |
+| DELETE | /api/v1/squads/:squadID/favorites/:placeID | FavoriteHandler.Remove | FavoriteUseCase.Remove | 204 |
+| GET | /api/v1/squads/:squadID/history | HistoryHandler.List | HistoryUseCase.List | 200 |
+| POST | /api/v1/squads/:squadID/history | HistoryHandler.Record | HistoryUseCase.Record | 201 |
 
 Search takes query params `lat`, `lng`, `radius`, `query`, `type`.
 
