@@ -1,6 +1,6 @@
 # Roundup — Complete Directory Structure
 
-> **Language policy:** Backend is Go only. Mobile app is Compose Multiplatform (Kotlin). No other languages.
+> **Language policy:** Backend is Go only. The client is one React Native + Expo app (TypeScript) for web, Android and iOS. No other languages.
 
 ```
 roundup/
@@ -56,17 +56,21 @@ roundup/
 │   └── adr/                             # Architecture Decision Records
 │       ├── 001-microservices.md
 │       ├── 002-kafka-vs-redis-pubsub.md
-│       └── 003-go-only-backend.md
+│       ├── 003-go-only-backend.md
+│       └── 004-react-native-expo-client.md
 │
-├── mobile/                              # [Kotlin — Compose Multiplatform]
-│   ├── composeApp/
-│   │   └── src/
-│   │       ├── commonMain/              # shared UI, view models, Ktor API client
-│   │       ├── androidMain/             # Android-specific (Keystore, FCM setup)
-│   │       └── iosMain/                 # iOS-specific (Keychain)
-│   ├── iosApp/                          # Xcode project wrapper
-│   ├── build.gradle.kts
-│   └── settings.gradle.kts
+├── app/                                 # [TypeScript — React Native + Expo: web, Android, iOS]
+│   ├── src/
+│   │   ├── app/                         # Expo Router routes; each file is also a web URL
+│   │   │   ├── (auth)/                  # welcome, phone, otp, profile setup
+│   │   │   └── (tabs)/                  # squads/, explore/, profile/ (BottomNav on phones, SideNav on desktop web)
+│   │   ├── components/                  # design-system components (Button, SquadCard, Logo, …)
+│   │   ├── theme/                       # tokens.ts generated from the design system's tokens.json; Mocha + Latte
+│   │   ├── api/                         # typed client generated from shared/api/openapi.yaml
+│   │   └── lib/                         # token storage, push, websocket
+│   ├── app.config.ts                    # per-environment config (APP_ENV=dev|prod)
+│   ├── eas.json                         # EAS Build profiles: development, preview, production
+│   └── package.json
 │
 ├── services/                            # every service is Go — see template below
 │   ├── gateway/

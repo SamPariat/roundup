@@ -2,7 +2,7 @@
 
 > Complete reference document covering features, architecture, services, communication patterns, design patterns, and database schemas.
 
-> **Language policy:** Backend is Go only. Mobile app is Compose Multiplatform (Kotlin). No other languages.
+> **Language policy:** Backend is Go only. The client is one React Native + Expo app (TypeScript) for web, Android and iOS. No other languages.
 
 ---
 
@@ -131,7 +131,7 @@ Plan → Vote → RSVP → Go out → Bill tab → Settle → Remember
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Compose Multiplatform app (Android + iOS)              │
+│  React Native + Expo app (web · Android · iOS)          │
 └────────────────────────┬────────────────────────────────┘
                          │ HTTPS
 ┌────────────────────────▼────────────────────────────────┐
@@ -776,7 +776,7 @@ bill_tabs/                              (collection)
 | A      | Media Service (Go) — Cloudinary, face detection pipeline, QR download   |
 | B      | Notification Service (Go) + Analytics Service (Go)                      |
 | C      | Reservation Service (Go) — Dineout integration, booking state machine   |
-| D      | Mobile app (Compose Multiplatform) — planning, bill tab, debts screens  |
+| D      | Expo app (web first) — planning, bill tab, debts screens               |
 
 ### Phase 4 — Admin + growth (Month 5)
 
@@ -785,7 +785,7 @@ bill_tabs/                              (collection)
 | A      | Admin Service (Go) — user mgmt, flag mgmt, webhook replay                |
 | B      | Venue partnerships — deals, featured placement, partner analytics        |
 | C      | Friend graph, cross-squad outings, yearly wrapped                        |
-| D      | Mobile app — memory wall, notifications, settings                        |
+| D      | Expo app — memory wall, notifications, settings; Android + iOS builds   |
 
 ### Phase 5 — Hardening (Month 6)
 
@@ -798,4 +798,4 @@ bill_tabs/                              (collection)
 
 ---
 
-_13 services · 1 backend language (Go) · Compose Multiplatform mobile · 4 people · 6 months_
+_13 services · 1 backend language (Go) · one React Native + Expo client (web, Android, iOS) · 4 people · 6 months_

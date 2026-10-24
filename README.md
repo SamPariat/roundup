@@ -2,13 +2,13 @@
 
 Weekend squad outing planner. Plan where to go, track who's coming, split the bill, settle up, remember the night.
 
-> **Language policy:** Backend is Go only. Mobile app is Compose Multiplatform (Kotlin). No other languages.
+> **Language policy:** Backend is Go only. The client is one React Native + Expo app (TypeScript) for web, Android and iOS. No other languages.
 
 ---
 
 ## What's this?
 
-Roundup is a mobile app (Compose Multiplatform — Android + iOS) backed by a Go microservices architecture. It handles the full lifecycle of a group outing — from venue voting and RSVP tracking to live bill splitting and keeping track of who owes whom.
+Roundup is a React Native + Expo app that ships to the web first, then Android and iOS from the same code, backed by a Go microservices architecture. It handles the full lifecycle of a group outing — from venue voting and RSVP tracking to live bill splitting and keeping track of who owes whom.
 
 This repository is a monorepo containing all backend services, shared proto definitions, and infrastructure config.
 
@@ -18,7 +18,7 @@ This repository is a monorepo containing all backend services, shared proto defi
 
 | Layer                          | Technology                     |
 | ------------------------------ | ------------------------------ |
-| Mobile                         | Compose Multiplatform (Kotlin) |
+| Client (web, Android, iOS)     | React Native + Expo (TypeScript) |
 | All backend services + gateway | Go (Fiber v3)                  |
 | Auth                           | Custom — phone OTP + JWT (Go)  |
 | DB access / migrations         | sqlc + pgx / goose             |
@@ -61,8 +61,9 @@ Install these before anything else.
 | sqlc           | latest   | `make install`                               |
 | buf            | latest   | https://buf.build/docs/installation          |
 | golangci-lint  | latest   | https://golangci-lint.run/usage/install      |
-| Android Studio | latest   | https://developer.android.com/studio (mobile only) |
-| Xcode          | latest   | Mac App Store (mobile, iOS builds only)      |
+| Node.js        | 22 LTS   | https://nodejs.org (Expo app)                |
+| Android Studio | latest   | https://developer.android.com/studio (local Android builds only; EAS builds in the cloud) |
+| Xcode          | latest   | Mac App Store (local iOS builds only)        |
 
 ---
 
