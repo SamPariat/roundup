@@ -688,6 +688,56 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/venues/photos/{ref}:
+    x-service: venue-service
+    get:
+      tags: [Venues]
+      operationId: getVenuePhoto
+      summary: Get a venue photo
+      description: |
+        The image bytes, fetched from Google so the API key never reaches the
+        client. Public (no token), because image tags cannot send one; rate
+        limited per client IP at the gateway. Use the `url` from a venue's
+        `photos`; it already points here.
+      security: []
+      parameters:
+        - name: ref
+          in: path
+          required: true
+          description: Opaque photo reference, as in a `photos[].url`.
+          schema:
+            type: string
+        - name: maxWidth
+          in: query
+          description: Widest the image may be; 800 when omitted, capped at 1600.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1600
+      responses:
+        '200':
+          description: The photo.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: public, max-age=86400
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   # ─── Favorites ───────────────────────────────────────────────────────────
 
   /api/v1/squads/{squadID}/favorites:
@@ -1383,17 +1433,20 @@ components:
 
     # ─── Venues ────────────────────────────────────────────────────────────
 
-    PhotoRef:
+    Photo:
       type: object
-      required: [reference, width, height]
+      required: [url, width, height]
       properties:
-        reference:
+        url:
           type: string
-          description: Google Places photo reference.
+          description: Path on this API that serves the image without a token.
+          example: /api/v1/venues/photos/AWU5eFj...
         width:
           type: integer
+          description: Original width in pixels.
         height:
           type: integer
+          description: Original height in pixels.
     Review:
       type: object
       required: [authorName, rating, text, publishedAt]
@@ -1410,7 +1463,7 @@ components:
           format: date-time
     Venue:
       type: object
-      required: [placeID, name, address, latitude, longitude, averageRating, priceLevel, types, isOpen, photoRefs]
+      required: [placeID, name, address, latitude, longitude, averageRating, ratingCount, priceLevel, types, isOpen, photos]
       properties:
         placeID:
           type: string
@@ -1428,6 +1481,9 @@ components:
           type: number
           format: float
           description: 1–5, or 0 when unrated.
+        ratingCount:
+          type: integer
+          description: How many ratings averageRating is based on.
         priceLevel:
           type: integer
           minimum: 0
@@ -1440,10 +1496,10 @@ components:
           type: boolean
           nullable: true
           description: Null when Google does not know.
-        photoRefs:
+        photos:
           type: array
           items:
-            $ref: '#/components/schemas/PhotoRef'
+            $ref: '#/components/schemas/Photo'
     VenueDetail:
       allOf:
         - $ref: '#/components/schemas/Venue'

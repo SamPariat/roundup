@@ -2,6 +2,8 @@ package http
 
 import (
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/SamPariat/roundup/services/venue-service/internal/application"
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
@@ -51,12 +53,35 @@ func (h *VenueHandler) GetDetail(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.VenueDetailToResponse(*detail)))
 }
 
+// photoMaxAge is how long clients and CDNs may cache a venue photo.
+const photoMaxAge = 24 * time.Hour
+
+// Photo handles GET /api/v1/venues/photos/:ref: the photo's bytes, so clients
+// never need the Google API key. Public at the gateway, because image tags
+// cannot send a bearer token.
+func (h *VenueHandler) Photo(c fiber.Ctx) error {
+	var req dtos.PhotoRequest
+	if err := c.Bind().Query(&req); err != nil {
+		return response.Error(c, fiber.StatusBadRequest, err)
+	}
+
+	photo, err := h.uc.Photo(c.Context(), c.Params("ref"), req.MaxWidth)
+	if err != nil {
+		return response.Error(c, venueErrorStatus(err), err)
+	}
+
+	c.Set(fiber.HeaderContentType, photo.ContentType)
+	c.Set(fiber.HeaderCacheControl, fmt.Sprintf("public, max-age=%d", int(photoMaxAge.Seconds())))
+
+	return c.SendStream(photo.Body)
+}
+
 // venueErrorStatus maps domain sentinel errors to HTTP status codes for venues.
 func venueErrorStatus(err error) int {
 	switch {
 	case errors.Is(err, domain.ErrInvalidSearch):
 		return fiber.StatusBadRequest
-	case errors.Is(err, domain.ErrVenueNotFound):
+	case errors.Is(err, domain.ErrVenueNotFound), errors.Is(err, domain.ErrPhotoNotFound):
 		return fiber.StatusNotFound
 	case errors.Is(err, domain.ErrProviderUnavailable):
 		return fiber.StatusServiceUnavailable

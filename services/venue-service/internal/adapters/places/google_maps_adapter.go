@@ -51,6 +51,21 @@ func (a *GoogleMapsAdapter) SearchNearby(ctx context.Context, params domain.Sear
 	return venues, nil
 }
 
+// Photo streams a venue photo from the Google Maps Places API, so the API key
+// never reaches clients. Returns domain.ErrPhotoNotFound for a reference Google
+// rejects.
+func (a *GoogleMapsAdapter) Photo(ctx context.Context, reference string, maxWidth int) (*domain.Photo, error) {
+	res, err := a.client.PlacePhoto(ctx, &maps.PlacePhotoRequest{
+		PhotoReference: reference,
+		MaxWidth:       uint(maxWidth),
+	})
+	if err != nil {
+		return nil, mapPhotoError(err, reference)
+	}
+
+	return &domain.Photo{ContentType: res.ContentType, Body: res.Data}, nil
+}
+
 // GetDetail fetches full venue information for the given placeID from the Google Maps
 // Places API. Only the fields required by domain.VenueDetail are requested to minimize
 // billing costs. Returns domain.ErrVenueNotFound if the place does not exist or the
@@ -92,6 +107,7 @@ func mapPlaceResultToVenue(res maps.PlacesSearchResult) domain.Venue {
 		Latitude:      res.Geometry.Location.Lat,
 		Longitude:     res.Geometry.Location.Lng,
 		AverageRating: res.Rating,
+		RatingCount:   res.UserRatingsTotal,
 		PriceLevel:    res.PriceLevel,
 		Types:         res.Types,
 	}
@@ -122,6 +138,7 @@ func mapPlaceDetailsToVenueDetail(res maps.PlaceDetailsResult) *domain.VenueDeta
 		FormattedAddress: res.FormattedAddress,
 		Geometry:         res.Geometry,
 		Rating:           res.Rating,
+		UserRatingsTotal: res.UserRatingsTotal,
 		PriceLevel:       res.PriceLevel,
 		Types:            res.Types,
 		OpeningHours:     res.OpeningHours,
@@ -153,6 +170,20 @@ func mapPlaceDetailsToVenueDetail(res maps.PlaceDetailsResult) *domain.VenueDeta
 	}
 
 	return detail
+}
+
+// mapPhotoError translates a place-photo error. Google answers an unknown or
+// malformed reference with a 4xx, which the library surfaces as an error
+// mentioning the status.
+func mapPhotoError(err error, reference string) error {
+	s := err.Error()
+	for _, marker := range []string{"INVALID_REQUEST", "NOT_FOUND", "400", "404"} {
+		if strings.Contains(s, marker) {
+			return domainerr.New(domain.ErrPhotoNotFound, reference)
+		}
+	}
+
+	return mapProviderError(err)
 }
 
 // mapDetailError translates a place-details error. A place-details request has

@@ -20,10 +20,17 @@ type SearchRequest struct {
 	Type string `query:"type"`
 }
 
-// PhotoRefResponse is the JSON representation of a provider photo reference.
-type PhotoRefResponse struct {
-	// Reference is the opaque Google photo reference used to fetch the image.
-	Reference string `json:"reference"`
+// PhotoRequest carries the query parameters for a venue photo.
+type PhotoRequest struct {
+	// MaxWidth is the widest the image may be, 1–1600; 800 when omitted.
+	MaxWidth int `query:"maxWidth"`
+}
+
+// PhotoResponse is a venue photo the client can load directly.
+type PhotoResponse struct {
+	// URL is the photo's path on this API, e.g. "/api/v1/venues/photos/…".
+	// It needs no token, so it works as an <img> or <Image> source.
+	URL string `json:"url"`
 
 	// Width is the original image width in pixels.
 	Width int `json:"width"`
@@ -68,6 +75,9 @@ type VenueResponse struct {
 	// AverageRating is Google's aggregate rating, 1–5; 0 when unrated.
 	AverageRating float32 `json:"averageRating"`
 
+	// RatingCount is how many ratings AverageRating is based on.
+	RatingCount int `json:"ratingCount"`
+
 	// PriceLevel is 0 (free) to 4 (very expensive).
 	PriceLevel int `json:"priceLevel"`
 
@@ -77,8 +87,8 @@ type VenueResponse struct {
 	// IsOpen is whether the venue is open now; null when Google does not say.
 	IsOpen *bool `json:"isOpen"`
 
-	// PhotoRefs are references for fetching the venue's photos.
-	PhotoRefs []PhotoRefResponse `json:"photoRefs"`
+	// Photos can be loaded directly; empty, never null, when there are none.
+	Photos []PhotoResponse `json:"photos"`
 }
 
 // VenueDetailResponse is the JSON representation of a domain.VenueDetail.

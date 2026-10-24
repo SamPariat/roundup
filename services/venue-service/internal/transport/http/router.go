@@ -21,6 +21,7 @@ func RegisterRoutes(app *fiber.App, h *Handlers) {
 
 	venues := v1.Group("/venues")
 	venues.Get("/", h.Venue.Search)
+	venues.Get("/photos/:ref", h.Venue.Photo)
 	venues.Get("/:placeID", h.Venue.GetDetail)
 
 	// Squad routes act on behalf of the caller, so they require X-User-ID

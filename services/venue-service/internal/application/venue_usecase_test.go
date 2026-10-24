@@ -26,6 +26,7 @@ type fakeVenueCache struct {
 type fakePlaceProvider struct {
 	searchNearbyFn func(ctx context.Context, params domain.SearchParams) ([]domain.Venue, error)
 	getDetailFn    func(ctx context.Context, placeID string) (*domain.VenueDetail, error)
+	photoFn        func(ctx context.Context, reference string, maxWidth int) (*domain.Photo, error)
 }
 
 func (f *fakeVenueCache) GetNearby(ctx context.Context, key string) ([]domain.Venue, error) {
@@ -63,6 +64,14 @@ func (f *fakePlaceProvider) SearchNearby(ctx context.Context, params domain.Sear
 func (f *fakePlaceProvider) GetDetail(ctx context.Context, placeID string) (*domain.VenueDetail, error) {
 	if f.getDetailFn != nil {
 		return f.getDetailFn(ctx, placeID)
+	}
+
+	return nil, nil
+}
+
+func (f *fakePlaceProvider) Photo(ctx context.Context, reference string, maxWidth int) (*domain.Photo, error) {
+	if f.photoFn != nil {
+		return f.photoFn(ctx, reference, maxWidth)
 	}
 
 	return nil, nil
@@ -216,4 +225,34 @@ func TestGetDetailProviderErrorReturnsError(t *testing.T) {
 
 	_, err := uc.GetDetail(t.Context(), "abc")
 	assert.ErrorIs(t, err, domain.ErrVenueNotFound)
+}
+
+func TestPhotoClampsWidth(t *testing.T) {
+	tests := []struct {
+		name      string
+		requested int
+		want      int
+	}{
+		{"OmittedUsesDefault", 0, domain.DefaultPhotoWidth},
+		{"WithinRangeKept", 400, 400},
+		{"TooWideCapped", 4000, domain.MaxPhotoWidth},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got int
+
+			uc := NewVenueUseCase(&fakePlaceProvider{
+				photoFn: func(_ context.Context, _ string, maxWidth int) (*domain.Photo, error) {
+					got = maxWidth
+
+					return &domain.Photo{}, nil
+				},
+			}, &fakeVenueCache{})
+
+			_, err := uc.Photo(t.Context(), "ref", tt.requested)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }

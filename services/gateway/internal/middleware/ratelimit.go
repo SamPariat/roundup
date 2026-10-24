@@ -15,6 +15,27 @@ const (
 	authRateLimitWindow = 15 * time.Minute
 )
 
+// Photo route limits: looser than auth, since one Explore page loads a photo
+// per venue and image caches absorb repeat views.
+const (
+	photoRateLimitMax    = 600
+	photoRateLimitWindow = 15 * time.Minute
+)
+
+// PhotoRateLimit limits how often one client may fetch venue photos, the only
+// unauthenticated route besides /auth/*. Each photo costs a Places API call.
+func PhotoRateLimit() fiber.Handler {
+	cfg := authRateLimitConfig()
+	cfg.Max = photoRateLimitMax
+	cfg.Expiration = photoRateLimitWindow
+	cfg.LimitReached = func(c fiber.Ctx) error {
+		return c.Status(fiber.StatusTooManyRequests).
+			JSON(response.Fail[any]("too many requests, try again later"))
+	}
+
+	return limiter.New(cfg)
+}
+
 // AuthRateLimit limits how often one client may call the unauthenticated
 // /auth/* routes. It complements auth-service's per-phone limits (3 codes per
 // 15 minutes, 5 guesses per code), which can't stop one client cycling

@@ -66,6 +66,20 @@ func (u *VenueUseCase) GetDetail(ctx context.Context, placeID string) (*domain.V
 	return detail, nil
 }
 
+// Photo streams a venue photo. maxWidth outside 1–domain.MaxPhotoWidth falls
+// back to domain.DefaultPhotoWidth or the maximum. Photos are not cached here:
+// clients and CDNs cache them through the response headers.
+func (u *VenueUseCase) Photo(ctx context.Context, reference string, maxWidth int) (*domain.Photo, error) {
+	switch {
+	case maxWidth <= 0:
+		maxWidth = domain.DefaultPhotoWidth
+	case maxWidth > domain.MaxPhotoWidth:
+		maxWidth = domain.MaxPhotoWidth
+	}
+
+	return u.provider.Photo(ctx, reference, maxWidth)
+}
+
 // buildCacheKey returns a deterministic cache key for a given set of SearchParams.
 // The key encodes all filter fields so that different searches never collide.
 func buildCacheKey(params domain.SearchParams) string {

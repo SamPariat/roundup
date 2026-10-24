@@ -1,15 +1,23 @@
 package dtos
 
-import "github.com/SamPariat/roundup/services/venue-service/internal/domain"
+import (
+	"net/url"
+
+	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
+)
+
+// photoPath is where clients load venue photos; the gateway serves it without
+// a token so it works as an image source.
+const photoPath = "/api/v1/venues/photos/"
 
 // VenueToResponse maps a domain.Venue to a VenueResponse.
 func VenueToResponse(v domain.Venue) VenueResponse {
-	photos := make([]PhotoRefResponse, 0, len(v.PhotoRefs))
+	photos := make([]PhotoResponse, 0, len(v.PhotoRefs))
 	for _, p := range v.PhotoRefs {
-		photos = append(photos, PhotoRefResponse{
-			Reference: p.Reference,
-			Width:     p.Width,
-			Height:    p.Height,
+		photos = append(photos, PhotoResponse{
+			URL:    photoPath + url.PathEscape(p.Reference),
+			Width:  p.Width,
+			Height: p.Height,
 		})
 	}
 
@@ -20,10 +28,11 @@ func VenueToResponse(v domain.Venue) VenueResponse {
 		Latitude:      v.Latitude,
 		Longitude:     v.Longitude,
 		AverageRating: v.AverageRating,
+		RatingCount:   v.RatingCount,
 		PriceLevel:    v.PriceLevel,
 		Types:         v.Types,
 		IsOpen:        v.IsOpen,
-		PhotoRefs:     photos,
+		Photos:        photos,
 	}
 }
 

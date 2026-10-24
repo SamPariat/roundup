@@ -122,6 +122,7 @@ import "context"
 type PlaceProvider interface {
     SearchNearby(ctx context.Context, params SearchParams) ([]Venue, error)
     GetDetail(ctx context.Context, placeID string) (*VenueDetail, error)
+    Photo(ctx context.Context, reference string, maxWidth int) (*Photo, error)
 }
 
 // VenueCache — all cache operations are best-effort; callers ignore write errors
@@ -266,6 +267,7 @@ All routes are versioned under `/api/v1`.
 | Method | Path | Handler | Use-case | Success |
 |---|---|---|---|---|
 | GET | /api/v1/venues | VenueHandler.Search | VenueUseCase.Search | 200 |
+| GET | /api/v1/venues/photos/:ref | VenueHandler.Photo | VenueUseCase.Photo | 200 (image; public at the gateway) |
 | GET | /api/v1/venues/:placeID | VenueHandler.GetDetail | VenueUseCase.GetDetail | 200 |
 | GET | /api/v1/squads/:squadID/favorites | FavoriteHandler.List | FavoriteUseCase.List | 200 |
 | GET | /api/v1/squads/:squadID/favorites/:placeID/check | FavoriteHandler.IsSaved | FavoriteUseCase.IsSaved | 200 |
