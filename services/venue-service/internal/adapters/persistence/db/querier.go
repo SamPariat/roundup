@@ -9,11 +9,18 @@ import (
 )
 
 type Querier interface {
+	// Saves a venue for a user within a squad.
 	AddFavorite(ctx context.Context, arg AddFavoriteParams) error
+	// Summarises a squad's visits per venue, most recently visited first.
+	// The cast gives sqlc a timestamptz column instead of interface{}.
 	GetVisitHistory(ctx context.Context, squadID string) ([]GetVisitHistoryRow, error)
+	// Reports whether this user saved this venue in the squad.
 	IsFavorite(ctx context.Context, arg IsFavoriteParams) (bool, error)
+	// Lists every member's saved venues in a squad, newest first.
 	ListFavorites(ctx context.Context, squadID string) ([]SavedVenue, error)
+	// Records one squad visit to a venue during an event.
 	RecordVisit(ctx context.Context, arg RecordVisitParams) error
+	// Unsaves a venue. Returns 0 rows if the user had not saved it.
 	RemoveFavorite(ctx context.Context, arg RemoveFavoriteParams) (int64, error)
 }
 

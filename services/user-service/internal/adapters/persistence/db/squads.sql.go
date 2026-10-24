@@ -24,6 +24,7 @@ type AddSquadMemberParams struct {
 	Role    string    `json:"role"`
 }
 
+// Adds a user to a squad with the given role.
 func (q *Queries) AddSquadMember(ctx context.Context, arg AddSquadMemberParams) (SquadMember, error) {
 	row := q.db.QueryRow(ctx, addSquadMember, arg.SquadID, arg.UserID, arg.Role)
 	var i SquadMember
@@ -37,9 +38,13 @@ func (q *Queries) AddSquadMember(ctx context.Context, arg AddSquadMemberParams) 
 }
 
 const countSquadAdmins = `-- name: CountSquadAdmins :one
-SELECT COUNT(*) FROM squad_members WHERE squad_id = $1 AND role = 'ADMIN'
+SELECT COUNT(*)
+FROM squad_members
+WHERE squad_id = $1
+  AND role = 'ADMIN'
 `
 
+// Counts a squad's admins, so it is never left without one.
 func (q *Queries) CountSquadAdmins(ctx context.Context, squadID uuid.UUID) (int64, error) {
 	row := q.db.QueryRow(ctx, countSquadAdmins, squadID)
 	var count int64
@@ -48,9 +53,12 @@ func (q *Queries) CountSquadAdmins(ctx context.Context, squadID uuid.UUID) (int6
 }
 
 const countSquadMembers = `-- name: CountSquadMembers :one
-SELECT COUNT(*) FROM squad_members WHERE squad_id = $1
+SELECT COUNT(*)
+FROM squad_members
+WHERE squad_id = $1
 `
 
+// Counts a squad's members, for the member cap and deleting an empty squad.
 func (q *Queries) CountSquadMembers(ctx context.Context, squadID uuid.UUID) (int64, error) {
 	row := q.db.QueryRow(ctx, countSquadMembers, squadID)
 	var count int64
@@ -70,6 +78,7 @@ type CreateSquadParams struct {
 	CreatedBy uuid.UUID `json:"created_by"`
 }
 
+// Creates a squad. The caller adds the creator as its first admin.
 func (q *Queries) CreateSquad(ctx context.Context, arg CreateSquadParams) (Squad, error) {
 	row := q.db.QueryRow(ctx, createSquad, arg.Name, arg.AvatarUrl, arg.CreatedBy)
 	var i Squad
@@ -84,9 +93,12 @@ func (q *Queries) CreateSquad(ctx context.Context, arg CreateSquadParams) (Squad
 }
 
 const deleteSquad = `-- name: DeleteSquad :exec
-DELETE FROM squads WHERE id = $1
+DELETE
+FROM squads
+WHERE id = $1
 `
 
+// Deletes a squad; its members are removed by ON DELETE CASCADE.
 func (q *Queries) DeleteSquad(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteSquad, id)
 	return err
@@ -141,6 +153,7 @@ type GetSquadMemberRow struct {
 	AvatarUrl *string            `json:"avatar_url"`
 }
 
+// Returns one member's role and profile. No rows means not a member.
 func (q *Queries) GetSquadMember(ctx context.Context, arg GetSquadMemberParams) (GetSquadMemberRow, error) {
 	row := q.db.QueryRow(ctx, getSquadMember, arg.SquadID, arg.UserID)
 	var i GetSquadMemberRow
@@ -171,6 +184,7 @@ type ListSquadMembersRow struct {
 	AvatarUrl *string            `json:"avatar_url"`
 }
 
+// Lists a squad's active members with their profile, earliest joiner first.
 func (q *Queries) ListSquadMembers(ctx context.Context, squadID uuid.UUID) ([]ListSquadMembersRow, error) {
 	rows, err := q.db.Query(ctx, listSquadMembers, squadID)
 	if err != nil {
@@ -217,6 +231,8 @@ type ListSquadsForUserRow struct {
 	MemberCount int64              `json:"member_count"`
 }
 
+// Lists the squads a user belongs to, newest first, with their role and the
+// member count.
 func (q *Queries) ListSquadsForUser(ctx context.Context, userID uuid.UUID) ([]ListSquadsForUserRow, error) {
 	rows, err := q.db.Query(ctx, listSquadsForUser, userID)
 	if err != nil {
@@ -246,7 +262,10 @@ func (q *Queries) ListSquadsForUser(ctx context.Context, userID uuid.UUID) ([]Li
 }
 
 const lockSquad = `-- name: LockSquad :one
-SELECT id FROM squads WHERE id = $1 FOR UPDATE
+SELECT id
+FROM squads
+WHERE id = $1
+    FOR UPDATE
 `
 
 // Serialises membership changes to one squad for the rest of the transaction.
@@ -276,7 +295,10 @@ func (q *Queries) PromoteEarliestMember(ctx context.Context, squadID uuid.UUID) 
 }
 
 const removeSquadMember = `-- name: RemoveSquadMember :execrows
-DELETE FROM squad_members WHERE squad_id = $1 AND user_id = $2
+DELETE
+FROM squad_members
+WHERE squad_id = $1
+  AND user_id = $2
 `
 
 type RemoveSquadMemberParams struct {
@@ -284,6 +306,7 @@ type RemoveSquadMemberParams struct {
 	UserID  uuid.UUID `json:"user_id"`
 }
 
+// Removes a user from a squad. Returns 0 rows if they were not in it.
 func (q *Queries) RemoveSquadMember(ctx context.Context, arg RemoveSquadMemberParams) (int64, error) {
 	result, err := q.db.Exec(ctx, removeSquadMember, arg.SquadID, arg.UserID)
 	if err != nil {
@@ -293,7 +316,10 @@ func (q *Queries) RemoveSquadMember(ctx context.Context, arg RemoveSquadMemberPa
 }
 
 const updateSquadMemberRole = `-- name: UpdateSquadMemberRole :execrows
-UPDATE squad_members SET role = $3 WHERE squad_id = $1 AND user_id = $2
+UPDATE squad_members
+SET role = $3
+WHERE squad_id = $1
+  AND user_id = $2
 `
 
 type UpdateSquadMemberRoleParams struct {
@@ -302,6 +328,7 @@ type UpdateSquadMemberRoleParams struct {
 	Role    string    `json:"role"`
 }
 
+// Sets a member's role. Returns 0 rows if they are not in the squad.
 func (q *Queries) UpdateSquadMemberRole(ctx context.Context, arg UpdateSquadMemberRoleParams) (int64, error) {
 	result, err := q.db.Exec(ctx, updateSquadMemberRole, arg.SquadID, arg.UserID, arg.Role)
 	if err != nil {

@@ -11,15 +11,29 @@ import (
 )
 
 type Querier interface {
+	// Marks a code used. Returns 0 rows if it was already consumed, so two
+	// concurrent verifications cannot both succeed.
 	ConsumeOTPCode(ctx context.Context, id int64) (int64, error)
+	// Counts codes sent to a phone since a time, for the per-phone request limit.
 	CountOTPCodesSince(ctx context.Context, arg CountOTPCodesSinceParams) (int64, error)
+	// Stores a newly sent code. Only its hash is kept.
 	CreateOTPCode(ctx context.Context, arg CreateOTPCodeParams) error
+	// Stores the hash of a refresh token issued for a session.
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) error
+	// Starts a login session for a user and returns its ID.
 	CreateSession(ctx context.Context, userID uuid.UUID) (uuid.UUID, error)
+	// Returns the most recent code for a phone; only that one can be verified.
+	// id breaks ties between codes created in the same instant.
 	GetLatestOTPCode(ctx context.Context, phone string) (OtpCode, error)
+	// Looks a refresh token up by hash, with its session's user and revocation
+	// state, so a refresh can be checked in one query.
 	GetRefreshToken(ctx context.Context, tokenHash []byte) (GetRefreshTokenRow, error)
+	// Counts one wrong guess against a code.
 	IncrementOTPAttempts(ctx context.Context, id int64) error
+	// Marks a refresh token spent. Returns 0 rows if it was already used, which
+	// signals token reuse.
 	MarkRefreshTokenUsed(ctx context.Context, id int64) (int64, error)
+	// Ends a session; every refresh token in it stops working.
 	RevokeSession(ctx context.Context, id uuid.UUID) error
 }
 

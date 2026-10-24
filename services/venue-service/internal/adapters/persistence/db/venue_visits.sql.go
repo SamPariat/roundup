@@ -26,6 +26,8 @@ type GetVisitHistoryRow struct {
 	LastVisitedAt pgtype.Timestamptz `json:"last_visited_at"`
 }
 
+// Summarises a squad's visits per venue, most recently visited first.
+// The cast gives sqlc a timestamptz column instead of interface{}.
 func (q *Queries) GetVisitHistory(ctx context.Context, squadID string) ([]GetVisitHistoryRow, error) {
 	rows, err := q.db.Query(ctx, getVisitHistory, squadID)
 	if err != nil {
@@ -65,6 +67,7 @@ type RecordVisitParams struct {
 	AvgSpendInPaise pgtype.Int8        `json:"avg_spend_in_paise"`
 }
 
+// Records one squad visit to a venue during an event.
 func (q *Queries) RecordVisit(ctx context.Context, arg RecordVisitParams) error {
 	_, err := q.db.Exec(ctx, recordVisit,
 		arg.SquadID,
