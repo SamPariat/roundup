@@ -9,6 +9,9 @@ var (
 	// ErrVenueNotFound is returned when a venue lookup finds no matching record.
 	ErrVenueNotFound = errors.New("venue not found")
 
+	// ErrPhotoNotFound is returned when the provider has no photo for a reference.
+	ErrPhotoNotFound = errors.New("photo not found")
+
 	// ErrProviderUnavailable is returned when the external place provider
 	// (e.g., Google Maps) cannot be reached or returns an unrecoverable error.
 	ErrProviderUnavailable = errors.New("place provider unavailable")

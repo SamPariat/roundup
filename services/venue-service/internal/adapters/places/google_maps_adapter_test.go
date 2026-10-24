@@ -100,3 +100,20 @@ func TestMapPlaceDetailsToVenueDetailNilOpeningHours(t *testing.T) {
 
 	assert.Nil(t, detail.OpeningHours)
 }
+
+func TestMapPlaceResultToVenueRatingCount(t *testing.T) {
+	venue := mapPlaceResultToVenue(maps.PlacesSearchResult{Rating: 4.5, UserRatingsTotal: 1240})
+
+	assert.Equal(t, 1240, venue.RatingCount)
+}
+
+func TestMapPlaceDetailsCarriesRatingCount(t *testing.T) {
+	detail := mapPlaceDetailsToVenueDetail(maps.PlaceDetailsResult{UserRatingsTotal: 87})
+
+	assert.Equal(t, 87, detail.RatingCount)
+}
+
+func TestMapPhotoError(t *testing.T) {
+	require.ErrorIs(t, mapPhotoError(errors.New("maps: status code 400"), "ref"), domain.ErrPhotoNotFound)
+	assert.ErrorIs(t, mapPhotoError(errors.New("maps: OVER_QUERY_LIMIT"), "ref"), domain.ErrProviderUnavailable)
+}

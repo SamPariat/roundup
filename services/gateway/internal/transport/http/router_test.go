@@ -114,6 +114,7 @@ func TestRoutesToUpstreams(t *testing.T) {
 		{"AuthIsPublic", http.MethodPost, "/api/v1/auth/otp/request", `{"phone":"+919876543210"}`, false, func(f *fixture) *upstream { return f.auth }, ""},
 		{"UsersMe", http.MethodGet, "/api/v1/users/me", "", true, func(f *fixture) *upstream { return f.user }, userID},
 		{"DeviceTokens", http.MethodDelete, "/api/v1/users/me/device-tokens/abc", "", true, func(f *fixture) *upstream { return f.user }, userID},
+		{"VenuePhotoIsPublic", http.MethodGet, "/api/v1/venues/photos/ref-123?maxWidth=400", "", false, func(f *fixture) *upstream { return f.venue }, ""},
 		{"VenueSearchKeepsQuery", http.MethodGet, "/api/v1/venues/?lat=12.97&lng=77.59&radius=2000", "", true, func(f *fixture) *upstream { return f.venue }, userID},
 		{"SquadFavorites", http.MethodPost, "/api/v1/squads/s1/favorites/", `{"placeID":"p1"}`, true, func(f *fixture) *upstream { return f.venue }, userID},
 		{"SquadFavoriteCheck", http.MethodGet, "/api/v1/squads/s1/favorites/p1/check", "", true, func(f *fixture) *upstream { return f.venue }, userID},
