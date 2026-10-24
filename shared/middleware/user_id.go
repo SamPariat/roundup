@@ -21,7 +21,7 @@ func UserID() fiber.Handler {
 		id := c.Get(UserIDHeader)
 		if _, err := uuid.Parse(id); err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(
-				response.Fail[any]("missing or invalid " + UserIDHeader + " header"),
+				response.FailWithCode[any]("UNAUTHORIZED", "missing or invalid "+UserIDHeader+" header"),
 			)
 		}
 

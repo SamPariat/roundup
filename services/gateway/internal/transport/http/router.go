@@ -47,10 +47,10 @@ func RegisterRoutes(app *fiber.App, upstreams config.Upstreams, pub ed25519.Publ
 // notFoundHandler answers 404 for routes the gateway deliberately hides, such
 // as the internal POST /api/v1/users.
 func notFoundHandler(c fiber.Ctx) error {
-	return c.Status(fiber.StatusNotFound).JSON(response.Fail[any]("not found"))
+	return c.Status(fiber.StatusNotFound).JSON(response.FailWithCode[any]("NOT_FOUND", "not found"))
 }
 
 // notImplementedHandler answers for route groups whose service isn't built yet.
 func notImplementedHandler(c fiber.Ctx) error {
-	return c.Status(fiber.StatusNotImplemented).JSON(response.Fail[any]("not implemented yet"))
+	return c.Status(fiber.StatusNotImplemented).JSON(response.FailWithCode[any]("NOT_IMPLEMENTED", "not implemented yet"))
 }

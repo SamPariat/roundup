@@ -1012,6 +1012,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             success: false
+            code: INVALID_PHONE
             error: phone must be in E.164 format, e.g. +919876543210
     Unauthorized:
       description: The bearer token is missing, invalid or expired.
@@ -1026,6 +1027,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             success: false
+            code: UNAUTHORIZED
             error: invalid or expired access token
     SquadNotFound:
       description: The squad does not exist or the caller is not a member.
@@ -1035,6 +1037,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             success: false
+            code: SQUAD_NOT_FOUND
             error: 'squad not found: 7dc92d84-1950-43d6-b676-debacf84d830'
     Forbidden:
       description: Only squad admins can do this.
@@ -1044,6 +1047,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             success: false
+            code: NOT_ADMIN
             error: only squad admins can do this
     InvalidCode:
       description: The code is wrong, expired, already used or was never requested.
@@ -1053,6 +1057,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             success: false
+            code: INVALID_CODE
             error: invalid or expired code
     InvalidRefreshToken:
       description: The refresh token is unknown, expired or revoked.
@@ -1062,6 +1067,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             success: false
+            code: INVALID_REFRESH_TOKEN
             error: invalid refresh token
     NotFound:
       description: The resource does not exist.
@@ -1071,6 +1077,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             success: false
+            code: USER_NOT_FOUND
             error: user not found
     Conflict:
       description: The resource already exists.
@@ -1080,6 +1087,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             success: false
+            code: ALREADY_SAVED
             error: 'venue already saved: ChIJN1t_tDeuEmsRUsoyG83frY4'
     TooManyRequests:
       description: Rate limited, either per client IP at the gateway or per phone at auth-service.
@@ -1089,6 +1097,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             success: false
+            code: OTP_RATE_LIMITED
             error: too many code requests, try again later
     BadGateway:
       description: The gateway could not reach the upstream service in time.
@@ -1104,6 +1113,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             success: false
+            code: PROVIDER_UNAVAILABLE
             error: place provider unavailable
     InternalError:
       description: Unexpected server error.
@@ -1124,13 +1134,67 @@ components:
           enum: [true]
     ErrorResponse:
       type: object
-      required: [success, error]
+      required: [success, code, error]
       properties:
         success:
           type: boolean
           enum: [false]
+        code:
+          $ref: '#/components/schemas/ErrorCode'
         error:
           type: string
+          description: For people and logs. Clients branch on `code`, never on this text.
+    ErrorCode:
+      type: string
+      description: |
+        Stable, machine-readable error code. Domain errors carry their own code;
+        anything else gets the generic code for its HTTP status (VALIDATION,
+        UNAUTHORIZED, FORBIDDEN, NOT_FOUND, CONFLICT, RATE_LIMITED,
+        NOT_IMPLEMENTED, BAD_GATEWAY, UNAVAILABLE, INTERNAL, NOT_READY).
+      enum:
+        # Generic, by HTTP status
+        - VALIDATION
+        - UNAUTHORIZED
+        - FORBIDDEN
+        - NOT_FOUND
+        - CONFLICT
+        - RATE_LIMITED
+        - NOT_IMPLEMENTED
+        - BAD_GATEWAY
+        - UNAVAILABLE
+        - INTERNAL
+        - NOT_READY
+        - ERROR
+        # auth-service
+        - INVALID_PHONE
+        - OTP_RATE_LIMITED
+        - INVALID_CODE
+        - TOO_MANY_ATTEMPTS
+        - INVALID_REFRESH_TOKEN
+        - USER_SERVICE_UNAVAILABLE
+        # user-service
+        - USER_NOT_FOUND
+        - PHONE_TAKEN
+        - INVALID_NAME
+        - INVALID_PLATFORM
+        - INVALID_DEVICE_TOKEN
+        - DEVICE_TOKEN_NOT_FOUND
+        - TOO_MANY_PHONES
+        - SQUAD_NOT_FOUND
+        - INVALID_SQUAD_NAME
+        - ALREADY_MEMBER
+        - SQUAD_FULL
+        - MEMBER_NOT_FOUND
+        - NOT_ADMIN
+        - INVALID_ROLE
+        - LAST_ADMIN
+        # venue-service
+        - VENUE_NOT_FOUND
+        - PROVIDER_UNAVAILABLE
+        - ALREADY_SAVED
+        - NOT_SAVED
+        - INVALID_SEARCH
+        - VISIT_ALREADY_RECORDED
 
     # ─── Auth ──────────────────────────────────────────────────────────────
 

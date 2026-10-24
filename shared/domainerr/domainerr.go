@@ -36,3 +36,31 @@ func (e *Error) Error() string {
 func (e *Error) Unwrap() error {
 	return e.Sentinel
 }
+
+// Coded is a sentinel error with a stable, machine-readable code that clients
+// branch on instead of matching the message, e.g. "LAST_ADMIN".
+type Coded struct {
+	code string
+	msg  string
+}
+
+// Sentinel declares a coded sentinel error. Codes are SCREAMING_SNAKE_CASE and
+// listed in the ErrorCode enum of shared/api/openapi.yaml.
+//
+// Example:
+//
+//	var ErrLastAdmin = domainerr.Sentinel("LAST_ADMIN", "a squad needs at least one admin")
+func Sentinel(code, msg string) *Coded {
+	return &Coded{code: code, msg: msg}
+}
+
+// Error implements the error interface with the human-readable message.
+func (e *Coded) Error() string {
+	return e.msg
+}
+
+// Code returns the machine-readable code. response.Error finds it through any
+// wrapping, so handlers never pass codes by hand.
+func (e *Coded) Code() string {
+	return e.code
+}

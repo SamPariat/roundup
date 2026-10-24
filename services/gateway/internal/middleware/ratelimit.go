@@ -25,7 +25,7 @@ func AuthRateLimit() fiber.Handler {
 	cfg := authRateLimitConfig()
 	cfg.LimitReached = func(c fiber.Ctx) error {
 		return c.Status(fiber.StatusTooManyRequests).
-			JSON(response.Fail[any]("too many requests, try again later"))
+			JSON(response.FailWithCode[any]("RATE_LIMITED", "too many requests, try again later"))
 	}
 
 	return limiter.New(cfg)

@@ -48,5 +48,5 @@ func RequireAuth(pub ed25519.PublicKey) fiber.Handler {
 func unauthorized(c fiber.Ctx, msg string) error {
 	c.Set(fiber.HeaderWWWAuthenticate, "Bearer")
 
-	return c.Status(fiber.StatusUnauthorized).JSON(response.Fail[any](msg))
+	return c.Status(fiber.StatusUnauthorized).JSON(response.FailWithCode[any]("UNAUTHORIZED", msg))
 }

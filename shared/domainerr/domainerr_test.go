@@ -27,3 +27,15 @@ func TestNewMatchesThroughWrapping(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "id: 42", domainErr.Detail)
 }
+
+func TestSentinelKeepsIdentityAndCode(t *testing.T) {
+	sentinel := Sentinel("THING_NOT_FOUND", "thing not found")
+	err := fmt.Errorf("load: %w", New(sentinel, "id: 42"))
+
+	require.ErrorIs(t, err, sentinel)
+	assert.Equal(t, "load: thing not found: id: 42", err.Error())
+
+	coded, ok := errors.AsType[*Coded](err)
+	require.True(t, ok)
+	assert.Equal(t, "THING_NOT_FOUND", coded.Code())
+}

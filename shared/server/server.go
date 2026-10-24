@@ -46,7 +46,7 @@ func Health(app *fiber.App, log *zap.Logger, checks map[string]Check) {
 				log.Warn("readiness check failed", zap.String("check", name), zap.Error(err))
 
 				return c.Status(fiber.StatusServiceUnavailable).
-					JSON(response.Fail[any](name + " not ready: " + err.Error()))
+					JSON(response.FailWithCode[any]("NOT_READY", name+" not ready: "+err.Error()))
 			}
 		}
 
