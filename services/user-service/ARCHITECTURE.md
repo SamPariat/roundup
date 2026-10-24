@@ -170,11 +170,13 @@ cfg := config.Load()
 pool, err := postgres.Connect(ctx, cfg.PostgresDSN) // shared/postgres — pings at startup
 
 // 3. Driven adapters
-repo := persistence.NewPostgresUserRepository(pool)
+userRepo  := persistence.NewPostgresUserRepository(pool) // UserRepository + DeviceTokenRepository
+squadRepo := persistence.NewPostgresSquadRepository(pool)
 
 // 4. Use-cases (depend on ports, not concrete adapters)
-userUC        := application.NewUserUseCase(repo, repo)
-deviceTokenUC := application.NewDeviceTokenUseCase(repo)
+userUC        := application.NewUserUseCase(userRepo, userRepo)
+deviceTokenUC := application.NewDeviceTokenUseCase(userRepo)
+squadUC       := application.NewSquadUseCase(squadRepo, userRepo)
 
 // 5. Driving adapters
 app := fiber.New()
@@ -201,8 +203,31 @@ All routes are versioned under `/api/v1`. Routes under `/users/me` require the `
 | DELETE | /api/v1/users/me | UserHandler.DeleteMe | UserUseCase.Delete | 204 |
 | POST | /api/v1/users/me/device-tokens | DeviceTokenHandler.Register | DeviceTokenUseCase.Register | 201 |
 | DELETE | /api/v1/users/me/device-tokens/:token | DeviceTokenHandler.Remove | DeviceTokenUseCase.Remove | 204 |
+| POST | /api/v1/users/lookup | UserHandler.Lookup | UserUseCase.Lookup | 200 |
+| POST | /api/v1/squads | SquadHandler.Create | SquadUseCase.Create | 201 |
+| GET | /api/v1/squads | SquadHandler.List | SquadUseCase.List | 200 |
+| GET | /api/v1/squads/:squadID | SquadHandler.Get | SquadUseCase.Get | 200 |
+| POST | /api/v1/squads/:squadID/members | SquadHandler.AddMember | SquadUseCase.AddMember | 201 |
+| PATCH | /api/v1/squads/:squadID/members/:userID | SquadHandler.ChangeRole | SquadUseCase.ChangeRole | 204 |
+| DELETE | /api/v1/squads/:squadID/members/:userID | SquadHandler.RemoveMember | SquadUseCase.RemoveMember | 204 |
 
 `POST /api/v1/users` is internal — called by auth-service, never exposed by the gateway to the mobile app.
+
+`POST /api/v1/users/lookup` takes up to 500 phone numbers in the body (so they stay out of URLs and logs) and returns the Roundup users among them, for matching the device's contacts. Invalid numbers are skipped and the caller is left out.
+
+### Squads
+
+A squad is a group of friends, with WhatsApp-group rules:
+
+- **Roles:** `ADMIN` and `MEMBER`; a squad can have several admins. The creator is the first admin.
+- **Adding:** any member can add a Roundup user by phone. A squad holds at most `domain.MaxSquadMembers` (50).
+- **Removing and roles:** only admins can remove someone else or change roles (`domain.CanRemove`, `domain.CanChangeRole`). Demoting the only admin is refused (`ErrLastAdmin`).
+- **Leaving:** anyone can leave, by removing their own user ID. If the last admin leaves, the member who joined earliest becomes admin. If the last member leaves, the squad is deleted.
+- **Privacy:** every squad route answers 404 to non-members, so a squad you are not in looks the same as one that does not exist.
+
+The member cap, admin succession and deleting an empty squad are enforced in `PostgresSquadRepository`, inside a transaction that first locks the squad row (`SELECT … FOR UPDATE`). That way concurrent joins or leaves on one squad are applied one at a time and can't overshoot the cap or leave it without an admin.
+
+venue-service calls `GET /api/v1/squads/:squadID` directly, as the caller, to check membership before touching a squad's favorites or history.
 
 ---
 

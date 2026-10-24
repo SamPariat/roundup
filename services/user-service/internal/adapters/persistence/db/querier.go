@@ -11,12 +11,31 @@ import (
 )
 
 type Querier interface {
+	AddSquadMember(ctx context.Context, arg AddSquadMemberParams) (SquadMember, error)
+	CountSquadAdmins(ctx context.Context, squadID uuid.UUID) (int64, error)
+	CountSquadMembers(ctx context.Context, squadID uuid.UUID) (int64, error)
+	CreateSquad(ctx context.Context, arg CreateSquadParams) (Squad, error)
 	CreateUser(ctx context.Context, phone string) (User, error)
 	DeleteDeviceToken(ctx context.Context, arg DeleteDeviceTokenParams) (int64, error)
 	DeleteDeviceTokensForUser(ctx context.Context, userID uuid.UUID) error
+	DeleteSquad(ctx context.Context, id uuid.UUID) error
+	// Returns no rows for non-members, so a squad you are not in looks the same
+	// as one that does not exist.
+	GetSquadForMember(ctx context.Context, arg GetSquadForMemberParams) (Squad, error)
+	GetSquadMember(ctx context.Context, arg GetSquadMemberParams) (GetSquadMemberRow, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByPhone(ctx context.Context, phone string) (User, error)
+	ListSquadMembers(ctx context.Context, squadID uuid.UUID) ([]ListSquadMembersRow, error)
+	ListSquadsForUser(ctx context.Context, userID uuid.UUID) ([]ListSquadsForUserRow, error)
+	ListUsersByPhones(ctx context.Context, phones []string) ([]User, error)
+	// Serialises membership changes to one squad for the rest of the transaction.
+	LockSquad(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
+	// Makes the longest-standing member admin. user_id breaks ties so the choice
+	// is deterministic when two people joined at the same instant.
+	PromoteEarliestMember(ctx context.Context, squadID uuid.UUID) error
+	RemoveSquadMember(ctx context.Context, arg RemoveSquadMemberParams) (int64, error)
 	SoftDeleteUser(ctx context.Context, id uuid.UUID) (int64, error)
+	UpdateSquadMemberRole(ctx context.Context, arg UpdateSquadMemberRoleParams) (int64, error)
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
 	UpsertDeviceToken(ctx context.Context, arg UpsertDeviceTokenParams) (DeviceToken, error)
 }

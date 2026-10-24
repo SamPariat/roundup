@@ -10,6 +10,10 @@ const V1 = "/api/v1"
 // directly at login; the gateway blocks that POST from clients.
 const UsersPath = V1 + "/users"
 
+// SquadsPath is user-service's squads collection. venue-service calls
+// GET SquadsPath/{squadID} directly to check that a caller is a member.
+const SquadsPath = V1 + "/squads"
+
 // Service names, used as the logger name and in startup messages.
 const (
 	AuthService  = "auth-service"

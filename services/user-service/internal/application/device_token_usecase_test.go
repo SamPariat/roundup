@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// device_token_usecase_test.go tests DeviceTokenUseCase using the fakeTokenRepo
+// device_token_usecase_test.go tests DeviceTokenUseCase using the fakeDeviceTokenRepo
 // defined in user_usecase_test.go.
 
 func TestRegisterRejectsEmptyToken(t *testing.T) {
-	uc := NewDeviceTokenUseCase(&fakeTokenRepo{})
+	uc := NewDeviceTokenUseCase(&fakeDeviceTokenRepo{})
 
 	_, err := uc.Register(t.Context(), domain.RegisterDeviceTokenCommand{
 		UserID: "user-1", Token: "  ", Platform: domain.PlatformIOS,
@@ -24,7 +24,7 @@ func TestRegisterRejectsEmptyToken(t *testing.T) {
 }
 
 func TestRegisterRejectsUnknownPlatform(t *testing.T) {
-	uc := NewDeviceTokenUseCase(&fakeTokenRepo{})
+	uc := NewDeviceTokenUseCase(&fakeDeviceTokenRepo{})
 
 	_, err := uc.Register(t.Context(), domain.RegisterDeviceTokenCommand{
 		UserID: "user-1", Token: "fcm-token", Platform: "WINDOWS",
@@ -34,7 +34,7 @@ func TestRegisterRejectsUnknownPlatform(t *testing.T) {
 }
 
 func TestRegisterSavesToken(t *testing.T) {
-	repo := &fakeTokenRepo{
+	repo := &fakeDeviceTokenRepo{
 		upsertFn: func(_ context.Context, cmd domain.RegisterDeviceTokenCommand) (*domain.DeviceToken, error) {
 			return &domain.DeviceToken{ID: 1, UserID: cmd.UserID, Token: cmd.Token, Platform: cmd.Platform}, nil
 		},
@@ -51,7 +51,7 @@ func TestRegisterSavesToken(t *testing.T) {
 }
 
 func TestRemovePropagatesNotFound(t *testing.T) {
-	repo := &fakeTokenRepo{
+	repo := &fakeDeviceTokenRepo{
 		deleteFn: func(_ context.Context, cmd domain.RemoveDeviceTokenCommand) error {
 			return domainerr.New(domain.ErrDeviceTokenNotFound, cmd.Token)
 		},

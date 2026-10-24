@@ -48,3 +48,20 @@ func IsUniqueViolation(err error) bool {
 func IsNoRows(err error) bool {
 	return errors.Is(err, pgx.ErrNoRows)
 }
+
+// InTx runs fn in a transaction, committing only if fn returns nil; any error
+// rolls back. sqlc's Queries type differs per service, so fn gets the raw
+// pgx.Tx and calls queries.WithTx(tx) itself.
+func InTx(ctx context.Context, pool *pgxpool.Pool, fn func(tx pgx.Tx) error) error {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }() // no-op after a successful commit
+
+	if err := fn(tx); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}

@@ -28,10 +28,13 @@ func main() {
 		log.Fatal("failed to connect to the database", zap.Error(err))
 	}
 
-	repo := persistence.NewPostgresUserRepository(pool)
+	// PostgresUserRepository implements both UserRepository and DeviceTokenRepository.
+	userRepo := persistence.NewPostgresUserRepository(pool)
+	squadRepo := persistence.NewPostgresSquadRepository(pool)
 
-	userUC := application.NewUserUseCase(repo, repo)
-	deviceTokenUC := application.NewDeviceTokenUseCase(repo)
+	userUC := application.NewUserUseCase(userRepo, userRepo)
+	deviceTokenUC := application.NewDeviceTokenUseCase(userRepo)
+	squadUC := application.NewSquadUseCase(squadRepo, userRepo)
 
 	app := fiber.New()
 	app.Use(middleware.RequestID(), middleware.Logging(log), middleware.Recover(log))
@@ -39,6 +42,7 @@ func main() {
 	transporthttp.RegisterRoutes(app, &transporthttp.Handlers{
 		User:        transporthttp.NewUserHandler(userUC),
 		DeviceToken: transporthttp.NewDeviceTokenHandler(deviceTokenUC),
+		Squad:       transporthttp.NewSquadHandler(squadUC),
 	})
 
 	log.Info("starting "+api.UserService, zap.String("env", cfg.Env), zap.String("port", cfg.Port))

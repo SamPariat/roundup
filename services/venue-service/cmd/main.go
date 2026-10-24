@@ -9,6 +9,7 @@ import (
 	"github.com/SamPariat/roundup/services/venue-service/internal/adapters/cache"
 	"github.com/SamPariat/roundup/services/venue-service/internal/adapters/persistence"
 	"github.com/SamPariat/roundup/services/venue-service/internal/adapters/places"
+	"github.com/SamPariat/roundup/services/venue-service/internal/adapters/users"
 	"github.com/SamPariat/roundup/services/venue-service/internal/application"
 	"github.com/SamPariat/roundup/services/venue-service/internal/config"
 	transporthttp "github.com/SamPariat/roundup/services/venue-service/internal/transport/http"
@@ -35,16 +36,17 @@ func main() {
 
 	venueRepo := persistence.NewPostgresVenueRepository(pool)
 
-	mapsAdapter, err := places.NewGoogleMapsAdapter(cfg.GoogleMapsAPIKey)
+	placeProvider, err := places.NewGoogleMapsAdapter(cfg.GoogleMapsAPIKey)
 	if err != nil {
 		log.Fatal("failed to init Google Maps adapter", zap.Error(err))
 	}
 
-	cacheAdapter := cache.NewRedisCacheAdapter(redisClient, cache.DefaultTTL, log)
+	venueCache := cache.NewRedisCacheAdapter(redisClient, cache.DefaultTTL, log)
+	squadDirectory := users.NewUserServiceClient(cfg.UserServiceURL)
 
-	venueUC := application.NewVenueUseCase(mapsAdapter, cacheAdapter)
-	favoriteUC := application.NewFavoriteUseCase(venueRepo)
-	historyUC := application.NewHistoryUseCase(venueRepo)
+	venueUC := application.NewVenueUseCase(placeProvider, venueCache)
+	favoriteUC := application.NewFavoriteUseCase(venueRepo, squadDirectory)
+	historyUC := application.NewHistoryUseCase(venueRepo, squadDirectory)
 
 	app := fiber.New()
 	app.Use(middleware.RequestID(), middleware.Logging(log), middleware.Recover(log))

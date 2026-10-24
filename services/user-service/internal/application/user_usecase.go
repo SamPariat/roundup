@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 
 	"github.com/SamPariat/roundup/services/user-service/internal/domain"
@@ -86,4 +87,37 @@ func (u *UserUseCase) Delete(ctx context.Context, id string) error {
 	}
 
 	return u.tokens.DeleteAllForUser(ctx, id)
+}
+
+// Lookup returns the Roundup users among phones, for matching a user's
+// contacts. Invalid numbers are skipped rather than rejected, since address
+// books are full of them, and the caller is left out of the results. Returns
+// domain.ErrTooManyPhones if more than domain.MaxLookupPhones are sent.
+func (u *UserUseCase) Lookup(ctx context.Context, callerID string, phones []string) ([]*domain.User, error) {
+	if len(phones) > domain.MaxLookupPhones {
+		return nil, domain.ErrTooManyPhones
+	}
+
+	seen := make(map[string]bool, len(phones))
+	valid := make([]string, 0, len(phones))
+
+	for _, number := range phones {
+		if !phone.IsValid(number) || seen[number] {
+			continue
+		}
+
+		seen[number] = true
+		valid = append(valid, number)
+	}
+
+	if len(valid) == 0 {
+		return []*domain.User{}, nil
+	}
+
+	users, err := u.users.ListByPhones(ctx, valid)
+	if err != nil {
+		return nil, err
+	}
+
+	return slices.DeleteFunc(users, func(user *domain.User) bool { return user.ID == callerID }), nil
 }

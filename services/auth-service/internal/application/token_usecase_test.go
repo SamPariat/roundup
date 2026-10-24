@@ -12,7 +12,7 @@ import (
 
 type tokenFixture struct {
 	uc       *TokenUseCase
-	sessions *fakeSessions
+	sessions *fakeSessionRepo
 	clock    *clock
 	pub      []byte
 	login    *domain.TokenPair

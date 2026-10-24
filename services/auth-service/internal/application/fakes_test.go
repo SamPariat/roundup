@@ -93,9 +93,9 @@ func (f *fakeOTPRepo) Consume(_ context.Context, id int64) error {
 
 // --- OTPSender ---
 
-type fakeSender struct{ sent map[string]string }
+type fakeOTPSender struct{ sent map[string]string }
 
-func (f *fakeSender) Send(_ context.Context, phone, code string) error {
+func (f *fakeOTPSender) Send(_ context.Context, phone, code string) error {
 	f.sent[phone] = code
 
 	return nil
@@ -103,13 +103,13 @@ func (f *fakeSender) Send(_ context.Context, phone, code string) error {
 
 // --- UserDirectory ---
 
-type fakeUsers struct {
+type fakeUserDirectory struct {
 	created bool
 	err     error
 	calls   int
 }
 
-func (f *fakeUsers) EnsureUser(context.Context, string) (string, bool, error) {
+func (f *fakeUserDirectory) EnsureUser(context.Context, string) (string, bool, error) {
 	f.calls++
 	if f.err != nil {
 		return "", false, f.err
@@ -120,29 +120,29 @@ func (f *fakeUsers) EnsureUser(context.Context, string) (string, bool, error) {
 
 // --- SessionRepository ---
 
-type fakeSessions struct {
+type fakeSessionRepo struct {
 	tokens  map[string]*domain.StoredRefreshToken // keyed by string(hash)
 	revoked map[string]bool
 	nextID  int64
 }
 
-func newFakeSessions() *fakeSessions {
-	return &fakeSessions{tokens: map[string]*domain.StoredRefreshToken{}, revoked: map[string]bool{}}
+func newFakeSessions() *fakeSessionRepo {
+	return &fakeSessionRepo{tokens: map[string]*domain.StoredRefreshToken{}, revoked: map[string]bool{}}
 }
 
-func (f *fakeSessions) add(sessionID, userID string, hash []byte, expiresAt time.Time) {
+func (f *fakeSessionRepo) add(sessionID, userID string, hash []byte, expiresAt time.Time) {
 	f.nextID++
 	f.tokens[string(hash)] = &domain.StoredRefreshToken{ID: f.nextID, SessionID: sessionID, UserID: userID, ExpiresAt: expiresAt}
 }
 
-func (f *fakeSessions) Create(_ context.Context, userID string, hash []byte, expiresAt time.Time) (string, error) {
+func (f *fakeSessionRepo) Create(_ context.Context, userID string, hash []byte, expiresAt time.Time) (string, error) {
 	sessionID := fmt.Sprintf("session-%d", len(f.revoked)+len(f.tokens)+1)
 	f.add(sessionID, userID, hash, expiresAt)
 
 	return sessionID, nil
 }
 
-func (f *fakeSessions) FindRefreshToken(_ context.Context, hash []byte) (*domain.StoredRefreshToken, error) {
+func (f *fakeSessionRepo) FindRefreshToken(_ context.Context, hash []byte) (*domain.StoredRefreshToken, error) {
 	t, ok := f.tokens[string(hash)]
 	if !ok {
 		return nil, domain.ErrInvalidRefreshToken
@@ -154,7 +154,7 @@ func (f *fakeSessions) FindRefreshToken(_ context.Context, hash []byte) (*domain
 	return &c, nil
 }
 
-func (f *fakeSessions) Rotate(_ context.Context, oldID int64, sessionID string, newHash []byte, expiresAt time.Time) error {
+func (f *fakeSessionRepo) Rotate(_ context.Context, oldID int64, sessionID string, newHash []byte, expiresAt time.Time) error {
 	for _, t := range f.tokens {
 		if t.ID == oldID {
 			if t.UsedAt != nil {
@@ -172,7 +172,7 @@ func (f *fakeSessions) Rotate(_ context.Context, oldID int64, sessionID string, 
 	return domain.ErrInvalidRefreshToken
 }
 
-func (f *fakeSessions) Revoke(_ context.Context, sessionID string) error {
+func (f *fakeSessionRepo) Revoke(_ context.Context, sessionID string) error {
 	f.revoked[sessionID] = true
 
 	return nil

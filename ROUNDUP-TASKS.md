@@ -256,8 +256,8 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 
 - [ ] `0001_create_users.sql` — id, phone, email, name, avatar_url, deleted_at, created_at, updated_at
 - [ ] `0002_create_device_tokens.sql` — id, user_id, token, platform, created_at
-- [ ] `0003_create_squads.sql` — id, name, avatar_url, created_by, created_at
-- [ ] `0004_create_squad_members.sql` — squad_id, user_id, role, joined_at
+- [x] `0003_create_squads.sql` — id, name, avatar_url, created_by, created_at
+- [x] `0004_create_squad_members.sql` — squad_id, user_id, role, joined_at
 - [ ] `0005_create_user_face_profiles.sql` — user_id, cloudinary_id, embeddings (jsonb), updated_at
 - [ ] `0006_create_friend_connections.sql` — user_id_a, user_id_b, created_at (unique pair)
 - [ ] Add indexes: users(phone), squad_members(squad_id, user_id)
@@ -278,7 +278,7 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 - [ ] `DeviceTokenUseCase.Register(userID, token, platform)` — upsert by token
 - [ ] `DeviceTokenUseCase.Remove(userID, token)`
 - [ ] `DeviceTokenUseCase.ListForUsers(userIDs)` — batch for notification service
-- [ ] `SquadUseCase` — create, add/remove member, list members, list my squads
+- [x] `SquadUseCase` — create, add/remove member, list members, list my squads
 - [ ] `FriendUseCase` — connect, list friends
 
 ### Controllers (REST)
@@ -290,11 +290,11 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 - [ ] `GET /api/v1/users/:id` — get user by ID (internal use)
 - [ ] `POST /api/v1/users/me/device-tokens` — register FCM token
 - [ ] `DELETE /api/v1/users/me/device-tokens/:token` — deregister token
-- [ ] `POST /api/v1/squads` — create squad
-- [ ] `GET /api/v1/squads` — get my squads
-- [ ] `GET /api/v1/squads/:id` — get squad with members
-- [ ] `POST /api/v1/squads/:id/members` — add member
-- [ ] `DELETE /api/v1/squads/:id/members/:userId` — remove member
+- [x] `POST /api/v1/squads` — create squad
+- [x] `GET /api/v1/squads` — get my squads
+- [x] `GET /api/v1/squads/:id` — get squad with members
+- [x] `POST /api/v1/squads/:id/members` — add member
+- [x] `DELETE /api/v1/squads/:id/members/:userId` — remove member
 - [ ] `POST /api/v1/users/me/face-profile` — upload reference photo
 - [ ] `GET /api/v1/users/me/friends` — get friend list
 

@@ -30,7 +30,13 @@ func RegisterRoutes(app *fiber.App, upstreams config.Upstreams, pub ed25519.Publ
 
 	v1.Group("/users", auth).All("/*", proxy.To(upstreams.User, timeout))
 	v1.Group("/venues", auth).All("/*", proxy.To(upstreams.Venue, timeout))
-	v1.Group("/squads", auth).All("/*", proxy.To(upstreams.Venue, timeout))
+
+	// A squad's favorites and history live in venue-service; the squad itself
+	// and its members live in user-service. The specific groups are registered
+	// first so they win over the /squads catch-all.
+	v1.Group("/squads/:squadID/favorites", auth).All("/*", proxy.To(upstreams.Venue, timeout))
+	v1.Group("/squads/:squadID/history", auth).All("/*", proxy.To(upstreams.Venue, timeout))
+	v1.Group("/squads", auth).All("/*", proxy.To(upstreams.User, timeout))
 
 	// Services that don't exist yet.
 	for _, name := range []string{"events", "billing", "media", "realtime"} {
@@ -38,6 +44,8 @@ func RegisterRoutes(app *fiber.App, upstreams config.Upstreams, pub ed25519.Publ
 	}
 }
 
+// notFoundHandler answers 404 for routes the gateway deliberately hides, such
+// as the internal POST /api/v1/users.
 func notFoundHandler(c fiber.Ctx) error {
 	return c.Status(fiber.StatusNotFound).JSON(response.Fail[any]("not found"))
 }

@@ -67,9 +67,9 @@ func (h *FavoriteHandler) RemoveFavorite(c fiber.Ctx) error {
 func (h *FavoriteHandler) ListFavorites(c fiber.Ctx) error {
 	squadID := c.Params("squadID")
 
-	favorites, err := h.uc.ListFavorites(c.Context(), squadID)
+	favorites, err := h.uc.ListFavorites(c.Context(), squadID, middleware.UserIDFrom(c))
 	if err != nil {
-		return response.Error(c, fiber.StatusInternalServerError, err)
+		return response.Error(c, favoriteErrorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(
@@ -85,7 +85,7 @@ func (h *FavoriteHandler) IsFavorite(c fiber.Ctx) error {
 
 	isFav, err := h.uc.IsFavorite(c.Context(), squadID, userID, placeID)
 	if err != nil {
-		return response.Error(c, fiber.StatusInternalServerError, err)
+		return response.Error(c, favoriteErrorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(
@@ -98,8 +98,10 @@ func favoriteErrorStatus(err error) int {
 	switch {
 	case errors.Is(err, domain.ErrAlreadySaved):
 		return fiber.StatusConflict
-	case errors.Is(err, domain.ErrNotSaved):
+	case errors.Is(err, domain.ErrNotSaved), errors.Is(err, domain.ErrSquadNotFound):
 		return fiber.StatusNotFound
+	case errors.Is(err, domain.ErrUserServiceUnavailable):
+		return fiber.StatusServiceUnavailable
 	default:
 		return fiber.StatusInternalServerError
 	}

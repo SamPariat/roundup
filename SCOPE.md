@@ -291,7 +291,7 @@ CREATE TABLE squads (
 CREATE TABLE squad_members (
   squad_id    UUID NOT NULL REFERENCES squads(id),
   user_id     UUID NOT NULL REFERENCES users(id),
-  role        TEXT NOT NULL DEFAULT 'MEMBER', -- ORGANISER | MEMBER
+  role        TEXT NOT NULL DEFAULT 'MEMBER', -- ADMIN | MEMBER (several admins allowed)
   joined_at   TIMESTAMP NOT NULL DEFAULT now(),
   PRIMARY KEY (squad_id, user_id)
 );

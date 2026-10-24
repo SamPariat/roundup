@@ -28,4 +28,12 @@ var (
 	// ErrVisitAlreadyRecorded is returned when the squad already has a visit
 	// recorded for this venue during this event.
 	ErrVisitAlreadyRecorded = errors.New("visit already recorded for this event")
+
+	// ErrSquadNotFound is returned when the squad does not exist or the caller
+	// is not a member. user-service treats the two the same, and so do we.
+	ErrSquadNotFound = errors.New("squad not found")
+
+	// ErrUserServiceUnavailable is returned when user-service cannot answer a
+	// membership check.
+	ErrUserServiceUnavailable = errors.New("user service unavailable")
 )

@@ -11,6 +11,7 @@ import (
 type Handlers struct {
 	User        *UserHandler
 	DeviceToken *DeviceTokenHandler
+	Squad       *SquadHandler
 }
 
 // RegisterRoutes mounts all route groups onto the Fiber app.
@@ -22,6 +23,7 @@ func RegisterRoutes(app *fiber.App, h *Handlers) {
 	// Called by auth-service after phone verification. Not a public route —
 	// the gateway must not expose it to the mobile app.
 	users.Post("/", h.User.Create)
+	users.Post("/lookup", middleware.UserID(), h.User.Lookup)
 
 	me := users.Group("/me", middleware.UserID())
 	me.Get("/", h.User.GetMe)
@@ -31,4 +33,17 @@ func RegisterRoutes(app *fiber.App, h *Handlers) {
 	deviceTokens := me.Group("/device-tokens")
 	deviceTokens.Post("/", h.DeviceToken.Register)
 	deviceTokens.Delete("/:token", h.DeviceToken.Remove)
+
+	// Every squad route acts as the caller, so it requires X-User-ID. A squad
+	// the caller is not in answers 404, and DELETE /members/:userID with the
+	// caller's own ID is how they leave.
+	squads := v1.Group("/squads", middleware.UserID())
+	squads.Post("/", h.Squad.Create)
+	squads.Get("/", h.Squad.List)
+	squads.Get("/:squadID", h.Squad.Get)
+
+	members := squads.Group("/:squadID/members")
+	members.Post("/", h.Squad.AddMember)
+	members.Patch("/:userID", h.Squad.ChangeRole)
+	members.Delete("/:userID", h.Squad.RemoveMember)
 }

@@ -76,6 +76,38 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phone string) (User, error
 	return i, err
 }
 
+const listUsersByPhones = `-- name: ListUsersByPhones :many
+SELECT id, phone, name, avatar_url, deleted_at, created_at, updated_at FROM users WHERE phone = ANY($1::text[]) AND deleted_at IS NULL
+`
+
+func (q *Queries) ListUsersByPhones(ctx context.Context, phones []string) ([]User, error) {
+	rows, err := q.db.Query(ctx, listUsersByPhones, phones)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []User
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.Phone,
+			&i.Name,
+			&i.AvatarUrl,
+			&i.DeletedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const softDeleteUser = `-- name: SoftDeleteUser :execrows
 UPDATE users
 SET deleted_at = NOW(),

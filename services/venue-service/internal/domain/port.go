@@ -54,3 +54,12 @@ type VenueRepository interface {
 	// most recently visited first.
 	GetVisitHistory(ctx context.Context, squadID string) ([]VisitSummary, error)
 }
+
+// SquadDirectory answers whether a user belongs to a squad. Squads live in
+// user-service; implemented by a client for it.
+type SquadDirectory interface {
+	// EnsureMember returns nil if userID is a member of squadID,
+	// ErrSquadNotFound if they are not (or the squad does not exist), and
+	// ErrUserServiceUnavailable if user-service cannot answer.
+	EnsureMember(ctx context.Context, squadID, userID string) error
+}

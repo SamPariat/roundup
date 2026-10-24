@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/SamPariat/roundup/shared/postgres/postgrestest"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/assert"
@@ -45,4 +46,32 @@ func TestConnectFailsWhenDatabaseUnreachable(t *testing.T) {
 	_, err := Connect(ctx, "postgres://user:pass@127.0.0.1:1/db?sslmode=disable")
 
 	require.Error(t, err)
+}
+
+func TestInTx(t *testing.T) {
+	pool := postgrestest.New(t, "postgrestest/testdata/migrations")
+	ctx := t.Context()
+
+	insert := func(name string, fnErr error) error {
+		return InTx(ctx, pool, func(tx pgx.Tx) error {
+			if _, err := tx.Exec(ctx, "INSERT INTO widgets (name) VALUES ($1)", name); err != nil {
+				return err
+			}
+
+			return fnErr
+		})
+	}
+
+	require.NoError(t, insert("kept", nil))
+
+	errBoom := errors.New("boom")
+	require.ErrorIs(t, insert("rolled-back", errBoom), errBoom)
+
+	rows, err := pool.Query(ctx, "SELECT name FROM widgets")
+	require.NoError(t, err)
+
+	names, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"kept"}, names, "a failed fn must roll its writes back")
 }

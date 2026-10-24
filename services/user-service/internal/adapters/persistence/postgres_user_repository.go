@@ -103,6 +103,21 @@ func (r *PostgresUserRepository) SoftDelete(ctx context.Context, id string) erro
 	return nil
 }
 
+// ListByPhones returns the active users with any of these phone numbers.
+func (r *PostgresUserRepository) ListByPhones(ctx context.Context, phones []string) ([]*domain.User, error) {
+	rows, err := r.queries.ListUsersByPhones(ctx, phones)
+	if err != nil {
+		return nil, err
+	}
+
+	users := make([]*domain.User, 0, len(rows))
+	for _, row := range rows {
+		users = append(users, toDomainUser(row))
+	}
+
+	return users, nil
+}
+
 // Upsert registers the token to the user, moving it from any previous owner.
 func (r *PostgresUserRepository) Upsert(ctx context.Context, cmd domain.RegisterDeviceTokenCommand) (*domain.DeviceToken, error) {
 	uid, err := uuid.Parse(cmd.UserID)

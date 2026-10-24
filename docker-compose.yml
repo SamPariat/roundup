@@ -102,6 +102,7 @@ services:
       APP_ENV: ${APP_ENV:-beta}
       POSTGRES_DSN: postgres://venue_user:venue_pass@postgres-venue:5432/venues
       REDIS_ADDR: redis:6379
+      USER_SERVICE_URL: http://user-service:3002
     ports:
       - "3006:3006"
     depends_on:
@@ -109,6 +110,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      user-service:
+        condition: service_started
 
   auth-service:
     profiles: [services]

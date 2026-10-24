@@ -38,11 +38,11 @@ func main() {
 
 	otpRepo := persistence.NewPostgresOTPRepository(pool)
 	sessionRepo := persistence.NewPostgresSessionRepository(pool)
-	sender := sms.NewConsoleSender(log)
+	otpSender := sms.NewConsoleSender(log)
 	userDirectory := users.NewUserServiceClient(cfg.UserServiceURL)
 
 	issuer := application.NewTokenIssuer(cfg.JWTPrivateKey, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
-	otpUC := application.NewOTPUseCase(otpRepo, sender, userDirectory, sessionRepo, issuer, cfg.OTPDevCode)
+	otpUC := application.NewOTPUseCase(otpRepo, otpSender, userDirectory, sessionRepo, issuer, cfg.OTPDevCode)
 	tokenUC := application.NewTokenUseCase(sessionRepo, issuer)
 
 	app := fiber.New()

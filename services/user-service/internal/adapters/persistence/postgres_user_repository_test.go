@@ -189,3 +189,18 @@ func TestDeleteAllForUserOnlyRemovesThatUsersTokens(t *testing.T) {
 	assert.NoError(t, repo.Delete(ctx, domain.RemoveDeviceTokenCommand{UserID: bob.ID, Token: "bob-ios"}), "bob's token survives")
 	assert.NoError(t, repo.DeleteAllForUser(ctx, "not-a-uuid"), "invalid ID is a no-op")
 }
+
+func TestListByPhonesReturnsActiveMatchesOnly(t *testing.T) {
+	ctx := t.Context()
+	repo := newRepo(t)
+
+	active := mustCreateUser(t, repo, "+919876543210")
+	deleted := mustCreateUser(t, repo, "+919876543211")
+	require.NoError(t, repo.SoftDelete(ctx, deleted.ID))
+
+	users, err := repo.ListByPhones(ctx, []string{"+919876543210", "+919876543211", "+14155550123"})
+	require.NoError(t, err)
+
+	require.Len(t, users, 1)
+	assert.Equal(t, active.ID, users[0].ID)
+}
