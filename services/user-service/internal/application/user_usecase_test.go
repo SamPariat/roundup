@@ -21,6 +21,7 @@ type fakeUserRepo struct {
 	getByPhoneFn    func(ctx context.Context, phone string) (*domain.User, error)
 	updateProfileFn func(ctx context.Context, cmd domain.UpdateProfileCommand) (*domain.User, error)
 	softDeleteFn    func(ctx context.Context, id string) error
+	listByPhonesFn  func(ctx context.Context, phones []string) ([]*domain.User, error)
 }
 
 func (f *fakeUserRepo) Create(ctx context.Context, phone string) (*domain.User, error) {
@@ -63,13 +64,21 @@ func (f *fakeUserRepo) SoftDelete(ctx context.Context, id string) error {
 	return nil
 }
 
-type fakeTokenRepo struct {
+func (f *fakeUserRepo) ListByPhones(ctx context.Context, phones []string) ([]*domain.User, error) {
+	if f.listByPhonesFn != nil {
+		return f.listByPhonesFn(ctx, phones)
+	}
+
+	return nil, nil
+}
+
+type fakeDeviceTokenRepo struct {
 	upsertFn           func(ctx context.Context, cmd domain.RegisterDeviceTokenCommand) (*domain.DeviceToken, error)
 	deleteFn           func(ctx context.Context, cmd domain.RemoveDeviceTokenCommand) error
 	deleteAllForUserFn func(ctx context.Context, userID string) error
 }
 
-func (f *fakeTokenRepo) Upsert(ctx context.Context, cmd domain.RegisterDeviceTokenCommand) (*domain.DeviceToken, error) {
+func (f *fakeDeviceTokenRepo) Upsert(ctx context.Context, cmd domain.RegisterDeviceTokenCommand) (*domain.DeviceToken, error) {
 	if f.upsertFn != nil {
 		return f.upsertFn(ctx, cmd)
 	}
@@ -77,7 +86,7 @@ func (f *fakeTokenRepo) Upsert(ctx context.Context, cmd domain.RegisterDeviceTok
 	return nil, nil
 }
 
-func (f *fakeTokenRepo) Delete(ctx context.Context, cmd domain.RemoveDeviceTokenCommand) error {
+func (f *fakeDeviceTokenRepo) Delete(ctx context.Context, cmd domain.RemoveDeviceTokenCommand) error {
 	if f.deleteFn != nil {
 		return f.deleteFn(ctx, cmd)
 	}
@@ -85,7 +94,7 @@ func (f *fakeTokenRepo) Delete(ctx context.Context, cmd domain.RemoveDeviceToken
 	return nil
 }
 
-func (f *fakeTokenRepo) DeleteAllForUser(ctx context.Context, userID string) error {
+func (f *fakeDeviceTokenRepo) DeleteAllForUser(ctx context.Context, userID string) error {
 	if f.deleteAllForUserFn != nil {
 		return f.deleteAllForUserFn(ctx, userID)
 	}
@@ -100,7 +109,7 @@ func notFound(_ context.Context, phone string) (*domain.User, error) {
 }
 
 func TestCreateOrGetRejectsInvalidPhone(t *testing.T) {
-	uc := NewUserUseCase(&fakeUserRepo{}, &fakeTokenRepo{})
+	uc := NewUserUseCase(&fakeUserRepo{}, &fakeDeviceTokenRepo{})
 
 	_, _, err := uc.CreateOrGet(t.Context(), "98765")
 
@@ -117,7 +126,7 @@ func TestCreateOrGetReturnsExistingUser(t *testing.T) {
 			return nil, nil
 		},
 	}
-	uc := NewUserUseCase(repo, &fakeTokenRepo{})
+	uc := NewUserUseCase(repo, &fakeDeviceTokenRepo{})
 
 	user, created, err := uc.CreateOrGet(t.Context(), testPhone)
 
@@ -133,7 +142,7 @@ func TestCreateOrGetCreatesNewUser(t *testing.T) {
 			return &domain.User{ID: "new-user", Phone: phone}, nil
 		},
 	}
-	uc := NewUserUseCase(repo, &fakeTokenRepo{})
+	uc := NewUserUseCase(repo, &fakeDeviceTokenRepo{})
 
 	user, created, err := uc.CreateOrGet(t.Context(), testPhone)
 
@@ -159,7 +168,7 @@ func TestCreateOrGetHandlesConcurrentCreate(t *testing.T) {
 			return nil, domainerr.New(domain.ErrPhoneTaken, phone)
 		},
 	}
-	uc := NewUserUseCase(repo, &fakeTokenRepo{})
+	uc := NewUserUseCase(repo, &fakeDeviceTokenRepo{})
 
 	user, created, err := uc.CreateOrGet(t.Context(), testPhone)
 
@@ -173,7 +182,7 @@ func TestCreateOrGetPropagatesLookupFailure(t *testing.T) {
 	repo := &fakeUserRepo{
 		getByPhoneFn: func(_ context.Context, _ string) (*domain.User, error) { return nil, dbDown },
 	}
-	uc := NewUserUseCase(repo, &fakeTokenRepo{})
+	uc := NewUserUseCase(repo, &fakeDeviceTokenRepo{})
 
 	_, _, err := uc.CreateOrGet(t.Context(), testPhone)
 
@@ -181,7 +190,7 @@ func TestCreateOrGetPropagatesLookupFailure(t *testing.T) {
 }
 
 func TestUpdateProfileRejectsBlankName(t *testing.T) {
-	uc := NewUserUseCase(&fakeUserRepo{}, &fakeTokenRepo{})
+	uc := NewUserUseCase(&fakeUserRepo{}, &fakeDeviceTokenRepo{})
 	blank := "   "
 
 	_, err := uc.UpdateProfile(t.Context(), domain.UpdateProfileCommand{UserID: "user-1", Name: &blank})
@@ -199,7 +208,7 @@ func TestUpdateProfileTrimsName(t *testing.T) {
 			return &domain.User{ID: cmd.UserID, Name: *cmd.Name}, nil
 		},
 	}
-	uc := NewUserUseCase(repo, &fakeTokenRepo{})
+	uc := NewUserUseCase(repo, &fakeDeviceTokenRepo{})
 	name := "  Priya  "
 
 	user, err := uc.UpdateProfile(t.Context(), domain.UpdateProfileCommand{UserID: "user-1", Name: &name})
@@ -212,7 +221,7 @@ func TestUpdateProfileTrimsName(t *testing.T) {
 func TestDeleteRemovesDeviceTokens(t *testing.T) {
 	var clearedFor string
 
-	tokens := &fakeTokenRepo{
+	tokens := &fakeDeviceTokenRepo{
 		deleteAllForUserFn: func(_ context.Context, userID string) error {
 			clearedFor = userID
 
@@ -233,7 +242,7 @@ func TestDeleteSkipsTokensWhenUserMissing(t *testing.T) {
 			return domainerr.New(domain.ErrUserNotFound, id)
 		},
 	}
-	tokens := &fakeTokenRepo{
+	tokens := &fakeDeviceTokenRepo{
 		deleteAllForUserFn: func(_ context.Context, _ string) error {
 			t.Fatal("tokens must not be cleared when the user does not exist")
 
@@ -245,4 +254,59 @@ func TestDeleteSkipsTokensWhenUserMissing(t *testing.T) {
 	err := uc.Delete(t.Context(), "missing")
 
 	assert.ErrorIs(t, err, domain.ErrUserNotFound)
+}
+
+func TestLookupSkipsInvalidAndDuplicatePhones(t *testing.T) {
+	var got []string
+
+	repo := &fakeUserRepo{
+		listByPhonesFn: func(_ context.Context, phones []string) ([]*domain.User, error) {
+			got = phones
+
+			return nil, nil
+		},
+	}
+
+	_, err := NewUserUseCase(repo, &fakeDeviceTokenRepo{}).Lookup(t.Context(), "caller", []string{testPhone, "12345", testPhone, "+14155550123"})
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{testPhone, "+14155550123"}, got)
+}
+
+func TestLookupExcludesCaller(t *testing.T) {
+	repo := &fakeUserRepo{
+		listByPhonesFn: func(_ context.Context, _ []string) ([]*domain.User, error) {
+			return []*domain.User{{ID: "caller"}, {ID: "friend"}}, nil
+		},
+	}
+
+	users, err := NewUserUseCase(repo, &fakeDeviceTokenRepo{}).Lookup(t.Context(), "caller", []string{testPhone})
+	require.NoError(t, err)
+
+	require.Len(t, users, 1)
+	assert.Equal(t, "friend", users[0].ID)
+}
+
+func TestLookupWithNoValidPhonesSkipsRepository(t *testing.T) {
+	repo := &fakeUserRepo{
+		listByPhonesFn: func(_ context.Context, _ []string) ([]*domain.User, error) {
+			t.Fatal("repository must not be queried without valid phones")
+
+			return nil, nil
+		},
+	}
+
+	users, err := NewUserUseCase(repo, &fakeDeviceTokenRepo{}).Lookup(t.Context(), "caller", []string{"", "not a phone"})
+	require.NoError(t, err)
+
+	assert.Empty(t, users)
+	assert.NotNil(t, users, "an empty result must still be a list, not null")
+}
+
+func TestLookupRejectsTooManyPhones(t *testing.T) {
+	phones := make([]string, domain.MaxLookupPhones+1)
+
+	_, err := NewUserUseCase(&fakeUserRepo{}, &fakeDeviceTokenRepo{}).Lookup(t.Context(), "caller", phones)
+
+	assert.ErrorIs(t, err, domain.ErrTooManyPhones)
 }

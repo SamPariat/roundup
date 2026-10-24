@@ -17,6 +17,21 @@ type DeviceToken struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type Squad struct {
+	ID        uuid.UUID          `json:"id"`
+	Name      string             `json:"name"`
+	AvatarUrl *string            `json:"avatar_url"`
+	CreatedBy uuid.UUID          `json:"created_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type SquadMember struct {
+	SquadID  uuid.UUID          `json:"squad_id"`
+	UserID   uuid.UUID          `json:"user_id"`
+	Role     string             `json:"role"`
+	JoinedAt pgtype.Timestamptz `json:"joined_at"`
+}
+
 type User struct {
 	ID        uuid.UUID          `json:"id"`
 	Phone     string             `json:"phone"`

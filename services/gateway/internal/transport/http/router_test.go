@@ -116,6 +116,13 @@ func TestRoutesToUpstreams(t *testing.T) {
 		{"DeviceTokens", http.MethodDelete, "/api/v1/users/me/device-tokens/abc", "", true, func(f *fixture) *upstream { return f.user }, userID},
 		{"VenueSearchKeepsQuery", http.MethodGet, "/api/v1/venues/?lat=12.97&lng=77.59&radius=2000", "", true, func(f *fixture) *upstream { return f.venue }, userID},
 		{"SquadFavorites", http.MethodPost, "/api/v1/squads/s1/favorites/", `{"placeID":"p1"}`, true, func(f *fixture) *upstream { return f.venue }, userID},
+		{"SquadFavoriteCheck", http.MethodGet, "/api/v1/squads/s1/favorites/p1/check", "", true, func(f *fixture) *upstream { return f.venue }, userID},
+		{"SquadHistory", http.MethodGet, "/api/v1/squads/s1/history", "", true, func(f *fixture) *upstream { return f.venue }, userID},
+		{"CreateSquad", http.MethodPost, "/api/v1/squads", `{"name":"Friday crew"}`, true, func(f *fixture) *upstream { return f.user }, userID},
+		{"ListSquads", http.MethodGet, "/api/v1/squads/", "", true, func(f *fixture) *upstream { return f.user }, userID},
+		{"GetSquad", http.MethodGet, "/api/v1/squads/s1", "", true, func(f *fixture) *upstream { return f.user }, userID},
+		{"ChangeSquadRole", http.MethodPatch, "/api/v1/squads/s1/members/u1", `{"role":"ADMIN"}`, true, func(f *fixture) *upstream { return f.user }, userID},
+		{"UserLookup", http.MethodPost, "/api/v1/users/lookup", `{"phones":["+919876543210"]}`, true, func(f *fixture) *upstream { return f.user }, userID},
 	}
 
 	for _, tt := range tests {
@@ -139,7 +146,7 @@ func TestRoutesToUpstreams(t *testing.T) {
 func TestProtectedRoutesNeedToken(t *testing.T) {
 	f := newFixture(t)
 
-	for _, path := range []string{"/api/v1/users/me", "/api/v1/venues/", "/api/v1/squads/s1/history/"} {
+	for _, path := range []string{"/api/v1/users/me", "/api/v1/venues/", "/api/v1/squads/s1/history/", "/api/v1/squads", "/api/v1/squads/s1/members"} {
 		resp := f.do(t, http.MethodGet, path, "", false)
 		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, path)
 	}

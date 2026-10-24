@@ -26,6 +26,10 @@ type Config struct {
 	// GoogleMapsAPIKey is the Google Maps Places API key. Required.
 	GoogleMapsAPIKey string
 
+	// UserServiceURL is user-service's base URL, e.g. "http://localhost:3002",
+	// called directly to check squad membership. Required.
+	UserServiceURL string
+
 	// LogLevel controls zap verbosity: debug, info, warn, or error. Defaults to info.
 	LogLevel string
 }
@@ -43,6 +47,7 @@ func Load() *Config {
 		PostgresDSN:      env.Require(env.KeyPostgresDSN),
 		RedisAddr:        env.Get("REDIS_ADDR", "localhost:6379"),
 		GoogleMapsAPIKey: env.Require("GOOGLE_MAPS_API_KEY"),
+		UserServiceURL:   env.Require("USER_SERVICE_URL"),
 		LogLevel:         env.Get(env.KeyLogLevel, env.DefaultLogLevel),
 	}
 }

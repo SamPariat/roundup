@@ -23,6 +23,7 @@ type DeleteDeviceTokenParams struct {
 	Token  string    `json:"token"`
 }
 
+// Removes a token, only if this user owns it.
 func (q *Queries) DeleteDeviceToken(ctx context.Context, arg DeleteDeviceTokenParams) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteDeviceToken, arg.UserID, arg.Token)
 	if err != nil {
@@ -37,6 +38,7 @@ FROM device_tokens
 WHERE user_id = $1
 `
 
+// Removes every token a user registered, when their account is deleted.
 func (q *Queries) DeleteDeviceTokensForUser(ctx context.Context, userID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteDeviceTokensForUser, userID)
 	return err
@@ -57,6 +59,8 @@ type UpsertDeviceTokenParams struct {
 	Platform string    `json:"platform"`
 }
 
+// Registers a push token to a user. A token identifies a device, so if it
+// already exists it moves to this user; created_at is kept.
 func (q *Queries) UpsertDeviceToken(ctx context.Context, arg UpsertDeviceTokenParams) (DeviceToken, error) {
 	row := q.db.QueryRow(ctx, upsertDeviceToken, arg.UserID, arg.Token, arg.Platform)
 	var i DeviceToken

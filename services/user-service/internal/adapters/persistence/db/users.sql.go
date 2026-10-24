@@ -17,6 +17,7 @@ VALUES ($1)
 RETURNING id, phone, name, avatar_url, deleted_at, created_at, updated_at
 `
 
+// Creates a user with just a phone number; the profile is filled in later.
 func (q *Queries) CreateUser(ctx context.Context, phone string) (User, error) {
 	row := q.db.QueryRow(ctx, createUser, phone)
 	var i User
@@ -39,6 +40,7 @@ WHERE id = $1
   AND deleted_at IS NULL
 `
 
+// Returns an active (not soft-deleted) user by ID.
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	row := q.db.QueryRow(ctx, getUserByID, id)
 	var i User
@@ -61,6 +63,7 @@ WHERE phone = $1
   AND deleted_at IS NULL
 `
 
+// Returns the active user with this phone number.
 func (q *Queries) GetUserByPhone(ctx context.Context, phone string) (User, error) {
 	row := q.db.QueryRow(ctx, getUserByPhone, phone)
 	var i User
@@ -76,6 +79,42 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phone string) (User, error
 	return i, err
 }
 
+const listUsersByPhones = `-- name: ListUsersByPhones :many
+SELECT id, phone, name, avatar_url, deleted_at, created_at, updated_at
+FROM users
+WHERE phone = ANY ($1::text[])
+  AND deleted_at IS NULL
+`
+
+// Returns the active users with any of these phone numbers, for contact lookup.
+func (q *Queries) ListUsersByPhones(ctx context.Context, phones []string) ([]User, error) {
+	rows, err := q.db.Query(ctx, listUsersByPhones, phones)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []User
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.Phone,
+			&i.Name,
+			&i.AvatarUrl,
+			&i.DeletedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const softDeleteUser = `-- name: SoftDeleteUser :execrows
 UPDATE users
 SET deleted_at = NOW(),
@@ -84,6 +123,7 @@ WHERE id = $1
   AND deleted_at IS NULL
 `
 
+// Marks a user deleted. Their phone number becomes free to sign up again.
 func (q *Queries) SoftDeleteUser(ctx context.Context, id uuid.UUID) (int64, error) {
 	result, err := q.db.Exec(ctx, softDeleteUser, id)
 	if err != nil {
@@ -108,6 +148,7 @@ type UpdateUserProfileParams struct {
 	ID        uuid.UUID `json:"id"`
 }
 
+// Updates the given profile fields; a NULL argument leaves that column as is.
 func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error) {
 	row := q.db.QueryRow(ctx, updateUserProfile, arg.Name, arg.AvatarUrl, arg.ID)
 	var i User

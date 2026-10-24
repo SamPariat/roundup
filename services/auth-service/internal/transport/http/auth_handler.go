@@ -81,7 +81,7 @@ func (h *AuthHandler) Logout(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
-// authErrorStatus maps domain sentinel errors to HTTP status codes.
+// authErrorStatus maps domain sentinel errors to HTTP status codes for auth.
 func authErrorStatus(err error) int {
 	switch {
 	case errors.Is(err, domain.ErrInvalidPhone):

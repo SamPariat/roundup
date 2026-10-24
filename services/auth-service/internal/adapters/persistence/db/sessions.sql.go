@@ -23,6 +23,7 @@ type CreateRefreshTokenParams struct {
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 }
 
+// Stores the hash of a refresh token issued for a session.
 func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) error {
 	_, err := q.db.Exec(ctx, createRefreshToken, arg.SessionID, arg.TokenHash, arg.ExpiresAt)
 	return err
@@ -34,6 +35,7 @@ VALUES ($1)
 RETURNING id
 `
 
+// Starts a login session for a user and returns its ID.
 func (q *Queries) CreateSession(ctx context.Context, userID uuid.UUID) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, createSession, userID)
 	var id uuid.UUID
@@ -57,6 +59,8 @@ type GetRefreshTokenRow struct {
 	RevokedAt pgtype.Timestamptz `json:"revoked_at"`
 }
 
+// Looks a refresh token up by hash, with its session's user and revocation
+// state, so a refresh can be checked in one query.
 func (q *Queries) GetRefreshToken(ctx context.Context, tokenHash []byte) (GetRefreshTokenRow, error) {
 	row := q.db.QueryRow(ctx, getRefreshToken, tokenHash)
 	var i GetRefreshTokenRow
@@ -78,6 +82,8 @@ WHERE id = $1
   AND used_at IS NULL
 `
 
+// Marks a refresh token spent. Returns 0 rows if it was already used, which
+// signals token reuse.
 func (q *Queries) MarkRefreshTokenUsed(ctx context.Context, id int64) (int64, error) {
 	result, err := q.db.Exec(ctx, markRefreshTokenUsed, id)
 	if err != nil {
@@ -93,6 +99,7 @@ WHERE id = $1
   AND revoked_at IS NULL
 `
 
+// Ends a session; every refresh token in it stops working.
 func (q *Queries) RevokeSession(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, revokeSession, id)
 	return err

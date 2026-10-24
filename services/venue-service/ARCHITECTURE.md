@@ -66,8 +66,8 @@ services/venue-service/
 │   │
 │   ├── application/
 │   │   ├── venue_usecase.go             # Search (cache-first), GetDetail (cache-first)
-│   │   ├── favorite_usecase.go          # AddFavorite, RemoveFavorite, ListFavorites, IsFavorite
-│   │   └── history_usecase.go           # RecordVisit, GetVisitHistory
+│   │   ├── favorite_usecase.go          # Add, Remove, List, IsSaved
+│   │   └── history_usecase.go           # Record, List
 │   │
 │   ├── adapters/
 │   │   ├── places/
@@ -236,14 +236,15 @@ redisClient := redis.NewClient(&redis.Options{Addr: cfg.RedisAddr})
 pool, err := postgres.Connect(ctx, cfg.PostgresDSN) // shared/postgres — pings at startup
 
 // 3. Driven adapters
-venueRepo    := persistence.NewPostgresVenueRepository(pool)
-mapsAdapter  := places.NewGoogleMapsAdapter(cfg.GoogleMapsAPIKey)
-cacheAdapter := cache.NewRedisCacheAdapter(redisClient, 10*time.Minute, log)
+venueRepo      := persistence.NewPostgresVenueRepository(pool)
+placeProvider  := places.NewGoogleMapsAdapter(cfg.GoogleMapsAPIKey)
+venueCache     := cache.NewRedisCacheAdapter(redisClient, cache.DefaultTTL, log)
+squadDirectory := users.NewUserServiceClient(cfg.UserServiceURL)
 
 // 4. Use-cases (depend on ports, not concrete adapters)
-venueUC    := application.NewVenueUseCase(mapsAdapter, cacheAdapter)
-favoriteUC := application.NewFavoriteUseCase(venueRepo)
-historyUC  := application.NewHistoryUseCase(venueRepo)
+venueUC    := application.NewVenueUseCase(placeProvider, venueCache)
+favoriteUC := application.NewFavoriteUseCase(venueRepo, squadDirectory)
+historyUC  := application.NewHistoryUseCase(venueRepo, squadDirectory)
 
 // 5. Driving adapters
 app := fiber.New()
@@ -266,12 +267,12 @@ All routes are versioned under `/api/v1`.
 |---|---|---|---|---|
 | GET | /api/v1/venues | VenueHandler.Search | VenueUseCase.Search | 200 |
 | GET | /api/v1/venues/:placeID | VenueHandler.GetDetail | VenueUseCase.GetDetail | 200 |
-| GET | /api/v1/squads/:squadID/favorites | FavoriteHandler.ListFavorites | FavoriteUseCase.ListFavorites | 200 |
-| GET | /api/v1/squads/:squadID/favorites/:placeID/check | FavoriteHandler.IsFavorite | FavoriteUseCase.IsFavorite | 200 |
-| POST | /api/v1/squads/:squadID/favorites | FavoriteHandler.AddFavorite | FavoriteUseCase.AddFavorite | 201 |
-| DELETE | /api/v1/squads/:squadID/favorites/:placeID | FavoriteHandler.RemoveFavorite | FavoriteUseCase.RemoveFavorite | 204 |
-| GET | /api/v1/squads/:squadID/history | HistoryHandler.GetVisitHistory | HistoryUseCase.GetVisitHistory | 200 |
-| POST | /api/v1/squads/:squadID/history | HistoryHandler.RecordVisit | HistoryUseCase.RecordVisit | 201 |
+| GET | /api/v1/squads/:squadID/favorites | FavoriteHandler.List | FavoriteUseCase.List | 200 |
+| GET | /api/v1/squads/:squadID/favorites/:placeID/check | FavoriteHandler.IsSaved | FavoriteUseCase.IsSaved | 200 |
+| POST | /api/v1/squads/:squadID/favorites | FavoriteHandler.Add | FavoriteUseCase.Add | 201 |
+| DELETE | /api/v1/squads/:squadID/favorites/:placeID | FavoriteHandler.Remove | FavoriteUseCase.Remove | 204 |
+| GET | /api/v1/squads/:squadID/history | HistoryHandler.List | HistoryUseCase.List | 200 |
+| POST | /api/v1/squads/:squadID/history | HistoryHandler.Record | HistoryUseCase.Record | 201 |
 
 Search takes query params `lat`, `lng`, `radius`, `query`, `type`.
 
@@ -404,6 +405,20 @@ Unit tests live alongside source (`venue_usecase_test.go` next to `venue_usecase
 - `GET /health` is liveness and never touches dependencies. `GET /ready` pings Postgres only: Redis is a cache and the use case ignores its errors, so a Redis outage slows searches but doesn't make the service unready.
 - On SIGTERM/SIGINT, `shared/server.Run` stops accepting connections and waits up to 8s for in-flight requests, then `main` closes the pool and Redis client.
 - `shared/middleware.Recover` turns a handler panic into a logged 500.
+
+## Squad Membership Check
+
+Squads live in user-service. Before any favorites or history operation, `FavoriteUseCase` and `HistoryUseCase` call `domain.SquadDirectory.EnsureMember(squadID, userID)`. It is implemented by `adapters/users.UserServiceClient`, which calls user-service's `GET /api/v1/squads/{squadID}` directly (with `X-User-ID` and `X-Request-ID`), using `USER_SERVICE_URL` and a 3s timeout.
+
+| user-service answers | Result | HTTP status here |
+|---|---|---|
+| 200 | member, carry on | — |
+| 404 | `ErrSquadNotFound` (not a member, or no such squad) | 404 |
+| anything else, timeout | `ErrUserServiceUnavailable` | 503 |
+
+`squad_id` stays `TEXT` in this service's tables; membership, not the column type, decides access. Rows of a deleted squad stay behind but are unreachable, because the check answers 404.
+
+---
 
 ## Not Yet Implemented
 

@@ -28,12 +28,12 @@ func RegisterRoutes(app *fiber.App, h *Handlers) {
 	squads := v1.Group("/squads/:squadID", middleware.UserID())
 
 	favorites := squads.Group("/favorites")
-	favorites.Get("/", h.Favorite.ListFavorites)
-	favorites.Get("/:placeID/check", h.Favorite.IsFavorite)
-	favorites.Post("/", h.Favorite.AddFavorite)
-	favorites.Delete("/:placeID", h.Favorite.RemoveFavorite)
+	favorites.Get("/", h.Favorite.List)
+	favorites.Get("/:placeID/check", h.Favorite.IsSaved)
+	favorites.Post("/", h.Favorite.Add)
+	favorites.Delete("/:placeID", h.Favorite.Remove)
 
 	history := squads.Group("/history")
-	history.Get("/", h.History.GetVisitHistory)
-	history.Post("/", h.History.RecordVisit)
+	history.Get("/", h.History.List)
+	history.Post("/", h.History.Record)
 }

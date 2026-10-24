@@ -22,9 +22,14 @@ var httpMethods = []string{"get", "put", "post", "delete", "options", "head", "p
 // paramPattern matches a Fiber path parameter such as ":placeID".
 var paramPattern = regexp.MustCompile(`:(\w+)`)
 
+// serviceKey is the path-item extension naming the service that serves a
+// path, e.g. "x-service: venue-service".
+const serviceKey = "x-service"
+
 // Operations returns every operation in api.Spec as "METHOD /path", e.g.
-// "GET /api/v1/venues/{placeID}".
-func Operations(t *testing.T) map[string]bool {
+// "GET /api/v1/venues/{placeID}", mapped to the service that serves it
+// (the path's x-service).
+func Operations(t *testing.T) map[string]string {
 	t.Helper()
 
 	var doc struct {
@@ -32,12 +37,15 @@ func Operations(t *testing.T) map[string]bool {
 	}
 	require.NoError(t, yaml.Unmarshal(api.Spec, &doc))
 
-	ops := make(map[string]bool)
+	ops := make(map[string]string)
 
 	for path, item := range doc.Paths {
+		service, _ := item[serviceKey].(string)
+		require.NotEmpty(t, service, "path %q in openapi.yaml has no %s", path, serviceKey)
+
 		for key := range item {
 			if slices.Contains(httpMethods, key) {
-				ops[strings.ToUpper(key)+" "+path] = true
+				ops[strings.ToUpper(key)+" "+path] = service
 			}
 		}
 	}
@@ -58,16 +66,18 @@ func RouteKey(method, fiberPath string) string {
 	return method + " " + path
 }
 
-// AssertRoutesDocumented fails t unless app's routes under prefix and the
-// spec's operations under prefix are the same set. HEAD routes Fiber adds for
-// every GET are ignored.
-func AssertRoutesDocumented(t *testing.T, app *fiber.App, prefix string) {
+// AssertRoutesDocumented fails t unless app's routes and the spec's
+// operations for service (by x-service) are the same set. Keying by service
+// rather than path prefix lets two services share one, as user-service and
+// venue-service share /api/v1/squads. HEAD routes Fiber adds for every GET
+// are ignored.
+func AssertRoutesDocumented(t *testing.T, app *fiber.App, service string) {
 	t.Helper()
 
 	routes := make(map[string]bool)
 
 	for _, r := range app.GetRoutes(true) {
-		if r.Method == fiber.MethodHead || !strings.HasPrefix(r.Path, prefix) {
+		if r.Method == fiber.MethodHead {
 			continue
 		}
 
@@ -76,17 +86,17 @@ func AssertRoutesDocumented(t *testing.T, app *fiber.App, prefix string) {
 
 	documented := make(map[string]bool)
 
-	for op := range Operations(t) {
-		if _, path, _ := strings.Cut(op, " "); strings.HasPrefix(path, prefix) {
+	for op, owner := range Operations(t) {
+		if owner == service {
 			documented[op] = true
 		}
 	}
 
 	for route := range routes {
-		assert.True(t, documented[route], "route %q is not in shared/api/openapi.yaml", route)
+		assert.True(t, documented[route], "route %q is not documented for %s in shared/api/openapi.yaml", route, service)
 	}
 
 	for op := range documented {
-		assert.True(t, routes[op], "openapi.yaml documents %q but the router has no such route", op)
+		assert.True(t, routes[op], "openapi.yaml documents %q for %s but the router has no such route", op, service)
 	}
 }

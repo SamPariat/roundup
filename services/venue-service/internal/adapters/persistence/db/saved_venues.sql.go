@@ -21,6 +21,7 @@ type AddFavoriteParams struct {
 	Name    string `json:"name"`
 }
 
+// Saves a venue for a user within a squad.
 func (q *Queries) AddFavorite(ctx context.Context, arg AddFavoriteParams) error {
 	_, err := q.db.Exec(ctx, addFavorite,
 		arg.SquadID,
@@ -45,6 +46,7 @@ type IsFavoriteParams struct {
 	PlaceID string `json:"place_id"`
 }
 
+// Reports whether this user saved this venue in the squad.
 func (q *Queries) IsFavorite(ctx context.Context, arg IsFavoriteParams) (bool, error) {
 	row := q.db.QueryRow(ctx, isFavorite, arg.SquadID, arg.UserID, arg.PlaceID)
 	var exists bool
@@ -59,6 +61,7 @@ WHERE squad_id = $1
 ORDER BY saved_at DESC
 `
 
+// Lists every member's saved venues in a squad, newest first.
 func (q *Queries) ListFavorites(ctx context.Context, squadID string) ([]SavedVenue, error) {
 	rows, err := q.db.Query(ctx, listFavorites, squadID)
 	if err != nil {
@@ -100,6 +103,7 @@ type RemoveFavoriteParams struct {
 	PlaceID string `json:"place_id"`
 }
 
+// Unsaves a venue. Returns 0 rows if the user had not saved it.
 func (q *Queries) RemoveFavorite(ctx context.Context, arg RemoveFavoriteParams) (int64, error) {
 	result, err := q.db.Exec(ctx, removeFavorite, arg.SquadID, arg.UserID, arg.PlaceID)
 	if err != nil {

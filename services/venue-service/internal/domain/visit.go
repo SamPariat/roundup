@@ -8,6 +8,10 @@ type RecordVisitCommand struct {
 	// SquadID identifies the squad that made the visit.
 	SquadID string
 
+	// UserID is the member recording the visit. Used for the membership
+	// check; not stored.
+	UserID string
+
 	// EventID identifies the event during which the visit occurred.
 	EventID string
 

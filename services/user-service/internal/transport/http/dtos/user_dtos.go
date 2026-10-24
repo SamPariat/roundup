@@ -39,3 +39,31 @@ type UserResponse struct {
 	// UpdatedAt is when the profile last changed, as an RFC 3339 timestamp.
 	UpdatedAt time.Time `json:"updatedAt"`
 }
+
+// LookupUsersRequest carries the JSON body for POST /api/v1/users/lookup.
+type LookupUsersRequest struct {
+	// Phones are E.164 numbers from the caller's contacts. Invalid ones are
+	// skipped; at most domain.MaxLookupPhones.
+	Phones []string `json:"phones"`
+}
+
+// UserSummaryResponse is the public part of a user, as shown to other users.
+type UserSummaryResponse struct {
+	// ID is the user's UUID.
+	ID string `json:"id"`
+
+	// Phone is the phone number in E.164 format.
+	Phone string `json:"phone"`
+
+	// Name is "" until the user completes profile setup.
+	Name string `json:"name"`
+
+	// AvatarURL is "" when no avatar is set.
+	AvatarURL string `json:"avatarURL"`
+}
+
+// LookupUsersResponse lists the Roundup users found among the sent phones.
+type LookupUsersResponse struct {
+	// Users are the matches, in no particular order. Never null.
+	Users []UserSummaryResponse `json:"users"`
+}

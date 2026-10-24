@@ -2,6 +2,9 @@ package domain
 
 import "time"
 
+// MaxLookupPhones caps how many phone numbers one contact lookup may send.
+const MaxLookupPhones = 500
+
 // User is a Roundup user's profile. Login credentials live in auth-service;
 // both services share the same ID.
 type User struct {

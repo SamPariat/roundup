@@ -11,13 +11,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// history_usecase_test.go tests HistoryUseCase using the fakeRepo defined in
+// history_usecase_test.go tests HistoryUseCase using the fakeVenueRepo defined in
 // favorite_usecase_test.go. No real database calls are made.
 
 func TestRecordVisitSuccess(t *testing.T) {
-	uc := NewHistoryUseCase(&fakeRepo{})
+	uc := NewHistoryUseCase(&fakeVenueRepo{}, fakeSquadDirectory{})
 
-	err := uc.RecordVisit(t.Context(), domain.RecordVisitCommand{
+	err := uc.Record(t.Context(), domain.RecordVisitCommand{
 		SquadID:         "squad-id",
 		EventID:         "event-id",
 		PlaceID:         "place-id",
@@ -31,13 +31,13 @@ func TestRecordVisitSuccess(t *testing.T) {
 func TestRecordVisitPropagatesError(t *testing.T) {
 	repoErr := errors.New("db write failed")
 
-	uc := NewHistoryUseCase(&fakeRepo{
+	uc := NewHistoryUseCase(&fakeVenueRepo{
 		recordVisitFn: func(_ context.Context, _ domain.RecordVisitCommand) error {
 			return repoErr
 		},
-	})
+	}, fakeSquadDirectory{})
 
-	err := uc.RecordVisit(t.Context(), domain.RecordVisitCommand{})
+	err := uc.Record(t.Context(), domain.RecordVisitCommand{})
 	assert.ErrorIs(t, err, repoErr)
 }
 
@@ -46,13 +46,13 @@ func TestGetVisitHistoryReturnsSummaries(t *testing.T) {
 		{PlaceID: "abc", Name: "The Rooftop", VisitCount: 3, LastVisitedAt: time.Now()},
 	}
 
-	uc := NewHistoryUseCase(&fakeRepo{
+	uc := NewHistoryUseCase(&fakeVenueRepo{
 		getVisitHistoryFn: func(_ context.Context, _ string) ([]domain.VisitSummary, error) {
 			return summaries, nil
 		},
-	})
+	}, fakeSquadDirectory{})
 
-	got, err := uc.GetVisitHistory(t.Context(), "squad-1")
+	got, err := uc.List(t.Context(), "squad-1", "user-1")
 	require.NoError(t, err)
 	assert.Equal(t, summaries, got)
 }
@@ -60,12 +60,12 @@ func TestGetVisitHistoryReturnsSummaries(t *testing.T) {
 func TestGetVisitHistoryPropagatesError(t *testing.T) {
 	repoErr := errors.New("db read failed")
 
-	uc := NewHistoryUseCase(&fakeRepo{
+	uc := NewHistoryUseCase(&fakeVenueRepo{
 		getVisitHistoryFn: func(_ context.Context, _ string) ([]domain.VisitSummary, error) {
 			return nil, repoErr
 		},
-	})
+	}, fakeSquadDirectory{})
 
-	_, err := uc.GetVisitHistory(t.Context(), "squad-1")
+	_, err := uc.List(t.Context(), "squad-1", "user-1")
 	assert.ErrorIs(t, err, repoErr)
 }

@@ -81,10 +81,27 @@ func (h *UserHandler) DeleteMe(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
+// Lookup handles POST /api/v1/users/lookup: which of the caller's contacts
+// are on Roundup. Phones travel in the body so they stay out of URLs and logs.
+func (h *UserHandler) Lookup(c fiber.Ctx) error {
+	var req dtos.LookupUsersRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return response.Error(c, fiber.StatusBadRequest, err)
+	}
+
+	users, err := h.uc.Lookup(c.Context(), middleware.UserIDFrom(c), req.Phones)
+	if err != nil {
+		return response.Error(c, userErrorStatus(err), err)
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.UsersToLookupResponse(users)))
+}
+
 // userErrorStatus maps domain sentinel errors to HTTP status codes for users.
 func userErrorStatus(err error) int {
 	switch {
-	case errors.Is(err, domain.ErrInvalidPhone), errors.Is(err, domain.ErrInvalidName):
+	case errors.Is(err, domain.ErrInvalidPhone), errors.Is(err, domain.ErrInvalidName),
+		errors.Is(err, domain.ErrTooManyPhones):
 		return fiber.StatusBadRequest
 	case errors.Is(err, domain.ErrUserNotFound):
 		return fiber.StatusNotFound

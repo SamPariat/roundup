@@ -13,9 +13,9 @@ import (
 type otpFixture struct {
 	uc       *OTPUseCase
 	otps     *fakeOTPRepo
-	sender   *fakeSender
-	users    *fakeUsers
-	sessions *fakeSessions
+	sender   *fakeOTPSender
+	users    *fakeUserDirectory
+	sessions *fakeSessionRepo
 	clock    *clock
 	pub      []byte
 }
@@ -27,8 +27,8 @@ func newOTPFixture(t *testing.T, devCode string) *otpFixture {
 	pub, priv := newKeys(t)
 	f := &otpFixture{
 		otps:     &fakeOTPRepo{clock: clk},
-		sender:   &fakeSender{sent: map[string]string{}},
-		users:    &fakeUsers{created: true},
+		sender:   &fakeOTPSender{sent: map[string]string{}},
+		users:    &fakeUserDirectory{created: true},
 		sessions: newFakeSessions(),
 		clock:    clk,
 		pub:      pub,

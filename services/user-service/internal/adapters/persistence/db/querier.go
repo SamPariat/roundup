@@ -11,13 +11,53 @@ import (
 )
 
 type Querier interface {
+	// Adds a user to a squad with the given role.
+	AddSquadMember(ctx context.Context, arg AddSquadMemberParams) (SquadMember, error)
+	// Counts a squad's admins, so it is never left without one.
+	CountSquadAdmins(ctx context.Context, squadID uuid.UUID) (int64, error)
+	// Counts a squad's members, for the member cap and deleting an empty squad.
+	CountSquadMembers(ctx context.Context, squadID uuid.UUID) (int64, error)
+	// Creates a squad. The caller adds the creator as its first admin.
+	CreateSquad(ctx context.Context, arg CreateSquadParams) (Squad, error)
+	// Creates a user with just a phone number; the profile is filled in later.
 	CreateUser(ctx context.Context, phone string) (User, error)
+	// Removes a token, only if this user owns it.
 	DeleteDeviceToken(ctx context.Context, arg DeleteDeviceTokenParams) (int64, error)
+	// Removes every token a user registered, when their account is deleted.
 	DeleteDeviceTokensForUser(ctx context.Context, userID uuid.UUID) error
+	// Deletes a squad; its members are removed by ON DELETE CASCADE.
+	DeleteSquad(ctx context.Context, id uuid.UUID) error
+	// Returns no rows for non-members, so a squad you are not in looks the same
+	// as one that does not exist.
+	GetSquadForMember(ctx context.Context, arg GetSquadForMemberParams) (Squad, error)
+	// Returns one member's role and profile. No rows means not a member.
+	GetSquadMember(ctx context.Context, arg GetSquadMemberParams) (GetSquadMemberRow, error)
+	// Returns an active (not soft-deleted) user by ID.
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
+	// Returns the active user with this phone number.
 	GetUserByPhone(ctx context.Context, phone string) (User, error)
+	// Lists a squad's active members with their profile, earliest joiner first.
+	ListSquadMembers(ctx context.Context, squadID uuid.UUID) ([]ListSquadMembersRow, error)
+	// Lists the squads a user belongs to, newest first, with their role and the
+	// member count.
+	ListSquadsForUser(ctx context.Context, userID uuid.UUID) ([]ListSquadsForUserRow, error)
+	// Returns the active users with any of these phone numbers, for contact lookup.
+	ListUsersByPhones(ctx context.Context, phones []string) ([]User, error)
+	// Serialises membership changes to one squad for the rest of the transaction.
+	LockSquad(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
+	// Makes the longest-standing member admin. user_id breaks ties so the choice
+	// is deterministic when two people joined at the same instant.
+	PromoteEarliestMember(ctx context.Context, squadID uuid.UUID) error
+	// Removes a user from a squad. Returns 0 rows if they were not in it.
+	RemoveSquadMember(ctx context.Context, arg RemoveSquadMemberParams) (int64, error)
+	// Marks a user deleted. Their phone number becomes free to sign up again.
 	SoftDeleteUser(ctx context.Context, id uuid.UUID) (int64, error)
+	// Sets a member's role. Returns 0 rows if they are not in the squad.
+	UpdateSquadMemberRole(ctx context.Context, arg UpdateSquadMemberRoleParams) (int64, error)
+	// Updates the given profile fields; a NULL argument leaves that column as is.
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
+	// Registers a push token to a user. A token identifies a device, so if it
+	// already exists it moves to this user; created_at is kept.
 	UpsertDeviceToken(ctx context.Context, arg UpsertDeviceTokenParams) (DeviceToken, error)
 }
 

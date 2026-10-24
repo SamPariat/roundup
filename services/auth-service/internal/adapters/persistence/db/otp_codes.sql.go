@@ -18,6 +18,8 @@ WHERE id = $1
   AND consumed_at IS NULL
 `
 
+// Marks a code used. Returns 0 rows if it was already consumed, so two
+// concurrent verifications cannot both succeed.
 func (q *Queries) ConsumeOTPCode(ctx context.Context, id int64) (int64, error) {
 	result, err := q.db.Exec(ctx, consumeOTPCode, id)
 	if err != nil {
@@ -38,6 +40,7 @@ type CountOTPCodesSinceParams struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+// Counts codes sent to a phone since a time, for the per-phone request limit.
 func (q *Queries) CountOTPCodesSince(ctx context.Context, arg CountOTPCodesSinceParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countOTPCodesSince, arg.Phone, arg.CreatedAt)
 	var count int64
@@ -56,6 +59,7 @@ type CreateOTPCodeParams struct {
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 }
 
+// Stores a newly sent code. Only its hash is kept.
 func (q *Queries) CreateOTPCode(ctx context.Context, arg CreateOTPCodeParams) error {
 	_, err := q.db.Exec(ctx, createOTPCode, arg.Phone, arg.CodeHash, arg.ExpiresAt)
 	return err
@@ -69,6 +73,8 @@ ORDER BY created_at DESC, id DESC
 LIMIT 1
 `
 
+// Returns the most recent code for a phone; only that one can be verified.
+// id breaks ties between codes created in the same instant.
 func (q *Queries) GetLatestOTPCode(ctx context.Context, phone string) (OtpCode, error) {
 	row := q.db.QueryRow(ctx, getLatestOTPCode, phone)
 	var i OtpCode
@@ -90,6 +96,7 @@ SET attempts = attempts + 1
 WHERE id = $1
 `
 
+// Counts one wrong guess against a code.
 func (q *Queries) IncrementOTPAttempts(ctx context.Context, id int64) error {
 	_, err := q.db.Exec(ctx, incrementOTPAttempts, id)
 	return err
