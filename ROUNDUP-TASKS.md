@@ -1,9 +1,9 @@
 # Roundup — Full Task Breakdown
 
 > Check off tasks as you complete them. Each checkbox is one atomic unit of work.
-> **Legend:** `[Go]` `[Infra]` `[Mobile]`
+> **Legend:** `[Go]` `[Infra]` `[App]`
 >
-> **Language policy:** Backend is Go only. Mobile app is Compose Multiplatform (Kotlin). No other languages.
+> **Language policy:** Backend is Go only. The client is one React Native + Expo app (TypeScript) for web, Android and iOS. No other languages.
 >
 > **Later:** AI features — deferred, will be revisited.
 
@@ -25,7 +25,7 @@
 - [Analytics Service](#analytics-service--go)
 - [Feature Flag Service](#feature-flag-service--go)
 - [Admin Service](#admin-service--go)
-- [Mobile App](#mobile-app-compose-multiplatform-mobile)
+- [App](#app-react-native--expo-app)
 - [Cross-cutting](#cross-cutting)
 
 ---
@@ -39,7 +39,7 @@
 - [x] Install goose (`make install`)
 - [x] Install sqlc (`make install`)
 - [x] Install golangci-lint
-- [ ] Install Android Studio + Xcode (mobile app)
+- [ ] Install Node.js 22 LTS (Expo app); Android Studio + Xcode only for local native builds
 - [ ] Install protoc (gRPC compiler)
 - [ ] Install buf CLI (protobuf linting)
 
@@ -932,27 +932,42 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 
 ---
 
-## Mobile App (Compose Multiplatform) `[Mobile]`
+## App (React Native + Expo) `[App]`
+
+One TypeScript codebase for web, Android and iOS. The web build ships first.
 
 ### Project setup
 
-- [ ] Create Compose Multiplatform project (Android + iOS) in `mobile/`
-- [ ] Add Navigation Compose
-- [ ] Add Koin for dependency injection
-- [ ] Add ViewModel + StateFlow for state management
-- [ ] Add Ktor client (HTTP + WebSockets) and kotlinx.serialization
-- [ ] Add GitLive `firebase-kotlin-sdk` — Firestore (live bill tab) + messaging (FCM)
-- [ ] Add Coil 3 for images
-- [ ] Add a KMP QR code library for QR display
-- [ ] Image picker via `expect`/`actual`
-- [ ] Configure build variants: dev, prod
+- [ ] Create the Expo app (TypeScript, Expo Router) in `app/`, with web, Android and iOS targets
+- [ ] Expo Router for navigation; routes double as web URLs (`/squads/[id]/members`)
+- [ ] TanStack Query for server state; React context for the session
+- [ ] Generate a typed API client from `shared/api/openapi.yaml` (openapi-typescript + openapi-fetch)
+- [ ] Firebase JS SDK — Firestore (live bill tab)
+- [ ] `expo-image` for images, `react-native-svg` for icons and the logo
+- [ ] `react-native-qrcode-svg` for QR display
+- [ ] `expo-image-picker` for avatars and photos
+- [ ] Configure environments: `APP_ENV=dev|prod` in `app.config.ts`, EAS Build profiles in `eas.json`
+
+### Design system
+
+- [ ] Generate `src/theme/tokens.ts` from the design system's `tokens.json` (Mocha + Latte, type, spacing, radius)
+- [ ] Load Onest with `@expo-google-fonts/onest`
+- [ ] Theme provider: follow the system (`useColorScheme`), with a System / Light / Dark override saved per device
+- [ ] Build the design-system components in React Native with the same prop names and variant values
+- [ ] Web: hover states via `Pressable`, SideNav from 1024px wide, BottomNav below
+
+### Web
+
+- [ ] Static export with `npx expo export --platform web`; host behind the gateway's domain
+- [ ] Welcome page at `/` for signed-out visitors; return to the original link after sign-in
+- [ ] Keep the refresh token in an httpOnly cookie on web (needs a gateway change); access token in memory
 
 ### Auth screens
 
 - [ ] Phone number input screen
 - [ ] OTP verification screen — calls Auth Service `/api/v1/auth/otp/*`
 - [ ] Profile setup screen (name, avatar)
-- [ ] Store tokens securely — Android Keystore / iOS Keychain via `expect`/`actual`
+- [ ] Store tokens securely on native — `expo-secure-store` (Keychain / Keystore)
 - [ ] Refresh access token automatically on 401
 - [ ] Auto-login on app launch if refresh token valid
 
@@ -990,7 +1005,8 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 
 ### Notification handling
 
-- [ ] Request push permission on first launch
+- [ ] Request push permission on first launch (native; no web push in v1)
+- [ ] Get the FCM / APNs device token with `expo-notifications` (`getDevicePushTokenAsync`)
 - [ ] Register device token with User Service (`POST /api/v1/users/me/device-tokens`)
 - [ ] Handle foreground notification — show in-app banner
 - [ ] Handle background notification tap — deep link to relevant screen
@@ -1009,6 +1025,7 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 ### Settings
 
 - [ ] Profile settings screen
+- [ ] Theme setting — System / Light / Dark
 - [ ] Notification preferences screen
 - [ ] Linked squads screen
 - [ ] Delete account flow (with confirmation)
@@ -1030,7 +1047,7 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 - [ ] Rotate all API keys every 90 days (automated)
 - [ ] Enable HTTPS only on all Cloud Run services
 - [ ] Add Content Security Policy headers
-- [ ] Add CORS — whitelist only app bundle ID and admin domain
+- [ ] Add CORS — whitelist only the web app origin and the admin domain (native apps send no Origin)
 - [ ] Penetration test auth flow (JWT forgery, OTP brute force)
 - [ ] Scan Docker images for vulnerabilities (Trivy in CI)
 
@@ -1060,4 +1077,4 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 
 ---
 
-_Total services: 13 | Backend language: Go | Mobile: Compose Multiplatform | Estimated team: 4 people × 6 months_
+_Total services: 13 | Backend language: Go | Client: React Native + Expo (web, Android, iOS) | Estimated team: 4 people × 6 months_
