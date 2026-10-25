@@ -4,6 +4,7 @@ package users
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -13,15 +14,15 @@ import (
 	"github.com/SamPariat/roundup/shared/api"
 	"github.com/SamPariat/roundup/shared/domainerr"
 	sharedmw "github.com/SamPariat/roundup/shared/middleware"
+	"github.com/SamPariat/roundup/shared/response"
 )
 
-// requestTimeout bounds each membership check so a slow user-service fails
-// the request fast instead of hanging it.
+// requestTimeout bounds each call so a slow user-service fails the request
+// fast instead of hanging it.
 const requestTimeout = 3 * time.Second
 
-// UserServiceClient implements domain.SquadDirectory by calling user-service's
-// GET /api/v1/squads/{squadID} directly (not through the gateway) as the
-// caller. That route answers 404 to non-members, so membership is its status.
+// UserServiceClient implements domain.SquadDirectory by calling user-service
+// directly (not through the gateway) as the caller.
 type UserServiceClient struct {
 	baseURL string
 	http    *http.Client
@@ -33,15 +34,74 @@ func NewUserServiceClient(baseURL string) *UserServiceClient {
 	return &UserServiceClient{baseURL: baseURL, http: &http.Client{Timeout: requestTimeout}}
 }
 
-// EnsureMember returns nil if userID is a member of squadID. user-service
-// answers 200 for members and 404 otherwise; anything else, including a
-// timeout, is ErrUserServiceUnavailable.
-func (c *UserServiceClient) EnsureMember(ctx context.Context, squadID, userID string) error {
-	endpoint := c.baseURL + api.SquadsPath + "/" + url.PathEscape(squadID)
+// squadDetail is the part of user-service's GET /squads/{id} body we read.
+type squadDetail struct {
+	Members []struct {
+		UserID    string `json:"userID"`
+		Name      string `json:"name"`
+		AvatarURL string `json:"avatarURL"`
+	} `json:"members"`
+}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+// squadList is the part of user-service's GET /squads body we read.
+type squadList struct {
+	Squads []struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	} `json:"squads"`
+}
+
+// Members calls GET /api/v1/squads/{squadID}. That route answers 404 to
+// non-members, so membership is its status; anything else but 200,
+// including a timeout, is ErrUserServiceUnavailable.
+func (c *UserServiceClient) Members(ctx context.Context, squadID, userID string) ([]domain.SquadMember, error) {
+	var body squadDetail
+
+	status, err := c.get(ctx, api.SquadsPath+"/"+url.PathEscape(squadID), userID, &body)
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	if status == http.StatusNotFound {
+		return nil, domainerr.New(domain.ErrSquadNotFound, squadID)
+	}
+
+	members := make([]domain.SquadMember, 0, len(body.Members))
+	for _, m := range body.Members {
+		members = append(members, domain.SquadMember{UserID: m.UserID, Name: m.Name, AvatarURL: m.AvatarURL})
+	}
+
+	return members, nil
+}
+
+// Squads calls GET /api/v1/squads, which lists the caller's squads.
+func (c *UserServiceClient) Squads(ctx context.Context, userID string) ([]domain.Squad, error) {
+	var body squadList
+
+	status, err := c.get(ctx, api.SquadsPath, userID, &body)
+	if err != nil {
+		return nil, err
+	}
+
+	if status != http.StatusOK {
+		return nil, unavailable(fmt.Sprintf("unexpected status %d", status))
+	}
+
+	squads := make([]domain.Squad, 0, len(body.Squads))
+	for _, s := range body.Squads {
+		squads = append(squads, domain.Squad{ID: s.ID, Name: s.Name})
+	}
+
+	return squads, nil
+}
+
+// get sends a GET to path as userID and decodes a 200 body's data into out.
+// It returns the status for 200 and 404 and ErrUserServiceUnavailable for
+// anything else, a transport failure, or an undecodable body.
+func (c *UserServiceClient) get(ctx context.Context, path, userID string, out any) (int, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
+	if err != nil {
+		return 0, err
 	}
 
 	req.Header.Set(sharedmw.UserIDHeader, userID)
@@ -52,17 +112,22 @@ func (c *UserServiceClient) EnsureMember(ctx context.Context, squadID, userID st
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return unavailable(err.Error())
+		return 0, unavailable(err.Error())
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
-		return nil
+		envelope := response.Response[any]{Data: out}
+		if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
+			return 0, unavailable("decode response: " + err.Error())
+		}
+
+		return resp.StatusCode, nil
 	case http.StatusNotFound:
-		return domainerr.New(domain.ErrSquadNotFound, squadID)
+		return resp.StatusCode, nil
 	default:
-		return unavailable(fmt.Sprintf("unexpected status %d", resp.StatusCode))
+		return 0, unavailable(fmt.Sprintf("unexpected status %d", resp.StatusCode))
 	}
 }
 

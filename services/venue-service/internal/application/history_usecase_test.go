@@ -15,7 +15,7 @@ import (
 // favorite_usecase_test.go. No real database calls are made.
 
 func TestRecordVisitSuccess(t *testing.T) {
-	uc := NewHistoryUseCase(&fakeVenueRepo{}, fakeSquadDirectory{})
+	uc := NewHistoryUseCase(&fakeVenueRepo{}, fakeSquadDirectory{}, fakeVenueLookup{})
 
 	err := uc.Record(t.Context(), domain.RecordVisitCommand{
 		SquadID:         "squad-id",
@@ -28,14 +28,22 @@ func TestRecordVisitSuccess(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestRecordVisitUnknownVenue(t *testing.T) {
+	uc := NewHistoryUseCase(mustNotTouchRepo(t), fakeSquadDirectory{}, fakeVenueLookup{err: domain.ErrVenueNotFound})
+
+	err := uc.Record(t.Context(), domain.RecordVisitCommand{PlaceID: "nope"})
+
+	assert.ErrorIs(t, err, domain.ErrVenueNotFound)
+}
+
 func TestRecordVisitPropagatesError(t *testing.T) {
 	repoErr := errors.New("db write failed")
 
 	uc := NewHistoryUseCase(&fakeVenueRepo{
-		recordVisitFn: func(_ context.Context, _ domain.RecordVisitCommand) error {
+		recordVisitFn: func(_ context.Context, _ domain.RecordVisitCommand, _ domain.VenueSnapshot) error {
 			return repoErr
 		},
-	}, fakeSquadDirectory{})
+	}, fakeSquadDirectory{}, fakeVenueLookup{})
 
 	err := uc.Record(t.Context(), domain.RecordVisitCommand{})
 	assert.ErrorIs(t, err, repoErr)
@@ -50,7 +58,7 @@ func TestGetVisitHistoryReturnsSummaries(t *testing.T) {
 		getVisitHistoryFn: func(_ context.Context, _ string) ([]domain.VisitSummary, error) {
 			return summaries, nil
 		},
-	}, fakeSquadDirectory{})
+	}, fakeSquadDirectory{}, fakeVenueLookup{})
 
 	got, err := uc.List(t.Context(), "squad-1", "user-1")
 	require.NoError(t, err)
@@ -64,7 +72,7 @@ func TestGetVisitHistoryPropagatesError(t *testing.T) {
 		getVisitHistoryFn: func(_ context.Context, _ string) ([]domain.VisitSummary, error) {
 			return nil, repoErr
 		},
-	}, fakeSquadDirectory{})
+	}, fakeSquadDirectory{}, fakeVenueLookup{})
 
 	_, err := uc.List(t.Context(), "squad-1", "user-1")
 	assert.ErrorIs(t, err, repoErr)

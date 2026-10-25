@@ -10,6 +10,13 @@ import (
 // searchKeyPrefix namespaces search entries in the cache.
 const searchKeyPrefix = "venue:search:"
 
+// VenueLookup returns a venue's details. FavoriteUseCase and HistoryUseCase
+// use it to snapshot a venue; VenueUseCase implements it, so lookups go
+// through the cache before the provider.
+type VenueLookup interface {
+	GetDetail(ctx context.Context, placeID string) (*domain.VenueDetail, error)
+}
+
 // VenueUseCase orchestrates venue search and detail lookups using a cache-first strategy.
 type VenueUseCase struct {
 	provider domain.PlaceProvider

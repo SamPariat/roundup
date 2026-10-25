@@ -110,6 +110,21 @@ type VenueDetailResponse struct {
 
 	// EditorialSummary is Google's short description; "" if none.
 	EditorialSummary string `json:"editorialSummary"`
+
+	// SavedIn has one entry per squad the caller is in. Never null.
+	SavedIn []SavedInResponse `json:"savedIn"`
+}
+
+// SavedInResponse reports whether the caller saved the venue in one squad.
+type SavedInResponse struct {
+	// SquadID identifies the squad.
+	SquadID string `json:"squadID"`
+
+	// SquadName is the squad's display name.
+	SquadName string `json:"squadName"`
+
+	// Saved reports whether the caller saved the venue in this squad.
+	Saved bool `json:"saved"`
 }
 
 // SearchResponse is the body of the search endpoint.

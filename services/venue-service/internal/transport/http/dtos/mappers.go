@@ -14,11 +14,7 @@ const photoPath = "/api/v1/venues/photos/"
 func VenueToResponse(v domain.Venue) VenueResponse {
 	photos := make([]PhotoResponse, 0, len(v.PhotoRefs))
 	for _, p := range v.PhotoRefs {
-		photos = append(photos, PhotoResponse{
-			URL:    photoPath + url.PathEscape(p.Reference),
-			Width:  p.Width,
-			Height: p.Height,
-		})
+		photos = append(photos, photoToResponse(p))
 	}
 
 	return VenueResponse{
@@ -36,8 +32,9 @@ func VenueToResponse(v domain.Venue) VenueResponse {
 	}
 }
 
-// VenueDetailToResponse maps a domain.VenueDetail to a VenueDetailResponse.
-func VenueDetailToResponse(d domain.VenueDetail) VenueDetailResponse {
+// VenueDetailToResponse maps a domain.VenueDetail and the caller's squads to
+// a VenueDetailResponse.
+func VenueDetailToResponse(d domain.VenueDetail, savedIn []domain.SquadSaved) VenueDetailResponse {
 	reviews := make([]ReviewResponse, 0, len(d.Reviews))
 	for _, r := range d.Reviews {
 		reviews = append(reviews, ReviewResponse{
@@ -55,19 +52,30 @@ func VenueDetailToResponse(d domain.VenueDetail) VenueDetailResponse {
 		OpeningHours:     d.OpeningHours,
 		Reviews:          reviews,
 		EditorialSummary: d.EditorialSummary,
+		SavedIn:          savedInToResponse(savedIn),
 	}
 }
 
-// FavoritesToResponse maps a slice of domain.SavedVenue to a FavoritesResponse.
-func FavoritesToResponse(favorites []domain.SavedVenue) FavoritesResponse {
-	responses := make([]SavedVenueResponse, 0, len(favorites))
+// FavoritesToResponse maps a slice of domain.SquadFavorite to a FavoritesResponse.
+func FavoritesToResponse(favorites []domain.SquadFavorite) FavoritesResponse {
+	responses := make([]FavoriteResponse, 0, len(favorites))
 	for _, f := range favorites {
-		responses = append(responses, SavedVenueResponse{
-			ID:      f.ID,
-			PlaceID: f.PlaceID,
-			Name:    f.Name,
-			UserID:  f.UserID,
-			SavedAt: f.SavedAt,
+		savedBy := make([]MemberResponse, 0, len(f.SavedBy))
+		for _, m := range f.SavedBy {
+			savedBy = append(savedBy, MemberResponse{UserID: m.UserID, Name: m.Name, AvatarURL: m.AvatarURL})
+		}
+
+		responses = append(responses, FavoriteResponse{
+			PlaceID:       f.PlaceID,
+			Name:          f.Name,
+			Address:       f.Address,
+			AverageRating: f.AverageRating,
+			RatingCount:   f.RatingCount,
+			PriceLevel:    f.PriceLevel,
+			Photo:         optionalPhoto(f.Photo),
+			SavedBy:       savedBy,
+			SavedByMe:     f.SavedByMe,
+			LastSavedAt:   f.LastSavedAt,
 		})
 	}
 
@@ -78,11 +86,19 @@ func FavoritesToResponse(favorites []domain.SavedVenue) FavoritesResponse {
 func VisitHistoryToResponse(summaries []domain.VisitSummary) VisitHistoryResponse {
 	responses := make([]VisitSummaryResponse, 0, len(summaries))
 	for _, s := range summaries {
+		var avgSpend *int64
+		if s.AvgSpendInPaise > 0 {
+			avgSpend = &s.AvgSpendInPaise
+		}
+
 		responses = append(responses, VisitSummaryResponse{
-			PlaceID:       s.PlaceID,
-			Name:          s.Name,
-			VisitCount:    s.VisitCount,
-			LastVisitedAt: s.LastVisitedAt,
+			PlaceID:         s.PlaceID,
+			Name:            s.Name,
+			Address:         s.Address,
+			Photo:           optionalPhoto(s.Photo),
+			VisitCount:      s.VisitCount,
+			LastVisitedAt:   s.LastVisitedAt,
+			AvgSpendInPaise: avgSpend,
 		})
 	}
 
@@ -97,4 +113,34 @@ func VenuesToSearchResponse(venues []domain.Venue) SearchResponse {
 	}
 
 	return SearchResponse{Venues: responses}
+}
+
+// photoToResponse maps a domain.PhotoRef to a PhotoResponse.
+func photoToResponse(p domain.PhotoRef) PhotoResponse {
+	return PhotoResponse{
+		URL:    photoPath + url.PathEscape(p.Reference),
+		Width:  p.Width,
+		Height: p.Height,
+	}
+}
+
+// optionalPhoto maps p to a PhotoResponse, or nil when it has no reference.
+func optionalPhoto(p domain.PhotoRef) *PhotoResponse {
+	if p.Reference == "" {
+		return nil
+	}
+
+	photo := photoToResponse(p)
+
+	return &photo
+}
+
+// savedInToResponse maps the caller's squads to SavedInResponses, never nil.
+func savedInToResponse(savedIn []domain.SquadSaved) []SavedInResponse {
+	responses := make([]SavedInResponse, 0, len(savedIn))
+	for _, s := range savedIn {
+		responses = append(responses, SavedInResponse{SquadID: s.SquadID, SquadName: s.SquadName, Saved: s.Saved})
+	}
+
+	return responses
 }

@@ -12,22 +12,37 @@ import (
 )
 
 const getVisitHistory = `-- name: GetVisitHistory :many
-SELECT place_id, name, COUNT(*) AS visit_count, MAX(visited_at)::timestamptz AS last_visited_at
+SELECT place_id,
+       (ARRAY_AGG(name ORDER BY visited_at DESC))[1]::text            AS name,
+       (ARRAY_AGG(address ORDER BY visited_at DESC))[1]::text         AS address,
+       (ARRAY_AGG(photo_ref ORDER BY visited_at DESC))[1]::text       AS photo_ref,
+       (ARRAY_AGG(photo_width ORDER BY visited_at DESC))[1]::integer  AS photo_width,
+       (ARRAY_AGG(photo_height ORDER BY visited_at DESC))[1]::integer AS photo_height,
+       COUNT(*)                                                       AS visit_count,
+       MAX(visited_at)::timestamptz                                   AS last_visited_at,
+       COALESCE(ROUND(AVG(avg_spend_in_paise)), 0)::bigint            AS avg_spend_in_paise
 FROM venue_visits
 WHERE squad_id = $1
-GROUP BY place_id, name
+GROUP BY place_id
 ORDER BY last_visited_at DESC
 `
 
 type GetVisitHistoryRow struct {
-	PlaceID       string             `json:"place_id"`
-	Name          string             `json:"name"`
-	VisitCount    int64              `json:"visit_count"`
-	LastVisitedAt pgtype.Timestamptz `json:"last_visited_at"`
+	PlaceID         string             `json:"place_id"`
+	Name            string             `json:"name"`
+	Address         string             `json:"address"`
+	PhotoRef        string             `json:"photo_ref"`
+	PhotoWidth      int32              `json:"photo_width"`
+	PhotoHeight     int32              `json:"photo_height"`
+	VisitCount      int64              `json:"visit_count"`
+	LastVisitedAt   pgtype.Timestamptz `json:"last_visited_at"`
+	AvgSpendInPaise int64              `json:"avg_spend_in_paise"`
 }
 
 // Summarises a squad's visits per venue, most recently visited first.
-// The cast gives sqlc a timestamptz column instead of interface{}.
+// Display fields come from the latest visit. The average spend skips
+// unknown (NULL) values and is 0 when none are known.
+// The casts give sqlc concrete column types instead of interface{}.
 func (q *Queries) GetVisitHistory(ctx context.Context, squadID string) ([]GetVisitHistoryRow, error) {
 	rows, err := q.db.Query(ctx, getVisitHistory, squadID)
 	if err != nil {
@@ -40,8 +55,13 @@ func (q *Queries) GetVisitHistory(ctx context.Context, squadID string) ([]GetVis
 		if err := rows.Scan(
 			&i.PlaceID,
 			&i.Name,
+			&i.Address,
+			&i.PhotoRef,
+			&i.PhotoWidth,
+			&i.PhotoHeight,
 			&i.VisitCount,
 			&i.LastVisitedAt,
+			&i.AvgSpendInPaise,
 		); err != nil {
 			return nil, err
 		}
@@ -54,8 +74,10 @@ func (q *Queries) GetVisitHistory(ctx context.Context, squadID string) ([]GetVis
 }
 
 const recordVisit = `-- name: RecordVisit :exec
-INSERT INTO venue_visits (squad_id, event_id, place_id, name, visited_at, avg_spend_in_paise)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO venue_visits (squad_id, event_id, place_id, name, visited_at, avg_spend_in_paise,
+                          address, rating, rating_count, price_level, photo_ref, photo_width,
+                          photo_height)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 `
 
 type RecordVisitParams struct {
@@ -65,9 +87,16 @@ type RecordVisitParams struct {
 	Name            string             `json:"name"`
 	VisitedAt       pgtype.Timestamptz `json:"visited_at"`
 	AvgSpendInPaise pgtype.Int8        `json:"avg_spend_in_paise"`
+	Address         string             `json:"address"`
+	Rating          float32            `json:"rating"`
+	RatingCount     int32              `json:"rating_count"`
+	PriceLevel      int32              `json:"price_level"`
+	PhotoRef        string             `json:"photo_ref"`
+	PhotoWidth      int32              `json:"photo_width"`
+	PhotoHeight     int32              `json:"photo_height"`
 }
 
-// Records one squad visit to a venue during an event.
+// Records one squad visit to a venue during an event, with a snapshot of its display fields.
 func (q *Queries) RecordVisit(ctx context.Context, arg RecordVisitParams) error {
 	_, err := q.db.Exec(ctx, recordVisit,
 		arg.SquadID,
@@ -76,6 +105,13 @@ func (q *Queries) RecordVisit(ctx context.Context, arg RecordVisitParams) error 
 		arg.Name,
 		arg.VisitedAt,
 		arg.AvgSpendInPaise,
+		arg.Address,
+		arg.Rating,
+		arg.RatingCount,
+		arg.PriceLevel,
+		arg.PhotoRef,
+		arg.PhotoWidth,
+		arg.PhotoHeight,
 	)
 	return err
 }

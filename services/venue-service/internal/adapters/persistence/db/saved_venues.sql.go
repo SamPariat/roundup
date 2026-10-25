@@ -7,77 +7,112 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const addFavorite = `-- name: AddFavorite :exec
-INSERT INTO saved_venues (squad_id, user_id, place_id, name)
-VALUES ($1, $2, $3, $4)
+INSERT INTO saved_venues (squad_id, user_id, place_id, name, address, rating, rating_count,
+                          price_level, photo_ref, photo_width, photo_height)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 `
 
 type AddFavoriteParams struct {
-	SquadID string `json:"squad_id"`
-	UserID  string `json:"user_id"`
-	PlaceID string `json:"place_id"`
-	Name    string `json:"name"`
+	SquadID     string  `json:"squad_id"`
+	UserID      string  `json:"user_id"`
+	PlaceID     string  `json:"place_id"`
+	Name        string  `json:"name"`
+	Address     string  `json:"address"`
+	Rating      float32 `json:"rating"`
+	RatingCount int32   `json:"rating_count"`
+	PriceLevel  int32   `json:"price_level"`
+	PhotoRef    string  `json:"photo_ref"`
+	PhotoWidth  int32   `json:"photo_width"`
+	PhotoHeight int32   `json:"photo_height"`
 }
 
-// Saves a venue for a user within a squad.
+// Saves a venue for a user within a squad, with a snapshot of its display fields.
 func (q *Queries) AddFavorite(ctx context.Context, arg AddFavoriteParams) error {
 	_, err := q.db.Exec(ctx, addFavorite,
 		arg.SquadID,
 		arg.UserID,
 		arg.PlaceID,
 		arg.Name,
+		arg.Address,
+		arg.Rating,
+		arg.RatingCount,
+		arg.PriceLevel,
+		arg.PhotoRef,
+		arg.PhotoWidth,
+		arg.PhotoHeight,
 	)
 	return err
 }
 
-const isFavorite = `-- name: IsFavorite :one
-SELECT EXISTS (SELECT 1
-               FROM saved_venues
-               WHERE squad_id = $1
-                 AND user_id = $2
-                 AND place_id = $3) AS exists
-`
-
-type IsFavoriteParams struct {
-	SquadID string `json:"squad_id"`
-	UserID  string `json:"user_id"`
-	PlaceID string `json:"place_id"`
-}
-
-// Reports whether this user saved this venue in the squad.
-func (q *Queries) IsFavorite(ctx context.Context, arg IsFavoriteParams) (bool, error) {
-	row := q.db.QueryRow(ctx, isFavorite, arg.SquadID, arg.UserID, arg.PlaceID)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
-const listFavorites = `-- name: ListFavorites :many
-SELECT id, squad_id, user_id, place_id, name, saved_at
+const listSquadFavorites = `-- name: ListSquadFavorites :many
+SELECT place_id,
+       (ARRAY_AGG(name ORDER BY saved_at DESC))[1]::text            AS name,
+       (ARRAY_AGG(address ORDER BY saved_at DESC))[1]::text         AS address,
+       (ARRAY_AGG(rating ORDER BY saved_at DESC))[1]::real          AS rating,
+       (ARRAY_AGG(rating_count ORDER BY saved_at DESC))[1]::integer AS rating_count,
+       (ARRAY_AGG(price_level ORDER BY saved_at DESC))[1]::integer  AS price_level,
+       (ARRAY_AGG(photo_ref ORDER BY saved_at DESC))[1]::text       AS photo_ref,
+       (ARRAY_AGG(photo_width ORDER BY saved_at DESC))[1]::integer  AS photo_width,
+       (ARRAY_AGG(photo_height ORDER BY saved_at DESC))[1]::integer AS photo_height,
+       ARRAY_AGG(user_id ORDER BY saved_at DESC)::text[]            AS saved_by,
+       MAX(saved_at)::timestamptz                                   AS last_saved_at
 FROM saved_venues
 WHERE squad_id = $1
-ORDER BY saved_at DESC
+  AND user_id = ANY ($2::text[])
+GROUP BY place_id
+ORDER BY last_saved_at DESC
 `
 
-// Lists every member's saved venues in a squad, newest first.
-func (q *Queries) ListFavorites(ctx context.Context, squadID string) ([]SavedVenue, error) {
-	rows, err := q.db.Query(ctx, listFavorites, squadID)
+type ListSquadFavoritesParams struct {
+	SquadID   string   `json:"squad_id"`
+	MemberIds []string `json:"member_ids"`
+}
+
+type ListSquadFavoritesRow struct {
+	PlaceID     string             `json:"place_id"`
+	Name        string             `json:"name"`
+	Address     string             `json:"address"`
+	Rating      float32            `json:"rating"`
+	RatingCount int32              `json:"rating_count"`
+	PriceLevel  int32              `json:"price_level"`
+	PhotoRef    string             `json:"photo_ref"`
+	PhotoWidth  int32              `json:"photo_width"`
+	PhotoHeight int32              `json:"photo_height"`
+	SavedBy     []string           `json:"saved_by"`
+	LastSavedAt pgtype.Timestamptz `json:"last_saved_at"`
+}
+
+// Lists a squad's favorites, one row per venue, most recently saved first.
+// Only saves by member_ids (the squad's current members) count, so a venue
+// saved only by people who left is not listed. Display fields come from the
+// latest save; saved_by lists who saved it, most recent first.
+// The casts give sqlc concrete column types instead of interface{}.
+func (q *Queries) ListSquadFavorites(ctx context.Context, arg ListSquadFavoritesParams) ([]ListSquadFavoritesRow, error) {
+	rows, err := q.db.Query(ctx, listSquadFavorites, arg.SquadID, arg.MemberIds)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []SavedVenue
+	var items []ListSquadFavoritesRow
 	for rows.Next() {
-		var i SavedVenue
+		var i ListSquadFavoritesRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.SquadID,
-			&i.UserID,
 			&i.PlaceID,
 			&i.Name,
-			&i.SavedAt,
+			&i.Address,
+			&i.Rating,
+			&i.RatingCount,
+			&i.PriceLevel,
+			&i.PhotoRef,
+			&i.PhotoWidth,
+			&i.PhotoHeight,
+			&i.SavedBy,
+			&i.LastSavedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -110,4 +145,39 @@ func (q *Queries) RemoveFavorite(ctx context.Context, arg RemoveFavoriteParams) 
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const savedInSquads = `-- name: SavedInSquads :many
+SELECT squad_id
+FROM saved_venues
+WHERE user_id = $1
+  AND place_id = $2
+  AND squad_id = ANY ($3::text[])
+`
+
+type SavedInSquadsParams struct {
+	UserID   string   `json:"user_id"`
+	PlaceID  string   `json:"place_id"`
+	SquadIds []string `json:"squad_ids"`
+}
+
+// Returns which of the given squads this user saved this venue in.
+func (q *Queries) SavedInSquads(ctx context.Context, arg SavedInSquadsParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, savedInSquads, arg.UserID, arg.PlaceID, arg.SquadIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var squad_id string
+		if err := rows.Scan(&squad_id); err != nil {
+			return nil, err
+		}
+		items = append(items, squad_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

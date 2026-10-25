@@ -9,19 +9,25 @@ import (
 )
 
 type Querier interface {
-	// Saves a venue for a user within a squad.
+	// Saves a venue for a user within a squad, with a snapshot of its display fields.
 	AddFavorite(ctx context.Context, arg AddFavoriteParams) error
 	// Summarises a squad's visits per venue, most recently visited first.
-	// The cast gives sqlc a timestamptz column instead of interface{}.
+	// Display fields come from the latest visit. The average spend skips
+	// unknown (NULL) values and is 0 when none are known.
+	// The casts give sqlc concrete column types instead of interface{}.
 	GetVisitHistory(ctx context.Context, squadID string) ([]GetVisitHistoryRow, error)
-	// Reports whether this user saved this venue in the squad.
-	IsFavorite(ctx context.Context, arg IsFavoriteParams) (bool, error)
-	// Lists every member's saved venues in a squad, newest first.
-	ListFavorites(ctx context.Context, squadID string) ([]SavedVenue, error)
-	// Records one squad visit to a venue during an event.
+	// Lists a squad's favorites, one row per venue, most recently saved first.
+	// Only saves by member_ids (the squad's current members) count, so a venue
+	// saved only by people who left is not listed. Display fields come from the
+	// latest save; saved_by lists who saved it, most recent first.
+	// The casts give sqlc concrete column types instead of interface{}.
+	ListSquadFavorites(ctx context.Context, arg ListSquadFavoritesParams) ([]ListSquadFavoritesRow, error)
+	// Records one squad visit to a venue during an event, with a snapshot of its display fields.
 	RecordVisit(ctx context.Context, arg RecordVisitParams) error
 	// Unsaves a venue. Returns 0 rows if the user had not saved it.
 	RemoveFavorite(ctx context.Context, arg RemoveFavoriteParams) (int64, error)
+	// Returns which of the given squads this user saved this venue in.
+	SavedInSquads(ctx context.Context, arg SavedInSquadsParams) ([]string, error)
 }
 
 var _ Querier = (*Queries)(nil)

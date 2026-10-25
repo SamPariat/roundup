@@ -9,12 +9,19 @@ import (
 )
 
 type SavedVenue struct {
-	ID      int64              `json:"id"`
-	SquadID string             `json:"squad_id"`
-	UserID  string             `json:"user_id"`
-	PlaceID string             `json:"place_id"`
-	Name    string             `json:"name"`
-	SavedAt pgtype.Timestamptz `json:"saved_at"`
+	ID          int64              `json:"id"`
+	SquadID     string             `json:"squad_id"`
+	UserID      string             `json:"user_id"`
+	PlaceID     string             `json:"place_id"`
+	Name        string             `json:"name"`
+	SavedAt     pgtype.Timestamptz `json:"saved_at"`
+	Address     string             `json:"address"`
+	Rating      float32            `json:"rating"`
+	RatingCount int32              `json:"rating_count"`
+	PriceLevel  int32              `json:"price_level"`
+	PhotoRef    string             `json:"photo_ref"`
+	PhotoWidth  int32              `json:"photo_width"`
+	PhotoHeight int32              `json:"photo_height"`
 }
 
 type VenueVisit struct {
@@ -25,4 +32,11 @@ type VenueVisit struct {
 	Name            string             `json:"name"`
 	VisitedAt       pgtype.Timestamptz `json:"visited_at"`
 	AvgSpendInPaise pgtype.Int8        `json:"avg_spend_in_paise"`
+	Address         string             `json:"address"`
+	Rating          float32            `json:"rating"`
+	RatingCount     int32              `json:"rating_count"`
+	PriceLevel      int32              `json:"price_level"`
+	PhotoRef        string             `json:"photo_ref"`
+	PhotoWidth      int32              `json:"photo_width"`
+	PhotoHeight     int32              `json:"photo_height"`
 }

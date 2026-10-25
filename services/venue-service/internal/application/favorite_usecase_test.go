@@ -3,27 +3,74 @@ package application
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// favorite_usecase_test.go tests FavoriteUseCase using a hand-rolled fake for the
-// VenueRepository port. No real database calls are made.
+// favorite_usecase_test.go tests FavoriteUseCase using hand-rolled fakes for the
+// VenueRepository, SquadDirectory and VenueLookup ports. No real database or
+// network calls are made.
 
 type fakeVenueRepo struct {
-	addFavoriteFn     func(ctx context.Context, cmd domain.AddFavoriteCommand) error
+	addFavoriteFn     func(ctx context.Context, cmd domain.AddFavoriteCommand, snapshot domain.VenueSnapshot) error
 	removeFavoriteFn  func(ctx context.Context, cmd domain.RemoveFavoriteCommand) error
-	listFavoritesFn   func(ctx context.Context, squadID string) ([]domain.SavedVenue, error)
-	isFavoriteFn      func(ctx context.Context, squadID, userID, placeID string) (bool, error)
-	recordVisitFn     func(ctx context.Context, cmd domain.RecordVisitCommand) error
+	listFavoritesFn   func(ctx context.Context, squadID string, memberIDs []string) ([]domain.FavoriteGroup, error)
+	savedInSquadsFn   func(ctx context.Context, userID, placeID string, squadIDs []string) ([]string, error)
+	recordVisitFn     func(ctx context.Context, cmd domain.RecordVisitCommand, snapshot domain.VenueSnapshot) error
 	getVisitHistoryFn func(ctx context.Context, squadID string) ([]domain.VisitSummary, error)
 }
 
-func (f *fakeVenueRepo) AddFavorite(ctx context.Context, cmd domain.AddFavoriteCommand) error {
+// day returns 20:00 UTC on the given day of October 2026.
+func day(d int) time.Time {
+	return time.Date(2026, 10, d, 20, 0, 0, 0, time.UTC)
+}
+
+// mustNotTouchRepo returns a fakeVenueRepo that fails the test on any call.
+func mustNotTouchRepo(t *testing.T) *fakeVenueRepo {
+	t.Helper()
+
+	fail := func() { t.Fatal("the repository must not be called") }
+
+	return &fakeVenueRepo{
+		addFavoriteFn: func(_ context.Context, _ domain.AddFavoriteCommand, _ domain.VenueSnapshot) error {
+			fail()
+
+			return nil
+		},
+		removeFavoriteFn: func(_ context.Context, _ domain.RemoveFavoriteCommand) error {
+			fail()
+
+			return nil
+		},
+		listFavoritesFn: func(_ context.Context, _ string, _ []string) ([]domain.FavoriteGroup, error) {
+			fail()
+
+			return nil, nil
+		},
+		savedInSquadsFn: func(_ context.Context, _, _ string, _ []string) ([]string, error) {
+			fail()
+
+			return nil, nil
+		},
+		recordVisitFn: func(_ context.Context, _ domain.RecordVisitCommand, _ domain.VenueSnapshot) error {
+			fail()
+
+			return nil
+		},
+		getVisitHistoryFn: func(_ context.Context, _ string) ([]domain.VisitSummary, error) {
+			fail()
+
+			return nil, nil
+		},
+	}
+}
+
+func (f *fakeVenueRepo) AddFavorite(ctx context.Context, cmd domain.AddFavoriteCommand, snapshot domain.VenueSnapshot) error {
 	if f.addFavoriteFn != nil {
-		return f.addFavoriteFn(ctx, cmd)
+		return f.addFavoriteFn(ctx, cmd, snapshot)
 	}
 
 	return nil
@@ -37,25 +84,25 @@ func (f *fakeVenueRepo) RemoveFavorite(ctx context.Context, cmd domain.RemoveFav
 	return nil
 }
 
-func (f *fakeVenueRepo) ListFavorites(ctx context.Context, squadID string) ([]domain.SavedVenue, error) {
+func (f *fakeVenueRepo) ListSquadFavorites(ctx context.Context, squadID string, memberIDs []string) ([]domain.FavoriteGroup, error) {
 	if f.listFavoritesFn != nil {
-		return f.listFavoritesFn(ctx, squadID)
+		return f.listFavoritesFn(ctx, squadID, memberIDs)
 	}
 
 	return nil, nil
 }
 
-func (f *fakeVenueRepo) IsFavorite(ctx context.Context, squadID, userID, placeID string) (bool, error) {
-	if f.isFavoriteFn != nil {
-		return f.isFavoriteFn(ctx, squadID, userID, placeID)
+func (f *fakeVenueRepo) SavedInSquads(ctx context.Context, userID, placeID string, squadIDs []string) ([]string, error) {
+	if f.savedInSquadsFn != nil {
+		return f.savedInSquadsFn(ctx, userID, placeID, squadIDs)
 	}
 
-	return false, nil
+	return nil, nil
 }
 
-func (f *fakeVenueRepo) RecordVisit(ctx context.Context, cmd domain.RecordVisitCommand) error {
+func (f *fakeVenueRepo) RecordVisit(ctx context.Context, cmd domain.RecordVisitCommand, snapshot domain.VenueSnapshot) error {
 	if f.recordVisitFn != nil {
-		return f.recordVisitFn(ctx, cmd)
+		return f.recordVisitFn(ctx, cmd, snapshot)
 	}
 
 	return nil
@@ -69,93 +116,100 @@ func (f *fakeVenueRepo) GetVisitHistory(ctx context.Context, squadID string) ([]
 	return nil, nil
 }
 
-// fakeSquadDirectory is a domain.SquadDirectory that admits everyone unless err is set.
+// fakeSquadDirectory is a domain.SquadDirectory that admits everyone unless
+// err is set, answering with members and squads.
 type fakeSquadDirectory struct {
-	err error
+	members []domain.SquadMember
+	squads  []domain.Squad
+	err     error
 }
 
-func (f fakeSquadDirectory) EnsureMember(_ context.Context, _, _ string) error {
-	return f.err
+func (f fakeSquadDirectory) Members(_ context.Context, _, _ string) ([]domain.SquadMember, error) {
+	return f.members, f.err
 }
 
-// mustNotTouchRepo returns a fakeVenueRepo that fails the test on any call.
-func mustNotTouchRepo(t *testing.T) *fakeVenueRepo {
-	t.Helper()
+func (f fakeSquadDirectory) Squads(_ context.Context, _ string) ([]domain.Squad, error) {
+	return f.squads, f.err
+}
 
-	fail := func() { t.Fatal("the repository must not be called for a non-member") }
+// fakeVenueLookup is a VenueLookup that returns detail, or err when set.
+type fakeVenueLookup struct {
+	detail domain.VenueDetail
+	err    error
+}
 
-	return &fakeVenueRepo{
-		addFavoriteFn: func(_ context.Context, _ domain.AddFavoriteCommand) error {
-			fail()
-
-			return nil
-		},
-		removeFavoriteFn: func(_ context.Context, _ domain.RemoveFavoriteCommand) error {
-			fail()
-
-			return nil
-		},
-		listFavoritesFn: func(_ context.Context, _ string) ([]domain.SavedVenue, error) {
-			fail()
-
-			return nil, nil
-		},
-		isFavoriteFn: func(_ context.Context, _, _, _ string) (bool, error) {
-			fail()
-
-			return false, nil
-		},
-		recordVisitFn: func(_ context.Context, _ domain.RecordVisitCommand) error {
-			fail()
-
-			return nil
-		},
-		getVisitHistoryFn: func(_ context.Context, _ string) ([]domain.VisitSummary, error) {
-			fail()
-
-			return nil, nil
-		},
+func (f fakeVenueLookup) GetDetail(_ context.Context, _ string) (*domain.VenueDetail, error) {
+	if f.err != nil {
+		return nil, f.err
 	}
+
+	return &f.detail, nil
 }
 
 func TestNonMembersNeverReachTheRepository(t *testing.T) {
 	notMember := fakeSquadDirectory{err: domain.ErrSquadNotFound}
-	favorites := NewFavoriteUseCase(mustNotTouchRepo(t), notMember)
-	history := NewHistoryUseCase(mustNotTouchRepo(t), notMember)
+	favorites := NewFavoriteUseCase(mustNotTouchRepo(t), notMember, fakeVenueLookup{})
+	history := NewHistoryUseCase(mustNotTouchRepo(t), notMember, fakeVenueLookup{})
 	ctx := t.Context()
 
 	_, listErr := favorites.List(ctx, "squad-1", "stranger")
-	_, checkErr := favorites.IsSaved(ctx, "squad-1", "stranger", "abc")
 	_, historyErr := history.List(ctx, "squad-1", "stranger")
 
 	for name, err := range map[string]error{
-		"favorites.Add":     favorites.Add(ctx, domain.AddFavoriteCommand{SquadID: "squad-1", UserID: "stranger"}),
-		"favorites.Remove":  favorites.Remove(ctx, domain.RemoveFavoriteCommand{SquadID: "squad-1", UserID: "stranger"}),
-		"favorites.List":    listErr,
-		"favorites.IsSaved": checkErr,
-		"history.Record":    history.Record(ctx, domain.RecordVisitCommand{SquadID: "squad-1", UserID: "stranger"}),
-		"history.List":      historyErr,
+		"favorites.Add":    favorites.Add(ctx, domain.AddFavoriteCommand{SquadID: "squad-1", UserID: "stranger"}),
+		"favorites.Remove": favorites.Remove(ctx, domain.RemoveFavoriteCommand{SquadID: "squad-1", UserID: "stranger"}),
+		"favorites.List":   listErr,
+		"history.Record":   history.Record(ctx, domain.RecordVisitCommand{SquadID: "squad-1", UserID: "stranger"}),
+		"history.List":     historyErr,
 	} {
 		assert.ErrorIs(t, err, domain.ErrSquadNotFound, name)
 	}
 }
 
-func TestAddFavoriteSuccess(t *testing.T) {
-	uc := NewFavoriteUseCase(&fakeVenueRepo{}, fakeSquadDirectory{})
+func TestAddFavoriteStoresSnapshotOfDetail(t *testing.T) {
+	var got domain.VenueSnapshot
 
-	err := uc.Add(t.Context(), domain.AddFavoriteCommand{
-		SquadID: "squad-1", UserID: "user-1", PlaceID: "abc", Name: "The Rooftop",
-	})
+	detail := domain.VenueDetail{Venue: domain.Venue{
+		Name: "The Rooftop", Address: "12 Church St", AverageRating: 4.5, RatingCount: 1240, PriceLevel: 2,
+		PhotoRefs: []domain.PhotoRef{{Reference: "first", Width: 800, Height: 600}, {Reference: "second"}},
+	}}
+	uc := NewFavoriteUseCase(&fakeVenueRepo{
+		addFavoriteFn: func(_ context.Context, _ domain.AddFavoriteCommand, snapshot domain.VenueSnapshot) error {
+			got = snapshot
+
+			return nil
+		},
+	}, fakeSquadDirectory{}, fakeVenueLookup{detail: detail})
+
+	err := uc.Add(t.Context(), domain.AddFavoriteCommand{SquadID: "squad-1", UserID: "user-1", PlaceID: "abc"})
 
 	require.NoError(t, err)
+	assert.Equal(t, domain.VenueSnapshot{
+		Name: "The Rooftop", Address: "12 Church St", AverageRating: 4.5, RatingCount: 1240, PriceLevel: 2,
+		Photo: domain.PhotoRef{Reference: "first", Width: 800, Height: 600},
+	}, got, "only the first photo is kept")
+}
+
+func TestAddFavoriteUnknownVenueIsNotSaved(t *testing.T) {
+	uc := NewFavoriteUseCase(&fakeVenueRepo{
+		addFavoriteFn: func(_ context.Context, _ domain.AddFavoriteCommand, _ domain.VenueSnapshot) error {
+			t.Fatal("an unknown venue must not be saved")
+
+			return nil
+		},
+	}, fakeSquadDirectory{}, fakeVenueLookup{err: domain.ErrVenueNotFound})
+
+	err := uc.Add(t.Context(), domain.AddFavoriteCommand{PlaceID: "nope"})
+
+	assert.ErrorIs(t, err, domain.ErrVenueNotFound)
 }
 
 func TestAddFavoriteAlreadySaved(t *testing.T) {
 	uc := NewFavoriteUseCase(&fakeVenueRepo{
-		addFavoriteFn: func(_ context.Context, _ domain.AddFavoriteCommand) error {
+		addFavoriteFn: func(_ context.Context, _ domain.AddFavoriteCommand, _ domain.VenueSnapshot) error {
 			return domain.ErrAlreadySaved
 		},
-	}, fakeSquadDirectory{})
+	}, fakeSquadDirectory{}, fakeVenueLookup{})
 
 	err := uc.Add(t.Context(), domain.AddFavoriteCommand{})
 
@@ -163,7 +217,7 @@ func TestAddFavoriteAlreadySaved(t *testing.T) {
 }
 
 func TestRemoveFavoriteSuccess(t *testing.T) {
-	uc := NewFavoriteUseCase(&fakeVenueRepo{}, fakeSquadDirectory{})
+	uc := NewFavoriteUseCase(&fakeVenueRepo{}, fakeSquadDirectory{}, fakeVenueLookup{})
 
 	err := uc.Remove(t.Context(), domain.RemoveFavoriteCommand{
 		SquadID: "squad-1", UserID: "user-1", PlaceID: "abc",
@@ -176,42 +230,97 @@ func TestRemoveFavoriteNotSaved(t *testing.T) {
 		removeFavoriteFn: func(_ context.Context, _ domain.RemoveFavoriteCommand) error {
 			return domain.ErrNotSaved
 		},
-	}, fakeSquadDirectory{})
+	}, fakeSquadDirectory{}, fakeVenueLookup{})
 
 	err := uc.Remove(t.Context(), domain.RemoveFavoriteCommand{})
 	assert.ErrorIs(t, err, domain.ErrNotSaved)
 }
 
-func TestListFavoritesReturnsSavedVenues(t *testing.T) {
-	saved := []domain.SavedVenue{{PlaceID: "abc", Name: "The Rooftop"}}
-	uc := NewFavoriteUseCase(&fakeVenueRepo{
-		listFavoritesFn: func(_ context.Context, _ string) ([]domain.SavedVenue, error) {
-			return saved, nil
-		},
-	}, fakeSquadDirectory{})
+func TestListFavoritesAttachesMembers(t *testing.T) {
+	alice := domain.SquadMember{UserID: "alice", Name: "Alice"}
+	bob := domain.SquadMember{UserID: "bob", Name: "Bob"}
 
-	got, err := uc.List(t.Context(), "squad-1", "user-1")
+	var gotMemberIDs []string
+
+	// Grouped by the database; "dev" left between the two calls.
+	groups := []domain.FavoriteGroup{
+		{PlaceID: "toit", VenueSnapshot: domain.VenueSnapshot{Name: "Toit Brewpub"}, SavedBy: []string{"bob", "dev", "alice"}, LastSavedAt: day(20)},
+		{PlaceID: "byg", VenueSnapshot: domain.VenueSnapshot{Name: "Byg Brewski"}, SavedBy: []string{"alice"}, LastSavedAt: day(18)},
+	}
+	uc := NewFavoriteUseCase(&fakeVenueRepo{
+		listFavoritesFn: func(_ context.Context, _ string, memberIDs []string) ([]domain.FavoriteGroup, error) {
+			gotMemberIDs = memberIDs
+
+			return groups, nil
+		},
+	}, fakeSquadDirectory{members: []domain.SquadMember{alice, bob}}, fakeVenueLookup{})
+
+	got, err := uc.List(t.Context(), "squad-1", "bob")
 
 	require.NoError(t, err)
-	assert.Equal(t, saved, got)
+	assert.Equal(t, []string{"alice", "bob"}, gotMemberIDs, "the database counts only current members")
+	assert.Equal(t, []domain.SquadFavorite{
+		{
+			PlaceID:       "toit",
+			VenueSnapshot: domain.VenueSnapshot{Name: "Toit Brewpub"},
+			SavedBy:       []domain.SquadMember{bob, alice},
+			SavedByMe:     true,
+			LastSavedAt:   day(20),
+		},
+		{
+			PlaceID:       "byg",
+			VenueSnapshot: domain.VenueSnapshot{Name: "Byg Brewski"},
+			SavedBy:       []domain.SquadMember{alice},
+			LastSavedAt:   day(18),
+		},
+	}, got, "IDs become members, in order; an unknown ID is skipped")
 }
 
-func TestIsFavoriteTrue(t *testing.T) {
-	uc := NewFavoriteUseCase(&fakeVenueRepo{
-		isFavoriteFn: func(_ context.Context, _, _, _ string) (bool, error) {
-			return true, nil
-		},
-	}, fakeSquadDirectory{})
+func TestListFavoritesEmptyIsNotNil(t *testing.T) {
+	uc := NewFavoriteUseCase(&fakeVenueRepo{}, fakeSquadDirectory{}, fakeVenueLookup{})
 
-	got, err := uc.IsSaved(t.Context(), "squad-1", "user-1", "abc")
+	got, err := uc.List(t.Context(), "squad-1", "alice")
+
 	require.NoError(t, err)
-	assert.True(t, got)
+	assert.NotNil(t, got)
+	assert.Empty(t, got)
 }
 
-func TestIsFavoriteFalse(t *testing.T) {
-	uc := NewFavoriteUseCase(&fakeVenueRepo{}, fakeSquadDirectory{})
+func TestSavedInMarksEachOfTheCallersSquads(t *testing.T) {
+	var gotIDs []string
 
-	got, err := uc.IsSaved(t.Context(), "squad-1", "user-1", "abc")
+	uc := NewFavoriteUseCase(&fakeVenueRepo{
+		savedInSquadsFn: func(_ context.Context, _, _ string, squadIDs []string) ([]string, error) {
+			gotIDs = squadIDs
+
+			return []string{"squad-2"}, nil
+		},
+	}, fakeSquadDirectory{squads: []domain.Squad{{ID: "squad-1", Name: "Friday crew"}, {ID: "squad-2", Name: "Office"}}}, fakeVenueLookup{})
+
+	got, err := uc.SavedIn(t.Context(), "user-1", "abc")
+
 	require.NoError(t, err)
-	assert.False(t, got)
+	assert.Equal(t, []string{"squad-1", "squad-2"}, gotIDs, "one query covers every squad")
+	assert.Equal(t, []domain.SquadSaved{
+		{SquadID: "squad-1", SquadName: "Friday crew", Saved: false},
+		{SquadID: "squad-2", SquadName: "Office", Saved: true},
+	}, got)
+}
+
+func TestSavedInWithNoSquadsSkipsTheRepository(t *testing.T) {
+	uc := NewFavoriteUseCase(mustNotTouchRepo(t), fakeSquadDirectory{}, fakeVenueLookup{})
+
+	got, err := uc.SavedIn(t.Context(), "user-1", "abc")
+
+	require.NoError(t, err)
+	assert.NotNil(t, got)
+	assert.Empty(t, got)
+}
+
+func TestSavedInUserServiceDown(t *testing.T) {
+	uc := NewFavoriteUseCase(mustNotTouchRepo(t), fakeSquadDirectory{err: domain.ErrUserServiceUnavailable}, fakeVenueLookup{})
+
+	_, err := uc.SavedIn(t.Context(), "user-1", "abc")
+
+	assert.ErrorIs(t, err, domain.ErrUserServiceUnavailable)
 }

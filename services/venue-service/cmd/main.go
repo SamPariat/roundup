@@ -45,14 +45,14 @@ func main() {
 	squadDirectory := users.NewUserServiceClient(cfg.UserServiceURL)
 
 	venueUC := application.NewVenueUseCase(placeProvider, venueCache)
-	favoriteUC := application.NewFavoriteUseCase(venueRepo, squadDirectory)
-	historyUC := application.NewHistoryUseCase(venueRepo, squadDirectory)
+	favoriteUC := application.NewFavoriteUseCase(venueRepo, squadDirectory, venueUC)
+	historyUC := application.NewHistoryUseCase(venueRepo, squadDirectory, venueUC)
 
 	app := fiber.New()
 	app.Use(middleware.RequestID(), middleware.Logging(log), middleware.Recover(log))
 	server.Health(app, log, map[string]server.Check{"postgres": pool.Ping})
 	transporthttp.RegisterRoutes(app, &transporthttp.Handlers{
-		Venue:    transporthttp.NewVenueHandler(venueUC),
+		Venue:    transporthttp.NewVenueHandler(venueUC, favoriteUC),
 		Favorite: transporthttp.NewFavoriteHandler(favoriteUC),
 		History:  transporthttp.NewHistoryHandler(historyUC),
 	})
