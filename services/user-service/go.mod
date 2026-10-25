@@ -6,6 +6,7 @@ replace github.com/SamPariat/roundup/shared => ../../shared
 
 require (
 	github.com/SamPariat/roundup/shared v0.0.0
+	github.com/casbin/casbin/v2 v2.135.0
 	github.com/gofiber/fiber/v3 v3.6.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
@@ -14,6 +15,8 @@ require (
 )
 
 require (
+	github.com/bmatcuk/doublestar/v4 v4.6.1 // indirect
+	github.com/casbin/govaluate v1.3.0 // indirect
 	github.com/gofiber/schema v1.8.8 // indirect
 	github.com/gofiber/utils/v2 v2.6.2 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

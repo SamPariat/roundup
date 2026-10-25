@@ -4,44 +4,36 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestCanRemove(t *testing.T) {
-	admin := SquadMember{UserID: "admin", Role: RoleAdmin}
-	member := SquadMember{UserID: "member", Role: RoleMember}
+// allowList is an Authorizer that allows exactly the listed actions for every
+// role, so these tests check PermissionsFor's wiring, not the policy (that
+// lives in adapters/authz).
+type allowList map[Action]bool
+
+func (a allowList) Can(_ Role, action Action) bool { return a[action] }
+
+func TestPermissionsFor(t *testing.T) {
+	everything := allowList{ActionAddMember: true, ActionRemoveMember: true, ActionChangeRole: true, ActionEditSquad: true}
+	member := SquadMember{UserID: "u1", Role: RoleMember}
 
 	tests := []struct {
-		name    string
-		actor   SquadMember
-		target  string
-		wantErr error
+		name        string
+		authz       allowList
+		memberCount int
+		want        Permissions
 	}{
-		{name: "AdminRemovesMember", actor: admin, target: "member"},
-		{name: "AdminRemovesAnotherAdmin", actor: admin, target: "other-admin"},
-		{name: "AdminLeaves", actor: admin, target: "admin"},
-		{name: "MemberLeaves", actor: member, target: "member"},
-		{name: "MemberRemovesSomeoneElse", actor: member, target: "admin", wantErr: ErrNotAdmin},
-		{name: "UnknownRoleRemovesSomeoneElse", actor: SquadMember{UserID: "ghost"}, target: "member", wantErr: ErrNotAdmin},
+		{name: "EverythingAllowed", authz: everything, memberCount: 3, want: Permissions{CanAddMembers: true, CanRemoveMembers: true, CanChangeRoles: true, CanEditSquad: true}},
+		{name: "NothingAllowed", authz: allowList{}, memberCount: 3, want: Permissions{}},
+		{name: "OnlyAdding", authz: allowList{ActionAddMember: true}, memberCount: 3, want: Permissions{CanAddMembers: true}},
+		{name: "FullSquadCannotAdd", authz: everything, memberCount: MaxSquadMembers, want: Permissions{CanRemoveMembers: true, CanChangeRoles: true, CanEditSquad: true}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := CanRemove(tt.actor, tt.target)
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-
-				return
-			}
-
-			assert.NoError(t, err)
+			assert.Equal(t, tt.want, PermissionsFor(tt.authz, member, tt.memberCount))
 		})
 	}
-}
-
-func TestCanChangeRole(t *testing.T) {
-	require.NoError(t, CanChangeRole(SquadMember{Role: RoleAdmin}))
-	assert.ErrorIs(t, CanChangeRole(SquadMember{Role: RoleMember}), ErrNotAdmin)
 }
 
 func TestRoleIsValid(t *testing.T) {

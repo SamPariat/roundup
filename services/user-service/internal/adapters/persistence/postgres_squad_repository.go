@@ -113,6 +113,10 @@ func (r *PostgresSquadRepository) ListForUser(ctx context.Context, userID string
 		})
 	}
 
+	if err := r.attachPreviews(ctx, squads); err != nil {
+		return nil, err
+	}
+
 	return squads, nil
 }
 
@@ -288,6 +292,56 @@ func (r *PostgresSquadRepository) ChangeRole(ctx context.Context, squadID, userI
 
 		return nil
 	})
+}
+
+// Update sets the squad's name and/or avatar. A nil field is left unchanged.
+func (r *PostgresSquadRepository) Update(ctx context.Context, cmd domain.UpdateSquadCommand) (*domain.Squad, error) {
+	sid, err := uuid.Parse(cmd.SquadID)
+	if err != nil {
+		return nil, domainerr.New(domain.ErrSquadNotFound, cmd.SquadID)
+	}
+
+	row, err := r.queries.UpdateSquad(ctx, db.UpdateSquadParams{ID: sid, Name: cmd.Name, AvatarUrl: cmd.AvatarURL})
+	if err != nil {
+		return nil, squadNotFoundOr(err, cmd.SquadID)
+	}
+
+	return toDomainSquad(row), nil
+}
+
+// attachPreviews fills each squad's MemberPreview with one query for all of
+// them, so listing n squads costs two queries instead of n+1.
+func (r *PostgresSquadRepository) attachPreviews(ctx context.Context, squads []domain.SquadSummary) error {
+	if len(squads) == 0 {
+		return nil
+	}
+
+	ids := make([]uuid.UUID, 0, len(squads))
+	index := make(map[string]int, len(squads))
+
+	for i, s := range squads {
+		ids = append(ids, uuid.MustParse(s.ID))
+		index[s.ID] = i
+		squads[i].MemberPreview = []domain.SquadMember{}
+	}
+
+	rows, err := r.queries.ListMemberPreviews(ctx, db.ListMemberPreviewsParams{SquadIds: ids, PerSquad: domain.MemberPreviewSize})
+	if err != nil {
+		return err
+	}
+
+	for _, row := range rows {
+		i := index[row.SquadID.String()]
+		squads[i].MemberPreview = append(squads[i].MemberPreview, toDomainMember(db.GetSquadMemberRow{
+			UserID:    row.UserID,
+			Role:      row.Role,
+			JoinedAt:  row.JoinedAt,
+			Name:      row.Name,
+			AvatarUrl: row.AvatarUrl,
+		}))
+	}
+
+	return nil
 }
 
 // parseIDs parses a squad ID and a user ID, failing if either is not a UUID.

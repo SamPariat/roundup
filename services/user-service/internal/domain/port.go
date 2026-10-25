@@ -38,6 +38,13 @@ type DeviceTokenRepository interface {
 	DeleteAllForUser(ctx context.Context, userID string) error
 }
 
+// Authorizer decides which roles may take which squad actions. Implemented
+// by a policy engine, so the rules live in policy files, not in code.
+type Authorizer interface {
+	// Can reports whether a member with role may take action.
+	Can(role Role, action Action) bool
+}
+
 // SquadRepository abstracts persistence of squads and their members. Methods
 // that change membership run in a transaction that locks the squad, so
 // concurrent changes to one squad are applied one at a time.
@@ -49,8 +56,13 @@ type SquadRepository interface {
 	// ErrSquadNotFound otherwise.
 	GetForMember(ctx context.Context, squadID, userID string) (*Squad, error)
 
-	// ListForUser returns the squads userID belongs to, newest first.
+	// ListForUser returns the squads userID belongs to, newest first, each
+	// with its first MemberPreviewSize members.
 	ListForUser(ctx context.Context, userID string) ([]SquadSummary, error)
+
+	// Update applies cmd's non-nil fields to the squad and returns it.
+	// Returns ErrSquadNotFound if the squad does not exist.
+	Update(ctx context.Context, cmd UpdateSquadCommand) (*Squad, error)
 
 	// ListMembers returns the squad's active members, earliest joiner first.
 	ListMembers(ctx context.Context, squadID string) ([]SquadMember, error)

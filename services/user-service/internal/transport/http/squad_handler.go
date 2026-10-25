@@ -62,6 +62,27 @@ func (h *SquadHandler) Get(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.SquadDetailToResponse(squad)))
 }
 
+// Update handles PATCH /api/v1/squads/:squadID: admins rename the squad or
+// change its picture.
+func (h *SquadHandler) Update(c fiber.Ctx) error {
+	var req dtos.UpdateSquadRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return response.Error(c, fiber.StatusBadRequest, err)
+	}
+
+	squad, err := h.uc.Update(c.Context(), domain.UpdateSquadCommand{
+		SquadID:   c.Params("squadID"),
+		ActorID:   middleware.UserIDFrom(c),
+		Name:      req.Name,
+		AvatarURL: req.AvatarURL,
+	})
+	if err != nil {
+		return response.Error(c, squadErrorStatus(err), err)
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.SquadToResponse(squad)))
+}
+
 // AddMember handles POST /api/v1/squads/:squadID/members.
 func (h *SquadHandler) AddMember(c fiber.Ctx) error {
 	var req dtos.AddMemberRequest
@@ -122,7 +143,7 @@ func squadErrorStatus(err error) int {
 	case errors.Is(err, domain.ErrInvalidSquadName), errors.Is(err, domain.ErrInvalidPhone),
 		errors.Is(err, domain.ErrInvalidRole):
 		return fiber.StatusBadRequest
-	case errors.Is(err, domain.ErrNotAdmin):
+	case errors.Is(err, domain.ErrForbidden):
 		return fiber.StatusForbidden
 	case errors.Is(err, domain.ErrSquadNotFound), errors.Is(err, domain.ErrMemberNotFound),
 		errors.Is(err, domain.ErrUserNotFound):

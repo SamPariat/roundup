@@ -1,0 +1,7 @@
+p, ADMIN, squad:add_member
+p, MEMBER, squad:add_member
+p, ADMIN, squad:remove_member
+p, ADMIN, squad:change_role
+p, ADMIN, squad:edit
+p, ADMIN, squad:leave
+p, MEMBER, squad:leave

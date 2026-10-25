@@ -122,6 +122,7 @@ func TestRoutesToUpstreams(t *testing.T) {
 		{"CreateSquad", http.MethodPost, "/api/v1/squads", `{"name":"Friday crew"}`, true, func(f *fixture) *upstream { return f.user }, userID},
 		{"ListSquads", http.MethodGet, "/api/v1/squads/", "", true, func(f *fixture) *upstream { return f.user }, userID},
 		{"GetSquad", http.MethodGet, "/api/v1/squads/s1", "", true, func(f *fixture) *upstream { return f.user }, userID},
+		{"UpdateSquad", http.MethodPatch, "/api/v1/squads/s1", `{"name":"Saturday crew"}`, true, func(f *fixture) *upstream { return f.user }, userID},
 		{"ChangeSquadRole", http.MethodPatch, "/api/v1/squads/s1/members/u1", `{"role":"ADMIN"}`, true, func(f *fixture) *upstream { return f.user }, userID},
 		{"UserLookup", http.MethodPost, "/api/v1/users/lookup", `{"phones":["+919876543210"]}`, true, func(f *fixture) *upstream { return f.user }, userID},
 	}

@@ -437,7 +437,10 @@ paths:
       tags: [Squads]
       operationId: getSquad
       summary: Get a squad with its members
-      description: 404 if the squad does not exist or I am not in it; the two look the same.
+      description: |
+        404 if the squad does not exist or I am not in it; the two look the same.
+        Includes my role, which member is me, and `permissions` saying which
+        actions I may take, so the app shows only controls that will work.
       responses:
         '200':
           description: The squad, members ordered by when they joined.
@@ -456,6 +459,47 @@ paths:
                         $ref: '#/components/schemas/SquadDetail'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [Squads]
+      operationId: updateSquad
+      summary: Rename a squad or change its picture
+      description: |
+        Needs `permissions.canEditSquad` (admins, under the current policy).
+        Omitted fields are left unchanged; an empty `avatarURL` removes the picture.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSquadRequest'
+      responses:
+        '200':
+          description: The updated squad.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Squad'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '502':
@@ -532,8 +576,9 @@ paths:
       operationId: changeSquadMemberRole
       summary: Make someone admin, or demote them
       description: |
-        Admins only. A squad can have several admins but always needs one:
-        demoting the only admin answers 409.
+        Needs `permissions.canChangeRoles` (admins, under the current policy).
+        A squad can have several admins but always needs one: demoting the
+        only admin answers 409.
       requestBody:
         required: true
         content:
@@ -1087,14 +1132,17 @@ components:
             success: false
             error: 'squad not found: 7dc92d84-1950-43d6-b676-debacf84d830'
     Forbidden:
-      description: Only squad admins can do this.
+      description: |
+        My role in the squad may not take this action. The rules are in
+        user-service's permission policy (services/user-service/docs/PERMISSIONS.md);
+        the matching `permissions` flag on the squad is false.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             success: false
-            error: only squad admins can do this
+            error: 'you are not allowed to do this in this squad: squad:edit'
     InvalidCode:
       description: The code is wrong, expired, already used or was never requested.
       content:
@@ -1354,6 +1402,16 @@ components:
           example: Friday crew
         avatarURL:
           type: string
+    UpdateSquadRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Trimmed; must not be blank.
+          example: Saturday crew
+        avatarURL:
+          type: string
+          description: Empty removes the picture.
     AddMemberRequest:
       type: object
       required: [phone]
@@ -1389,12 +1447,18 @@ components:
       allOf:
         - $ref: '#/components/schemas/Squad'
         - type: object
-          required: [role, memberCount]
+          required: [role, memberCount, memberPreview]
           properties:
             role:
               $ref: '#/components/schemas/Role'
             memberCount:
               type: integer
+            memberPreview:
+              type: array
+              maxItems: 4
+              description: The first members to join, for the avatar row.
+              items:
+                $ref: '#/components/schemas/SquadMember'
     SquadsResponse:
       type: object
       required: [squads]
@@ -1423,13 +1487,45 @@ components:
       allOf:
         - $ref: '#/components/schemas/Squad'
         - type: object
-          required: [members]
+          required: [myRole, memberCount, createdByName, members, permissions]
           properties:
+            myRole:
+              $ref: '#/components/schemas/Role'
+            memberCount:
+              type: integer
+            createdByName:
+              type: string
+              nullable: true
+              description: Null if the creator has left; empty if they have not set a name.
             members:
               type: array
               maxItems: 50
               items:
-                $ref: '#/components/schemas/SquadMember'
+                allOf:
+                  - $ref: '#/components/schemas/SquadMember'
+                  - type: object
+                    required: [isMe]
+                    properties:
+                      isMe:
+                        type: boolean
+            permissions:
+              $ref: '#/components/schemas/SquadPermissions'
+    SquadPermissions:
+      type: object
+      description: What I may do in this squad, computed from the same permission policy the server enforces.
+      required: [canAddMembers, canRemoveMembers, canChangeRoles, canEditSquad]
+      properties:
+        canAddMembers:
+          type: boolean
+          description: Any member may add people while the squad has room.
+        canRemoveMembers:
+          type: boolean
+          description: Remove someone other than myself. Leaving is always allowed.
+        canChangeRoles:
+          type: boolean
+        canEditSquad:
+          type: boolean
+          description: Rename the squad or change its picture.
 
     # ─── Venues ────────────────────────────────────────────────────────────
 

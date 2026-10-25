@@ -52,8 +52,9 @@ var (
 	// ErrMemberNotFound is returned when the target user is not in the squad.
 	ErrMemberNotFound = errors.New("member not found")
 
-	// ErrNotAdmin is returned when a member tries something only admins may do.
-	ErrNotAdmin = errors.New("only squad admins can do this")
+	// ErrForbidden is returned when the authorization policy does not let the
+	// member's role take the action.
+	ErrForbidden = errors.New("you are not allowed to do this in this squad")
 
 	// ErrInvalidRole is returned when a role is not ADMIN or MEMBER.
 	ErrInvalidRole = errors.New("role must be ADMIN or MEMBER")
