@@ -487,7 +487,7 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 ### Redis cache layer
 
 - [x] `internal/adapters/cache/redis_cache_adapter.go` — implements `domain.VenueCache`, best-effort (errors logged, never returned)
-- [x] Search key `venue:search:{lat}:{lng}:{radius}:{query}:{type}` and detail key `venue:detail:{placeID}`, both 10 min TTL (`cache.DefaultTTL`)
+- [x] Search key `venue:search:v1:{lat}:{lng}:{radius}:{query}:{type}:{pageToken}` and detail key `venue:detail:v1:{placeID}`, both 10 min TTL (`cache.DefaultTTL`)
 - [x] On a cache miss, fetch from Google, then cache
 
 ### Database schema

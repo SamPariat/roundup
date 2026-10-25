@@ -408,8 +408,8 @@ The `RedisCacheAdapter` implements `domain.VenueCache`. All cache operations are
 
 | Data | Key | TTL |
 |---|---|---|
-| Nearby search (one page) | `venue:search:v3:{lat}:{lng}:{radius}:{query}:{type}:{pageToken}` | 10 min |
-| Venue detail | `venue:detail:v2:{placeID}` | 10 min |
+| Search (one page) | `venue:search:v1:{lat}:{lng}:{radius}:{query}:{type}:{pageToken}` | 10 min |
+| Venue detail | `venue:detail:v1:{placeID}` | 10 min |
 
 Every key is namespaced under `venue:` so entries never collide with other users of the same Redis. The TTL is `cache.DefaultTTL`, passed to `NewRedisCacheAdapter` in `main.go` and applied to every write.
 
