@@ -49,7 +49,7 @@ func (r *PostgresUserRepository) GetByID(ctx context.Context, id string) (*domai
 
 	row, err := r.queries.GetUserByID(ctx, uid)
 	if err != nil {
-		return nil, notFoundOr(err, id)
+		return nil, postgres.NoRowsAs(err, domain.ErrUserNotFound, id)
 	}
 
 	return toDomainUser(row), nil
@@ -59,7 +59,7 @@ func (r *PostgresUserRepository) GetByID(ctx context.Context, id string) (*domai
 func (r *PostgresUserRepository) GetByPhone(ctx context.Context, phone string) (*domain.User, error) {
 	row, err := r.queries.GetUserByPhone(ctx, phone)
 	if err != nil {
-		return nil, notFoundOr(err, phone)
+		return nil, postgres.NoRowsAs(err, domain.ErrUserNotFound, phone)
 	}
 
 	return toDomainUser(row), nil
@@ -78,7 +78,7 @@ func (r *PostgresUserRepository) UpdateProfile(ctx context.Context, cmd domain.U
 		AvatarUrl: cmd.AvatarURL,
 	})
 	if err != nil {
-		return nil, notFoundOr(err, cmd.UserID)
+		return nil, postgres.NoRowsAs(err, domain.ErrUserNotFound, cmd.UserID)
 	}
 
 	return toDomainUser(row), nil
@@ -192,13 +192,4 @@ func toDomainUser(row db.User) *domain.User {
 	}
 
 	return user
-}
-
-// notFoundOr maps pgx.ErrNoRows to ErrUserNotFound and passes any other error through.
-func notFoundOr(err error, detail string) error {
-	if postgres.IsNoRows(err) {
-		return domainerr.New(domain.ErrUserNotFound, detail)
-	}
-
-	return err
 }

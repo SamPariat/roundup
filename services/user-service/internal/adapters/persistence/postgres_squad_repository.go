@@ -90,7 +90,7 @@ func (r *PostgresSquadRepository) GetForMember(ctx context.Context, squadID, use
 
 	row, err := r.queries.GetSquadForMember(ctx, db.GetSquadForMemberParams{ID: sid, UserID: uid})
 	if err != nil {
-		return nil, squadNotFoundOr(err, squadID)
+		return nil, postgres.NoRowsAs(err, domain.ErrSquadNotFound, squadID)
 	}
 
 	return toDomainSquad(row), nil
@@ -179,7 +179,7 @@ func (r *PostgresSquadRepository) GetMember(ctx context.Context, squadID, userID
 
 	row, err := r.queries.GetSquadMember(ctx, db.GetSquadMemberParams{SquadID: sid, UserID: uid})
 	if err != nil {
-		return nil, squadNotFoundOr(err, squadID)
+		return nil, postgres.NoRowsAs(err, domain.ErrSquadNotFound, squadID)
 	}
 
 	member := toDomainMember(row)
@@ -200,7 +200,7 @@ func (r *PostgresSquadRepository) AddMember(ctx context.Context, squadID, userID
 		q := r.queries.WithTx(tx)
 
 		if _, err := q.LockSquad(ctx, sid); err != nil {
-			return squadNotFoundOr(err, squadID)
+			return postgres.NoRowsAs(err, domain.ErrSquadNotFound, squadID)
 		}
 
 		count, err := q.CountSquadMembers(ctx, sid)
@@ -248,7 +248,7 @@ func (r *PostgresSquadRepository) RemoveMember(ctx context.Context, squadID, use
 		q := r.queries.WithTx(tx)
 
 		if _, err := q.LockSquad(ctx, sid); err != nil {
-			return memberNotFoundOr(err, userID)
+			return postgres.NoRowsAs(err, domain.ErrMemberNotFound, userID)
 		}
 
 		affected, err := q.RemoveSquadMember(ctx, db.RemoveSquadMemberParams{SquadID: sid, UserID: uid})
@@ -294,7 +294,7 @@ func (r *PostgresSquadRepository) ChangeRole(ctx context.Context, squadID, userI
 		q := r.queries.WithTx(tx)
 
 		if _, err := q.LockSquad(ctx, sid); err != nil {
-			return memberNotFoundOr(err, userID)
+			return postgres.NoRowsAs(err, domain.ErrMemberNotFound, userID)
 		}
 
 		affected, err := q.UpdateSquadMemberRole(ctx, db.UpdateSquadMemberRoleParams{
@@ -333,7 +333,7 @@ func (r *PostgresSquadRepository) Update(ctx context.Context, cmd domain.UpdateS
 
 	row, err := r.queries.UpdateSquad(ctx, db.UpdateSquadParams{ID: sid, Name: cmd.Name, AvatarUrl: cmd.AvatarURL})
 	if err != nil {
-		return nil, squadNotFoundOr(err, cmd.SquadID)
+		return nil, postgres.NoRowsAs(err, domain.ErrSquadNotFound, cmd.SquadID)
 	}
 
 	return toDomainSquad(row), nil
@@ -421,22 +421,4 @@ func toDomainMember(row db.GetSquadMemberRow) domain.SquadMember {
 	}
 
 	return member
-}
-
-// squadNotFoundOr maps pgx.ErrNoRows to ErrSquadNotFound and passes any other error through.
-func squadNotFoundOr(err error, detail string) error {
-	if postgres.IsNoRows(err) {
-		return domainerr.New(domain.ErrSquadNotFound, detail)
-	}
-
-	return err
-}
-
-// memberNotFoundOr maps pgx.ErrNoRows to ErrMemberNotFound and passes any other error through.
-func memberNotFoundOr(err error, detail string) error {
-	if postgres.IsNoRows(err) {
-		return domainerr.New(domain.ErrMemberNotFound, detail)
-	}
-
-	return err
 }

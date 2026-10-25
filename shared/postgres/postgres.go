@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/SamPariat/roundup/shared/domainerr"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -47,6 +48,17 @@ func IsUniqueViolation(err error) bool {
 // query matched nothing.
 func IsNoRows(err error) bool {
 	return errors.Is(err, pgx.ErrNoRows)
+}
+
+// NoRowsAs returns err as sentinel (with detail) when it means a single-row
+// query matched nothing, and err unchanged otherwise, so repositories map
+// "no rows" to their own not-found error in one line.
+func NoRowsAs(err, sentinel error, detail string) error {
+	if IsNoRows(err) {
+		return domainerr.New(sentinel, detail)
+	}
+
+	return err
 }
 
 // InTx runs fn in a transaction, committing only if fn returns nil; any error
