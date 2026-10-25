@@ -50,27 +50,35 @@ func (q *Queries) AddFavorite(ctx context.Context, arg AddFavoriteParams) error 
 }
 
 const listSquadFavorites = `-- name: ListSquadFavorites :many
-SELECT place_id,
-       (ARRAY_AGG(name ORDER BY saved_at DESC))[1]::text            AS name,
-       (ARRAY_AGG(address ORDER BY saved_at DESC))[1]::text         AS address,
-       (ARRAY_AGG(rating ORDER BY saved_at DESC))[1]::real          AS rating,
-       (ARRAY_AGG(rating_count ORDER BY saved_at DESC))[1]::integer AS rating_count,
-       (ARRAY_AGG(price_level ORDER BY saved_at DESC))[1]::integer  AS price_level,
-       (ARRAY_AGG(photo_ref ORDER BY saved_at DESC))[1]::text       AS photo_ref,
-       (ARRAY_AGG(photo_width ORDER BY saved_at DESC))[1]::integer  AS photo_width,
-       (ARRAY_AGG(photo_height ORDER BY saved_at DESC))[1]::integer AS photo_height,
-       ARRAY_AGG(user_id ORDER BY saved_at DESC)::text[]            AS saved_by,
-       MAX(saved_at)::timestamptz                                   AS last_saved_at
-FROM saved_venues
-WHERE squad_id = $1
-  AND user_id = ANY ($2::text[])
-GROUP BY place_id
-ORDER BY last_saved_at DESC
+SELECT g.place_id, g.name, g.address, g.rating, g.rating_count, g.price_level,
+       g.photo_ref, g.photo_width, g.photo_height, g.saved_by, g.last_saved_at
+FROM (SELECT place_id,
+             (ARRAY_AGG(name ORDER BY saved_at DESC))[1]::text            AS name,
+             (ARRAY_AGG(address ORDER BY saved_at DESC))[1]::text         AS address,
+             (ARRAY_AGG(rating ORDER BY saved_at DESC))[1]::real          AS rating,
+             (ARRAY_AGG(rating_count ORDER BY saved_at DESC))[1]::integer AS rating_count,
+             (ARRAY_AGG(price_level ORDER BY saved_at DESC))[1]::integer  AS price_level,
+             (ARRAY_AGG(photo_ref ORDER BY saved_at DESC))[1]::text       AS photo_ref,
+             (ARRAY_AGG(photo_width ORDER BY saved_at DESC))[1]::integer  AS photo_width,
+             (ARRAY_AGG(photo_height ORDER BY saved_at DESC))[1]::integer AS photo_height,
+             ARRAY_AGG(user_id ORDER BY saved_at DESC)::text[]            AS saved_by,
+             MAX(saved_at)::timestamptz                                   AS last_saved_at
+      FROM saved_venues
+      WHERE squad_id = $1
+        AND user_id = ANY ($2::text[])
+      GROUP BY place_id) g
+WHERE $3::timestamptz IS NULL
+   OR (g.last_saved_at, g.place_id) < ($3::timestamptz, $4::text)
+ORDER BY g.last_saved_at DESC, g.place_id DESC
+LIMIT $5
 `
 
 type ListSquadFavoritesParams struct {
-	SquadID   string   `json:"squad_id"`
-	MemberIds []string `json:"member_ids"`
+	SquadID     string             `json:"squad_id"`
+	MemberIds   []string           `json:"member_ids"`
+	CursorAt    pgtype.Timestamptz `json:"cursor_at"`
+	CursorPlace pgtype.Text        `json:"cursor_place"`
+	Lim         int32              `json:"lim"`
 }
 
 type ListSquadFavoritesRow struct {
@@ -87,13 +95,22 @@ type ListSquadFavoritesRow struct {
 	LastSavedAt pgtype.Timestamptz `json:"last_saved_at"`
 }
 
-// Lists a squad's favorites, one row per venue, most recently saved first.
-// Only saves by member_ids (the squad's current members) count, so a venue
-// saved only by people who left is not listed. Display fields come from the
-// latest save; saved_by lists who saved it, most recent first.
+// Lists one page of a squad's favorites, one row per venue, most recently
+// saved first. Only saves by member_ids (the squad's current members) count,
+// so a venue saved only by people who left is not listed. Display fields come
+// from the latest save; saved_by lists who saved it, most recent first.
+// A NULL cursor starts at the newest; otherwise the page starts after the
+// (last_saved_at, place_id) the cursor names. The keyset compares grouped
+// values, so it filters the grouped rows in an outer query.
 // The casts give sqlc concrete column types instead of interface{}.
 func (q *Queries) ListSquadFavorites(ctx context.Context, arg ListSquadFavoritesParams) ([]ListSquadFavoritesRow, error) {
-	rows, err := q.db.Query(ctx, listSquadFavorites, arg.SquadID, arg.MemberIds)
+	rows, err := q.db.Query(ctx, listSquadFavorites,
+		arg.SquadID,
+		arg.MemberIds,
+		arg.CursorAt,
+		arg.CursorPlace,
+		arg.Lim,
+	)
 	if err != nil {
 		return nil, err
 	}

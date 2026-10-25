@@ -405,7 +405,10 @@ paths:
       tags: [Squads]
       operationId: listSquads
       summary: List my squads
-      description: Newest first, with my role and the member count.
+      description: Newest first, with my role and the member count. Paged; see `nextCursor`.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
       responses:
         '200':
           description: My squads.
@@ -632,7 +635,10 @@ paths:
       tags: [Venues]
       operationId: searchVenues
       summary: Search venues near a point
-      description: Results are cached for 10 minutes. No pagination.
+      description: |
+        One page of up to 20 venues; Google fixes the page size, so there is no
+        `limit`. Pass `nextCursor` back as `cursor` for the next page. Results
+        are cached for 10 minutes per page.
       parameters:
         - name: lat
           in: query
@@ -671,6 +677,7 @@ paths:
           description: Optional Google place type, e.g. "restaurant".
           schema:
             type: string
+        - $ref: '#/components/parameters/Cursor'
       responses:
         '200':
           description: Matching venues.
@@ -799,6 +806,9 @@ paths:
       description: |
         One entry per venue, most recently saved first, with the current
         members who saved it.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
       responses:
         '200':
           description: Saved venues.
@@ -890,7 +900,10 @@ paths:
       tags: [History]
       operationId: getVisitHistory
       summary: List venues the squad visited
-      description: One entry per venue, with how often and when last it was visited.
+      description: One entry per venue, most recently visited first, with how often and when last it was visited. Paged; see `nextCursor`.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
       responses:
         '200':
           description: Visit summary per venue.
@@ -1027,6 +1040,23 @@ components:
         format: uuid
 
   parameters:
+    Limit:
+      name: limit
+      in: query
+      description: Page size. 400 outside 1–100.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+    Cursor:
+      name: cursor
+      in: query
+      description: |
+        The `nextCursor` of the previous page; omit for the first page. Opaque:
+        send it back exactly as received. A cursor this API did not issue is a 400.
+      schema:
+        type: string
     SquadID:
       name: squadID
       in: path
@@ -1437,12 +1467,16 @@ components:
                 $ref: '#/components/schemas/SquadMember'
     SquadsResponse:
       type: object
-      required: [squads]
+      required: [squads, nextCursor]
       properties:
         squads:
           type: array
           items:
             $ref: '#/components/schemas/SquadSummary'
+        nextCursor:
+          type: string
+          nullable: true
+          description: Pass as `cursor` for the next page; null on the last page.
     SquadMember:
       type: object
       required: [userID, name, avatarURL, role, joinedAt]
@@ -1613,12 +1647,16 @@ components:
           description: Whether the caller saved this venue in the squad.
     SearchResponse:
       type: object
-      required: [venues]
+      required: [venues, nextCursor]
       properties:
         venues:
           type: array
           items:
             $ref: '#/components/schemas/Venue'
+        nextCursor:
+          type: string
+          nullable: true
+          description: Pass as `cursor` for the next page; null on the last page.
 
     # ─── Favorites ─────────────────────────────────────────────────────────
 
@@ -1677,12 +1715,16 @@ components:
           format: date-time
     FavoritesResponse:
       type: object
-      required: [favorites]
+      required: [favorites, nextCursor]
       properties:
         favorites:
           type: array
           items:
             $ref: '#/components/schemas/Favorite'
+        nextCursor:
+          type: string
+          nullable: true
+          description: Pass as `cursor` for the next page; null on the last page.
 
     # ─── History ───────────────────────────────────────────────────────────
 
@@ -1730,9 +1772,13 @@ components:
           description: Average spend per person across visits with a known spend; null when none.
     VisitHistoryResponse:
       type: object
-      required: [history]
+      required: [history, nextCursor]
       properties:
         history:
           type: array
           items:
             $ref: '#/components/schemas/VisitSummary'
+        nextCursor:
+          type: string
+          nullable: true
+          description: Pass as `cursor` for the next page; null on the last page.

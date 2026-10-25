@@ -1,10 +1,12 @@
 package persistence
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/pagination"
 	"github.com/SamPariat/roundup/shared/postgres/postgrestest"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
@@ -29,6 +31,9 @@ const (
 func day(d int) time.Time {
 	return time.Date(2026, 10, d, 20, 0, 0, 0, time.UTC)
 }
+
+// firstPage is the default first page, for tests with fewer rows than a page.
+var firstPage = pagination.Page{Limit: pagination.DefaultLimit}
 
 // members is the current member list most tests pass to ListSquadFavorites.
 var members = []string{alice, bob}
@@ -66,7 +71,7 @@ func TestAddFavoriteStoresSnapshot(t *testing.T) {
 	repo, _ := newRepo(t)
 	addFavorite(t, repo, squad, alice, "place-1")
 
-	favs, err := repo.ListSquadFavorites(t.Context(), squad, members)
+	favs, _, err := repo.ListSquadFavorites(t.Context(), squad, members, firstPage)
 	require.NoError(t, err)
 
 	require.Len(t, favs, 1)
@@ -115,7 +120,7 @@ func TestRemoveFavoriteOnlyByOwner(t *testing.T) {
 
 	require.NoError(t, repo.RemoveFavorite(ctx, domain.RemoveFavoriteCommand{SquadID: squad, UserID: alice, PlaceID: "place-1"}))
 
-	favs, err := repo.ListSquadFavorites(ctx, squad, members)
+	favs, _, err := repo.ListSquadFavorites(ctx, squad, members, firstPage)
 	require.NoError(t, err)
 	assert.Empty(t, favs)
 }
@@ -139,7 +144,7 @@ func TestListSquadFavoritesGroupsPerVenueNewestFirst(t *testing.T) {
 	saveAt(t, pool, alice, "byg", "Byg Brewski", day(18))
 	addFavorite(t, repo, otherSquad, alice, "elsewhere")
 
-	favs, err := repo.ListSquadFavorites(t.Context(), squad, members)
+	favs, _, err := repo.ListSquadFavorites(t.Context(), squad, members, firstPage)
 	require.NoError(t, err)
 
 	require.Len(t, favs, 2, "one row per venue, only this squad's")
@@ -158,7 +163,7 @@ func TestListSquadFavoritesSkipsFormerMembers(t *testing.T) {
 	saveAt(t, pool, alice, "toit", "Toit", day(15))
 	saveAt(t, pool, dev, "arbor", "Arbor", day(5))
 
-	favs, err := repo.ListSquadFavorites(t.Context(), squad, members)
+	favs, _, err := repo.ListSquadFavorites(t.Context(), squad, members, firstPage)
 	require.NoError(t, err)
 
 	require.Len(t, favs, 1, "a venue saved only by someone who left is not listed")
@@ -167,10 +172,56 @@ func TestListSquadFavoritesSkipsFormerMembers(t *testing.T) {
 	assert.True(t, day(15).Equal(favs[0].LastSavedAt))
 }
 
+func TestListSquadFavoritesPagesWithoutGapsOrRepeats(t *testing.T) {
+	repo, pool := newRepo(t)
+
+	for i := range 25 {
+		saveAt(t, pool, alice, fmt.Sprintf("place-%02d", i), "Venue", day(1).Add(time.Duration(i)*time.Hour))
+	}
+
+	saveAt(t, pool, bob, "place-tie-a", "Same time", day(10))
+	saveAt(t, pool, alice, "place-tie-b", "Same time", day(10))
+
+	var (
+		seen   []string
+		sizes  []int
+		cursor string
+	)
+
+	for {
+		favs, next, err := repo.ListSquadFavorites(t.Context(), squad, members, pagination.Page{Limit: 10, Cursor: cursor})
+		require.NoError(t, err)
+
+		sizes = append(sizes, len(favs))
+		for _, f := range favs {
+			seen = append(seen, f.PlaceID)
+		}
+
+		if next == "" {
+			break
+		}
+
+		cursor = next
+	}
+
+	assert.Equal(t, []int{10, 10, 7}, sizes)
+	assert.Len(t, seen, 27)
+	assert.ElementsMatch(t, seen, unique(seen), "no venue appears on two pages, including ties on last_saved_at")
+	assert.Equal(t, []string{"place-tie-b", "place-tie-a"}, seen[:2], "ties broken by place_id")
+}
+
+func TestListSquadFavoritesRejectsForeignCursor(t *testing.T) {
+	repo, _ := newRepo(t)
+
+	_, _, err := repo.ListSquadFavorites(t.Context(), squad, members, pagination.Page{Limit: 10, Cursor: "not-ours"})
+
+	assert.ErrorIs(t, err, pagination.ErrInvalid)
+}
+
 func TestListSquadFavoritesEmptySquad(t *testing.T) {
 	repo, _ := newRepo(t)
 
-	favs, err := repo.ListSquadFavorites(t.Context(), squad, members)
+	favs, _, err := repo.ListSquadFavorites(t.Context(), squad, members, firstPage)
 
 	require.NoError(t, err)
 	assert.Empty(t, favs)
@@ -192,7 +243,7 @@ func TestVisitHistoryAggregatesPerVenueMostRecentFirst(t *testing.T) {
 	recordVisit(t, repo, "event-2", "toit", day(5), 0)
 	recordVisit(t, repo, "event-3", "byg", day(9), 90000)
 
-	history, err := repo.GetVisitHistory(t.Context(), squad)
+	history, _, err := repo.GetVisitHistory(t.Context(), squad, firstPage)
 	require.NoError(t, err)
 
 	require.Len(t, history, 2)
@@ -210,7 +261,7 @@ func TestVisitHistoryAvgSpendIsZeroWhenNoneKnown(t *testing.T) {
 	repo, _ := newRepo(t)
 	recordVisit(t, repo, "event-1", "toit", time.Now(), 0)
 
-	history, err := repo.GetVisitHistory(t.Context(), squad)
+	history, _, err := repo.GetVisitHistory(t.Context(), squad, firstPage)
 	require.NoError(t, err)
 
 	require.Len(t, history, 1)
@@ -228,11 +279,34 @@ func TestVisitHistoryUsesLatestSnapshot(t *testing.T) {
 		SquadID: squad, EventID: "event-2", PlaceID: "toit", VisitedAt: day(5),
 	}, renamed))
 
-	history, err := repo.GetVisitHistory(t.Context(), squad)
+	history, _, err := repo.GetVisitHistory(t.Context(), squad, firstPage)
 	require.NoError(t, err)
 
 	require.Len(t, history, 1, "a renamed venue is still one row")
 	assert.Equal(t, "Toit Brewpub", history[0].Name)
+}
+
+func TestVisitHistoryPages(t *testing.T) {
+	repo, _ := newRepo(t)
+
+	for i := range 12 {
+		recordVisit(t, repo, fmt.Sprintf("event-%02d", i), fmt.Sprintf("place-%02d", i), day(1).Add(time.Duration(i)*time.Hour), 0)
+	}
+
+	first, next, err := repo.GetVisitHistory(t.Context(), squad, pagination.Page{Limit: 5})
+	require.NoError(t, err)
+	require.Len(t, first, 5)
+	require.NotEmpty(t, next)
+	assert.Equal(t, "place-11", first[0].PlaceID, "most recent first")
+
+	second, next, err := repo.GetVisitHistory(t.Context(), squad, pagination.Page{Limit: 5, Cursor: next})
+	require.NoError(t, err)
+	assert.Equal(t, "place-06", second[0].PlaceID, "continues right after the first page")
+
+	last, next, err := repo.GetVisitHistory(t.Context(), squad, pagination.Page{Limit: 5, Cursor: next})
+	require.NoError(t, err)
+	assert.Len(t, last, 2)
+	assert.Empty(t, next, "no cursor after the last page")
 }
 
 func TestRecordVisitTwiceForSameEventReturnsErrVisitAlreadyRecorded(t *testing.T) {
@@ -261,4 +335,19 @@ func TestRecordVisitStoresZeroSpendAsNull(t *testing.T) {
 
 	assert.Equal(t, 1, nulls, "0 means unknown and is stored as NULL")
 	assert.Equal(t, 1, set)
+}
+
+// unique returns ids without duplicates, keeping order.
+func unique(ids []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(ids))
+
+	for _, id := range ids {
+		if !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+
+	return out
 }

@@ -70,6 +70,9 @@ type SquadSummaryResponse struct {
 type SquadsResponse struct {
 	// Squads are newest first. Never null.
 	Squads []SquadSummaryResponse `json:"squads"`
+
+	// NextCursor fetches the next page as ?cursor=; null on the last page.
+	NextCursor *string `json:"nextCursor"`
 }
 
 // SquadMemberResponse is the JSON representation of a domain.SquadMember.

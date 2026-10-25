@@ -278,8 +278,18 @@ SELECT s.id, s.name, s.avatar_url, s.created_by, s.created_at,
 FROM squads s
          JOIN squad_members m ON m.squad_id = s.id
 WHERE m.user_id = $1
-ORDER BY s.created_at DESC
+  AND ($2::timestamptz IS NULL
+    OR (s.created_at, s.id) < ($2::timestamptz, $3::uuid))
+ORDER BY s.created_at DESC, s.id DESC
+LIMIT $4
 `
+
+type ListSquadsForUserParams struct {
+	UserID   uuid.UUID          `json:"user_id"`
+	CursorAt pgtype.Timestamptz `json:"cursor_at"`
+	CursorID pgtype.UUID        `json:"cursor_id"`
+	Lim      int32              `json:"lim"`
+}
 
 type ListSquadsForUserRow struct {
 	ID          uuid.UUID          `json:"id"`
@@ -291,10 +301,17 @@ type ListSquadsForUserRow struct {
 	MemberCount int64              `json:"member_count"`
 }
 
-// Lists the squads a user belongs to, newest first, with their role and the
-// member count.
-func (q *Queries) ListSquadsForUser(ctx context.Context, userID uuid.UUID) ([]ListSquadsForUserRow, error) {
-	rows, err := q.db.Query(ctx, listSquadsForUser, userID)
+// Lists one page of the squads a user belongs to, newest first, with their
+// role and the member count. A NULL cursor starts at the newest; otherwise
+// the page starts after the (created_at, id) the cursor names. id breaks ties
+// so no squad is skipped or repeated between pages.
+func (q *Queries) ListSquadsForUser(ctx context.Context, arg ListSquadsForUserParams) ([]ListSquadsForUserRow, error) {
+	rows, err := q.db.Query(ctx, listSquadsForUser,
+		arg.UserID,
+		arg.CursorAt,
+		arg.CursorID,
+		arg.Lim,
+	)
 	if err != nil {
 		return nil, err
 	}

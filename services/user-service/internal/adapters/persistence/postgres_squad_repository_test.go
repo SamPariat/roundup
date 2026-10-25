@@ -5,10 +5,14 @@ import (
 	"testing"
 
 	"github.com/SamPariat/roundup/services/user-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/pagination"
 	"github.com/SamPariat/roundup/shared/postgres/postgrestest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// firstPage is the default first page, for tests that list fewer squads than a page.
+var firstPage = pagination.Page{Limit: pagination.DefaultLimit}
 
 // postgres_squad_repository_test.go runs the squad repository against a real,
 // freshly migrated Postgres database, including the transactional rules
@@ -97,7 +101,7 @@ func TestListForUser(t *testing.T) {
 	squadID := f.squad(t, alice)
 	f.add(t, squadID, bob)
 
-	squads, err := f.squads.ListForUser(t.Context(), bob)
+	squads, _, err := f.squads.ListForUser(t.Context(), bob, firstPage)
 	require.NoError(t, err)
 
 	require.Len(t, squads, 1)
@@ -122,7 +126,7 @@ func TestListForUserPreviewsFirstMembersPerSquad(t *testing.T) {
 	small := f.squad(t, users[5])
 	require.NoError(t, f.users.SoftDelete(t.Context(), users[2]))
 
-	squads, err := f.squads.ListForUser(t.Context(), users[5])
+	squads, _, err := f.squads.ListForUser(t.Context(), users[5], firstPage)
 	require.NoError(t, err)
 
 	require.Len(t, squads, 2)
@@ -143,7 +147,7 @@ func TestListForUserPreviewsFirstMembersPerSquad(t *testing.T) {
 func TestListForUserWithNoSquads(t *testing.T) {
 	f := newSquadFixture(t)
 
-	squads, err := f.squads.ListForUser(t.Context(), f.user(t))
+	squads, _, err := f.squads.ListForUser(t.Context(), f.user(t), firstPage)
 
 	require.NoError(t, err)
 	assert.Empty(t, squads)
@@ -178,6 +182,54 @@ func TestUpdateMissingSquad(t *testing.T) {
 
 	_, err = f.squads.Update(t.Context(), domain.UpdateSquadCommand{SquadID: "not-a-uuid", Name: &name})
 	assert.ErrorIs(t, err, domain.ErrSquadNotFound)
+}
+
+func TestListForUserPagesWithoutGapsOrRepeats(t *testing.T) {
+	f := newSquadFixture(t)
+	owner := f.user(t)
+
+	for range 25 {
+		f.squad(t, owner)
+	}
+
+	var (
+		seen   = map[string]bool{}
+		sizes  []int
+		cursor string
+	)
+
+	for {
+		squads, next, err := f.squads.ListForUser(t.Context(), owner, pagination.Page{Limit: 10, Cursor: cursor})
+		require.NoError(t, err)
+
+		sizes = append(sizes, len(squads))
+
+		for _, s := range squads {
+			assert.False(t, seen[s.ID], "squad %s repeated", s.ID)
+			seen[s.ID] = true
+		}
+
+		if next == "" {
+			break
+		}
+
+		if len(sizes) == 1 {
+			f.squad(t, owner) // created mid-scroll: newer than the cursor, so it must not shift later pages
+		}
+
+		cursor = next
+	}
+
+	assert.Equal(t, []int{10, 10, 5}, sizes)
+	assert.Len(t, seen, 25)
+}
+
+func TestListForUserRejectsForeignCursor(t *testing.T) {
+	f := newSquadFixture(t)
+
+	_, _, err := f.squads.ListForUser(t.Context(), f.user(t), pagination.Page{Limit: 10, Cursor: "not-ours"})
+
+	assert.ErrorIs(t, err, pagination.ErrInvalid)
 }
 
 func TestAddMemberTwiceReturnsErrAlreadyMember(t *testing.T) {

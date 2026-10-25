@@ -25,25 +25,27 @@ func NewVenueHandler(uc *application.VenueUseCase, favorites *application.Favori
 	return &VenueHandler{uc: uc, favorites: favorites}
 }
 
-// Search handles GET /api/v1/venues: nearby venues matching the query params.
+// Search handles GET /api/v1/venues: one page of nearby venues matching the
+// query params; ?cursor= continues from a previous page's nextCursor.
 func (h *VenueHandler) Search(c fiber.Ctx) error {
 	var req dtos.SearchRequest
 	if err := c.Bind().Query(&req); err != nil {
 		return response.Error(c, fiber.StatusBadRequest, err)
 	}
 
-	venues, err := h.uc.Search(c.Context(), domain.SearchParams{
+	result, err := h.uc.Search(c.Context(), domain.SearchParams{
 		Latitude:       req.Lat,
 		Longitude:      req.Lng,
 		RadiusInMeters: req.Radius,
 		Query:          req.Query,
 		Type:           req.Type,
+		PageToken:      req.Cursor,
 	})
 	if err != nil {
 		return response.Error(c, venueErrorStatus(err), err)
 	}
 
-	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.VenuesToSearchResponse(venues)))
+	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.SearchResultToResponse(result)))
 }
 
 // GetDetail handles GET /api/v1/venues/:placeID: full details for one venue,

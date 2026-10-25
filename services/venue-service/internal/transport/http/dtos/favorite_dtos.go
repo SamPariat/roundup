@@ -60,4 +60,7 @@ type FavoritesResponse struct {
 	// Favorites holds one entry per venue, most recently saved first.
 	// Empty, never null, when there are none.
 	Favorites []FavoriteResponse `json:"favorites"`
+
+	// NextCursor fetches the next page as ?cursor=; null on the last page.
+	NextCursor *string `json:"nextCursor"`
 }

@@ -233,7 +233,7 @@ A squad is a group of friends, with WhatsApp-group rules:
 
 What clients get, so they never re-derive these rules:
 
-- **Squad list:** each entry has the caller's `role`, `memberCount` and `memberPreview` (the first `domain.MemberPreviewSize` = 4 members). Previews for every listed squad come from one `ROW_NUMBER() OVER (PARTITION BY squad_id)` query, so listing n squads costs two queries, not n+1.
+- **Squad list:** paged (`limit` default 25, max 100; `cursor`; `nextCursor`), newest first, with keyset `(created_at, id)`. Each entry has the caller's `role`, `memberCount` and `memberPreview` (the first `domain.MemberPreviewSize` = 4 members). Previews for every listed squad come from one `ROW_NUMBER() OVER (PARTITION BY squad_id)` query, so listing n squads costs two queries, not n+1.
 - **Squad detail:** `myRole`, `memberCount`, `createdByName` (null if the creator left), `members[].isMe`, and `permissions`. `domain.PermissionsFor` builds `permissions` by asking the same `Authorizer` the use case enforces with, so a button the app shows never meets a 403.
 
 The member cap, admin succession and deleting an empty squad are enforced in `PostgresSquadRepository`, inside a transaction that first locks the squad row (`SELECT … FOR UPDATE`). That way concurrent joins or leaves on one squad are applied one at a time and can't overshoot the cap or leave it without an admin.

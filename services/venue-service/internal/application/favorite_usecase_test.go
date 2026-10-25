@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/pagination"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -17,11 +18,14 @@ import (
 type fakeVenueRepo struct {
 	addFavoriteFn     func(ctx context.Context, cmd domain.AddFavoriteCommand, snapshot domain.VenueSnapshot) error
 	removeFavoriteFn  func(ctx context.Context, cmd domain.RemoveFavoriteCommand) error
-	listFavoritesFn   func(ctx context.Context, squadID string, memberIDs []string) ([]domain.FavoriteGroup, error)
+	listFavoritesFn   func(ctx context.Context, squadID string, memberIDs []string, page pagination.Page) ([]domain.FavoriteGroup, string, error)
 	savedInSquadsFn   func(ctx context.Context, userID, placeID string, squadIDs []string) ([]string, error)
 	recordVisitFn     func(ctx context.Context, cmd domain.RecordVisitCommand, snapshot domain.VenueSnapshot) error
-	getVisitHistoryFn func(ctx context.Context, squadID string) ([]domain.VisitSummary, error)
+	getVisitHistoryFn func(ctx context.Context, squadID string, page pagination.Page) ([]domain.VisitSummary, string, error)
 }
+
+// firstPage is a default first page.
+var firstPage = pagination.Page{Limit: pagination.DefaultLimit}
 
 // day returns 20:00 UTC on the given day of October 2026.
 func day(d int) time.Time {
@@ -45,10 +49,10 @@ func mustNotTouchRepo(t *testing.T) *fakeVenueRepo {
 
 			return nil
 		},
-		listFavoritesFn: func(_ context.Context, _ string, _ []string) ([]domain.FavoriteGroup, error) {
+		listFavoritesFn: func(_ context.Context, _ string, _ []string, _ pagination.Page) ([]domain.FavoriteGroup, string, error) {
 			fail()
 
-			return nil, nil
+			return nil, "", nil
 		},
 		savedInSquadsFn: func(_ context.Context, _, _ string, _ []string) ([]string, error) {
 			fail()
@@ -60,10 +64,10 @@ func mustNotTouchRepo(t *testing.T) *fakeVenueRepo {
 
 			return nil
 		},
-		getVisitHistoryFn: func(_ context.Context, _ string) ([]domain.VisitSummary, error) {
+		getVisitHistoryFn: func(_ context.Context, _ string, _ pagination.Page) ([]domain.VisitSummary, string, error) {
 			fail()
 
-			return nil, nil
+			return nil, "", nil
 		},
 	}
 }
@@ -84,12 +88,12 @@ func (f *fakeVenueRepo) RemoveFavorite(ctx context.Context, cmd domain.RemoveFav
 	return nil
 }
 
-func (f *fakeVenueRepo) ListSquadFavorites(ctx context.Context, squadID string, memberIDs []string) ([]domain.FavoriteGroup, error) {
+func (f *fakeVenueRepo) ListSquadFavorites(ctx context.Context, squadID string, memberIDs []string, page pagination.Page) ([]domain.FavoriteGroup, string, error) {
 	if f.listFavoritesFn != nil {
-		return f.listFavoritesFn(ctx, squadID, memberIDs)
+		return f.listFavoritesFn(ctx, squadID, memberIDs, page)
 	}
 
-	return nil, nil
+	return nil, "", nil
 }
 
 func (f *fakeVenueRepo) SavedInSquads(ctx context.Context, userID, placeID string, squadIDs []string) ([]string, error) {
@@ -108,12 +112,12 @@ func (f *fakeVenueRepo) RecordVisit(ctx context.Context, cmd domain.RecordVisitC
 	return nil
 }
 
-func (f *fakeVenueRepo) GetVisitHistory(ctx context.Context, squadID string) ([]domain.VisitSummary, error) {
+func (f *fakeVenueRepo) GetVisitHistory(ctx context.Context, squadID string, page pagination.Page) ([]domain.VisitSummary, string, error) {
 	if f.getVisitHistoryFn != nil {
-		return f.getVisitHistoryFn(ctx, squadID)
+		return f.getVisitHistoryFn(ctx, squadID, page)
 	}
 
-	return nil, nil
+	return nil, "", nil
 }
 
 // fakeSquadDirectory is a domain.SquadDirectory that admits everyone unless
@@ -152,8 +156,8 @@ func TestNonMembersNeverReachTheRepository(t *testing.T) {
 	history := NewHistoryUseCase(mustNotTouchRepo(t), notMember, fakeVenueLookup{})
 	ctx := t.Context()
 
-	_, listErr := favorites.List(ctx, "squad-1", "stranger")
-	_, historyErr := history.List(ctx, "squad-1", "stranger")
+	_, _, listErr := favorites.List(ctx, "squad-1", "stranger", firstPage)
+	_, _, historyErr := history.List(ctx, "squad-1", "stranger", firstPage)
 
 	for name, err := range map[string]error{
 		"favorites.Add":    favorites.Add(ctx, domain.AddFavoriteCommand{SquadID: "squad-1", UserID: "stranger"}),
@@ -240,7 +244,10 @@ func TestListFavoritesAttachesMembers(t *testing.T) {
 	alice := domain.SquadMember{UserID: "alice", Name: "Alice"}
 	bob := domain.SquadMember{UserID: "bob", Name: "Bob"}
 
-	var gotMemberIDs []string
+	var (
+		gotMemberIDs []string
+		gotPage      pagination.Page
+	)
 
 	// Grouped by the database; "dev" left between the two calls.
 	groups := []domain.FavoriteGroup{
@@ -248,17 +255,21 @@ func TestListFavoritesAttachesMembers(t *testing.T) {
 		{PlaceID: "byg", VenueSnapshot: domain.VenueSnapshot{Name: "Byg Brewski"}, SavedBy: []string{"alice"}, LastSavedAt: day(18)},
 	}
 	uc := NewFavoriteUseCase(&fakeVenueRepo{
-		listFavoritesFn: func(_ context.Context, _ string, memberIDs []string) ([]domain.FavoriteGroup, error) {
+		listFavoritesFn: func(_ context.Context, _ string, memberIDs []string, page pagination.Page) ([]domain.FavoriteGroup, string, error) {
 			gotMemberIDs = memberIDs
+			gotPage = page
 
-			return groups, nil
+			return groups, "next-page", nil
 		},
 	}, fakeSquadDirectory{members: []domain.SquadMember{alice, bob}}, fakeVenueLookup{})
 
-	got, err := uc.List(t.Context(), "squad-1", "bob")
+	page := pagination.Page{Limit: 10, Cursor: "abc"}
+	got, next, err := uc.List(t.Context(), "squad-1", "bob", page)
 
 	require.NoError(t, err)
 	assert.Equal(t, []string{"alice", "bob"}, gotMemberIDs, "the database counts only current members")
+	assert.Equal(t, page, gotPage, "the page is passed through")
+	assert.Equal(t, "next-page", next)
 	assert.Equal(t, []domain.SquadFavorite{
 		{
 			PlaceID:       "toit",
@@ -279,9 +290,10 @@ func TestListFavoritesAttachesMembers(t *testing.T) {
 func TestListFavoritesEmptyIsNotNil(t *testing.T) {
 	uc := NewFavoriteUseCase(&fakeVenueRepo{}, fakeSquadDirectory{}, fakeVenueLookup{})
 
-	got, err := uc.List(t.Context(), "squad-1", "alice")
+	got, next, err := uc.List(t.Context(), "squad-1", "alice", firstPage)
 
 	require.NoError(t, err)
+	assert.Empty(t, next)
 	assert.NotNil(t, got)
 	assert.Empty(t, got)
 }

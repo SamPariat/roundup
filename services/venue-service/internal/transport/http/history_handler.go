@@ -7,6 +7,7 @@ import (
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 	"github.com/SamPariat/roundup/services/venue-service/internal/transport/http/dtos"
 	"github.com/SamPariat/roundup/shared/middleware"
+	"github.com/SamPariat/roundup/shared/pagination"
 	"github.com/SamPariat/roundup/shared/response"
 	"github.com/gofiber/fiber/v3"
 )
@@ -45,19 +46,26 @@ func (h *HistoryHandler) Record(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusCreated)
 }
 
-// List handles GET /api/v1/squads/:squadID/history.
+// List handles GET /api/v1/squads/:squadID/history?limit=&cursor=.
 func (h *HistoryHandler) List(c fiber.Ctx) error {
-	summaries, err := h.uc.List(c.Context(), c.Params("squadID"), middleware.UserIDFrom(c))
+	page, err := pagination.FromQuery(c.Query("limit"), c.Query("cursor"))
+	if err != nil {
+		return response.Error(c, fiber.StatusBadRequest, err)
+	}
+
+	summaries, next, err := h.uc.List(c.Context(), c.Params("squadID"), middleware.UserIDFrom(c), page)
 	if err != nil {
 		return response.Error(c, historyErrorStatus(err), err)
 	}
 
-	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.VisitHistoryToResponse(summaries)))
+	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.VisitHistoryToResponse(summaries, next)))
 }
 
 // historyErrorStatus maps domain sentinel errors to HTTP status codes for visit history.
 func historyErrorStatus(err error) int {
 	switch {
+	case errors.Is(err, pagination.ErrInvalid):
+		return fiber.StatusBadRequest
 	case errors.Is(err, domain.ErrSquadNotFound), errors.Is(err, domain.ErrVenueNotFound):
 		return fiber.StatusNotFound
 	case errors.Is(err, domain.ErrVisitAlreadyRecorded):

@@ -12,20 +12,32 @@ import (
 )
 
 const getVisitHistory = `-- name: GetVisitHistory :many
-SELECT place_id,
-       (ARRAY_AGG(name ORDER BY visited_at DESC))[1]::text            AS name,
-       (ARRAY_AGG(address ORDER BY visited_at DESC))[1]::text         AS address,
-       (ARRAY_AGG(photo_ref ORDER BY visited_at DESC))[1]::text       AS photo_ref,
-       (ARRAY_AGG(photo_width ORDER BY visited_at DESC))[1]::integer  AS photo_width,
-       (ARRAY_AGG(photo_height ORDER BY visited_at DESC))[1]::integer AS photo_height,
-       COUNT(*)                                                       AS visit_count,
-       MAX(visited_at)::timestamptz                                   AS last_visited_at,
-       COALESCE(ROUND(AVG(avg_spend_in_paise)), 0)::bigint            AS avg_spend_in_paise
-FROM venue_visits
-WHERE squad_id = $1
-GROUP BY place_id
-ORDER BY last_visited_at DESC
+SELECT h.place_id, h.name, h.address, h.photo_ref, h.photo_width, h.photo_height,
+       h.visit_count, h.last_visited_at, h.avg_spend_in_paise
+FROM (SELECT place_id,
+             (ARRAY_AGG(name ORDER BY visited_at DESC))[1]::text            AS name,
+             (ARRAY_AGG(address ORDER BY visited_at DESC))[1]::text         AS address,
+             (ARRAY_AGG(photo_ref ORDER BY visited_at DESC))[1]::text       AS photo_ref,
+             (ARRAY_AGG(photo_width ORDER BY visited_at DESC))[1]::integer  AS photo_width,
+             (ARRAY_AGG(photo_height ORDER BY visited_at DESC))[1]::integer AS photo_height,
+             COUNT(*)                                                       AS visit_count,
+             MAX(visited_at)::timestamptz                                   AS last_visited_at,
+             COALESCE(ROUND(AVG(avg_spend_in_paise)), 0)::bigint            AS avg_spend_in_paise
+      FROM venue_visits
+      WHERE squad_id = $1
+      GROUP BY place_id) h
+WHERE $2::timestamptz IS NULL
+   OR (h.last_visited_at, h.place_id) < ($2::timestamptz, $3::text)
+ORDER BY h.last_visited_at DESC, h.place_id DESC
+LIMIT $4
 `
+
+type GetVisitHistoryParams struct {
+	SquadID     string             `json:"squad_id"`
+	CursorAt    pgtype.Timestamptz `json:"cursor_at"`
+	CursorPlace pgtype.Text        `json:"cursor_place"`
+	Lim         int32              `json:"lim"`
+}
 
 type GetVisitHistoryRow struct {
 	PlaceID         string             `json:"place_id"`
@@ -39,12 +51,20 @@ type GetVisitHistoryRow struct {
 	AvgSpendInPaise int64              `json:"avg_spend_in_paise"`
 }
 
-// Summarises a squad's visits per venue, most recently visited first.
-// Display fields come from the latest visit. The average spend skips
+// Summarises one page of a squad's visits per venue, most recently visited
+// first. Display fields come from the latest visit. The average spend skips
 // unknown (NULL) values and is 0 when none are known.
+// A NULL cursor starts at the most recent; otherwise the page starts after
+// the (last_visited_at, place_id) the cursor names, filtered outside the
+// grouping because it compares grouped values.
 // The casts give sqlc concrete column types instead of interface{}.
-func (q *Queries) GetVisitHistory(ctx context.Context, squadID string) ([]GetVisitHistoryRow, error) {
-	rows, err := q.db.Query(ctx, getVisitHistory, squadID)
+func (q *Queries) GetVisitHistory(ctx context.Context, arg GetVisitHistoryParams) ([]GetVisitHistoryRow, error) {
+	rows, err := q.db.Query(ctx, getVisitHistory,
+		arg.SquadID,
+		arg.CursorAt,
+		arg.CursorPlace,
+		arg.Lim,
+	)
 	if err != nil {
 		return nil, err
 	}

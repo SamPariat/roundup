@@ -177,6 +177,19 @@ type SearchParams struct {
 
 	// Type is an optional provider category filter (e.g. "bar", "restaurant").
 	Type string
+
+	// PageToken is the previous page's SearchResult.NextPageToken, or "" for
+	// the first page. The provider fixes the page size.
+	PageToken string
+}
+
+// SearchResult is one page of nearby-search results.
+type SearchResult struct {
+	// Venues are this page's matches; empty, never nil, when there are none.
+	Venues []Venue
+
+	// NextPageToken fetches the next page; "" on the last page.
+	NextPageToken string
 }
 
 // Validate reports whether p describes a searchable area. It returns a

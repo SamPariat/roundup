@@ -3,13 +3,16 @@ package persistence
 import (
 	"context"
 	"strconv"
+	"time"
 
 	"github.com/SamPariat/roundup/services/user-service/internal/adapters/persistence/db"
 	"github.com/SamPariat/roundup/services/user-service/internal/domain"
 	"github.com/SamPariat/roundup/shared/domainerr"
+	"github.com/SamPariat/roundup/shared/pagination"
 	"github.com/SamPariat/roundup/shared/postgres"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -22,6 +25,13 @@ import (
 type PostgresSquadRepository struct {
 	pool    *pgxpool.Pool
 	queries *db.Queries
+}
+
+// squadCursor is the position after which the next page of a squad list
+// starts: the last squad's (created_at, id), the list's sort key.
+type squadCursor struct {
+	CreatedAt time.Time `json:"createdAt"`
+	ID        uuid.UUID `json:"id"`
 }
 
 // NewPostgresSquadRepository constructs a PostgresSquadRepository from a pgxpool.
@@ -87,16 +97,30 @@ func (r *PostgresSquadRepository) GetForMember(ctx context.Context, squadID, use
 }
 
 // ListForUser returns the squads userID belongs to, newest first.
-func (r *PostgresSquadRepository) ListForUser(ctx context.Context, userID string) ([]domain.SquadSummary, error) {
+func (r *PostgresSquadRepository) ListForUser(ctx context.Context, userID string, page pagination.Page) ([]domain.SquadSummary, string, error) {
 	uid, err := uuid.Parse(userID)
 	if err != nil {
-		return nil, domainerr.New(domain.ErrUserNotFound, userID)
+		return nil, "", domainerr.New(domain.ErrUserNotFound, userID)
 	}
 
-	rows, err := r.queries.ListSquadsForUser(ctx, uid)
-	if err != nil {
-		return nil, err
+	params := db.ListSquadsForUserParams{UserID: uid, Lim: int32(page.Limit + 1)}
+
+	if page.Cursor != "" {
+		var after squadCursor
+		if err := pagination.Decode(page.Cursor, &after); err != nil {
+			return nil, "", err
+		}
+
+		params.CursorAt = pgtype.Timestamptz{Time: after.CreatedAt, Valid: true}
+		params.CursorID = pgtype.UUID{Bytes: after.ID, Valid: true}
 	}
+
+	rows, err := r.queries.ListSquadsForUser(ctx, params)
+	if err != nil {
+		return nil, "", err
+	}
+
+	rows, more := pagination.Trim(rows, page.Limit)
 
 	squads := make([]domain.SquadSummary, 0, len(rows))
 	for _, row := range rows {
@@ -114,10 +138,16 @@ func (r *PostgresSquadRepository) ListForUser(ctx context.Context, userID string
 	}
 
 	if err := r.attachPreviews(ctx, squads); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	return squads, nil
+	if !more {
+		return squads, "", nil
+	}
+
+	last := rows[len(rows)-1]
+
+	return squads, pagination.Encode(squadCursor{CreatedAt: last.CreatedAt.Time, ID: last.ID}), nil
 }
 
 // ListMembers returns the squad's active members, earliest joiner first.

@@ -7,6 +7,7 @@ import (
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 	"github.com/SamPariat/roundup/services/venue-service/internal/transport/http/dtos"
 	"github.com/SamPariat/roundup/shared/middleware"
+	"github.com/SamPariat/roundup/shared/pagination"
 	"github.com/SamPariat/roundup/shared/response"
 	"github.com/gofiber/fiber/v3"
 )
@@ -56,19 +57,26 @@ func (h *FavoriteHandler) Remove(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
-// List handles GET /api/v1/squads/:squadID/favorites.
+// List handles GET /api/v1/squads/:squadID/favorites?limit=&cursor=.
 func (h *FavoriteHandler) List(c fiber.Ctx) error {
-	favorites, err := h.uc.List(c.Context(), c.Params("squadID"), middleware.UserIDFrom(c))
+	page, err := pagination.FromQuery(c.Query("limit"), c.Query("cursor"))
+	if err != nil {
+		return response.Error(c, fiber.StatusBadRequest, err)
+	}
+
+	favorites, next, err := h.uc.List(c.Context(), c.Params("squadID"), middleware.UserIDFrom(c), page)
 	if err != nil {
 		return response.Error(c, favoriteErrorStatus(err), err)
 	}
 
-	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.FavoritesToResponse(favorites)))
+	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.FavoritesToResponse(favorites, next)))
 }
 
 // favoriteErrorStatus maps domain sentinel errors to HTTP status codes for favorites.
 func favoriteErrorStatus(err error) int {
 	switch {
+	case errors.Is(err, pagination.ErrInvalid):
+		return fiber.StatusBadRequest
 	case errors.Is(err, domain.ErrNotSaved), errors.Is(err, domain.ErrSquadNotFound), errors.Is(err, domain.ErrVenueNotFound):
 		return fiber.StatusNotFound
 	case errors.Is(err, domain.ErrAlreadySaved):

@@ -20,15 +20,20 @@ WHERE s.id = $1
   AND m.user_id = $2;
 
 -- name: ListSquadsForUser :many
--- Lists the squads a user belongs to, newest first, with their role and the
--- member count.
+-- Lists one page of the squads a user belongs to, newest first, with their
+-- role and the member count. A NULL cursor starts at the newest; otherwise
+-- the page starts after the (created_at, id) the cursor names. id breaks ties
+-- so no squad is skipped or repeated between pages.
 SELECT s.*,
        m.role,
        (SELECT COUNT(*) FROM squad_members c WHERE c.squad_id = s.id) AS member_count
 FROM squads s
          JOIN squad_members m ON m.squad_id = s.id
-WHERE m.user_id = $1
-ORDER BY s.created_at DESC;
+WHERE m.user_id = sqlc.arg('user_id')
+  AND (sqlc.narg('cursor_at')::timestamptz IS NULL
+    OR (s.created_at, s.id) < (sqlc.narg('cursor_at')::timestamptz, sqlc.narg('cursor_id')::uuid))
+ORDER BY s.created_at DESC, s.id DESC
+LIMIT sqlc.arg('lim');
 
 -- name: ListSquadMembers :many
 -- Lists a squad's active members with their profile, earliest joiner first.

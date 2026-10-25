@@ -2,10 +2,12 @@ package persistence
 
 import (
 	"context"
+	"time"
 
 	"github.com/SamPariat/roundup/services/venue-service/internal/adapters/persistence/db"
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 	"github.com/SamPariat/roundup/shared/domainerr"
+	"github.com/SamPariat/roundup/shared/pagination"
 	"github.com/SamPariat/roundup/shared/postgres"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -15,6 +17,13 @@ import (
 // sqlc-generated queries.
 type PostgresVenueRepository struct {
 	queries *db.Queries
+}
+
+// placeCursor is the position after which the next page of favorites or
+// history starts: the last row's (time, place_id), both lists' sort key.
+type placeCursor struct {
+	At      time.Time `json:"at"`
+	PlaceID string    `json:"placeID"`
 }
 
 // NewPostgresVenueRepository constructs a PostgresVenueRepository from a pgxpool.
@@ -68,16 +77,27 @@ func (r *PostgresVenueRepository) RemoveFavorite(ctx context.Context, cmd domain
 	return nil
 }
 
-// ListSquadFavorites returns the squad's favorites grouped per venue by the
-// database, counting only saves by memberIDs.
-func (r *PostgresVenueRepository) ListSquadFavorites(ctx context.Context, squadID string, memberIDs []string) ([]domain.FavoriteGroup, error) {
+// ListSquadFavorites returns one page of the squad's favorites, grouped per
+// venue by the database and counting only saves by memberIDs, and the next
+// page's cursor ("" on the last page).
+func (r *PostgresVenueRepository) ListSquadFavorites(ctx context.Context, squadID string, memberIDs []string, page pagination.Page) ([]domain.FavoriteGroup, string, error) {
+	cursorAt, cursorPlace, err := decodePlaceCursor(page)
+	if err != nil {
+		return nil, "", err
+	}
+
 	rows, err := r.queries.ListSquadFavorites(ctx, db.ListSquadFavoritesParams{
-		SquadID:   squadID,
-		MemberIds: memberIDs,
+		SquadID:     squadID,
+		MemberIds:   memberIDs,
+		CursorAt:    cursorAt,
+		CursorPlace: cursorPlace,
+		Lim:         int32(page.Limit + 1),
 	})
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
+
+	rows, more := pagination.Trim(rows, page.Limit)
 
 	result := make([]domain.FavoriteGroup, 0, len(rows))
 	for _, row := range rows {
@@ -96,7 +116,13 @@ func (r *PostgresVenueRepository) ListSquadFavorites(ctx context.Context, squadI
 		})
 	}
 
-	return result, nil
+	if !more {
+		return result, "", nil
+	}
+
+	last := result[len(result)-1]
+
+	return result, pagination.Encode(placeCursor{At: last.LastSavedAt, PlaceID: last.PlaceID}), nil
 }
 
 // SavedInSquads returns the squads, among squadIDs, in which the user saved
@@ -139,12 +165,25 @@ func (r *PostgresVenueRepository) RecordVisit(ctx context.Context, cmd domain.Re
 	return nil
 }
 
-// GetVisitHistory returns aggregated visit summaries for all venues visited by the squad.
-func (r *PostgresVenueRepository) GetVisitHistory(ctx context.Context, squadID string) ([]domain.VisitSummary, error) {
-	rows, err := r.queries.GetVisitHistory(ctx, squadID)
+// GetVisitHistory returns one page of visit summaries per venue the squad
+// visited, most recent first, and the next page's cursor ("" on the last page).
+func (r *PostgresVenueRepository) GetVisitHistory(ctx context.Context, squadID string, page pagination.Page) ([]domain.VisitSummary, string, error) {
+	cursorAt, cursorPlace, err := decodePlaceCursor(page)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
+
+	rows, err := r.queries.GetVisitHistory(ctx, db.GetVisitHistoryParams{
+		SquadID:     squadID,
+		CursorAt:    cursorAt,
+		CursorPlace: cursorPlace,
+		Lim:         int32(page.Limit + 1),
+	})
+	if err != nil {
+		return nil, "", err
+	}
+
+	rows, more := pagination.Trim(rows, page.Limit)
 
 	result := make([]domain.VisitSummary, 0, len(rows))
 	for _, row := range rows {
@@ -159,7 +198,28 @@ func (r *PostgresVenueRepository) GetVisitHistory(ctx context.Context, squadID s
 		})
 	}
 
-	return result, nil
+	if !more {
+		return result, "", nil
+	}
+
+	last := result[len(result)-1]
+
+	return result, pagination.Encode(placeCursor{At: last.LastVisitedAt, PlaceID: last.PlaceID}), nil
+}
+
+// decodePlaceCursor turns page's cursor into the query's keyset arguments;
+// both are NULL for the first page.
+func decodePlaceCursor(page pagination.Page) (pgtype.Timestamptz, pgtype.Text, error) {
+	if page.Cursor == "" {
+		return pgtype.Timestamptz{}, pgtype.Text{}, nil
+	}
+
+	var after placeCursor
+	if err := pagination.Decode(page.Cursor, &after); err != nil {
+		return pgtype.Timestamptz{}, pgtype.Text{}, err
+	}
+
+	return pgtype.Timestamptz{Time: after.At, Valid: true}, pgtype.Text{String: after.PlaceID, Valid: true}, nil
 }
 
 // photoRef builds a domain.PhotoRef from the photo_ref, photo_width and

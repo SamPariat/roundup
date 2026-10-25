@@ -7,6 +7,7 @@ import (
 	"github.com/SamPariat/roundup/services/user-service/internal/domain"
 	"github.com/SamPariat/roundup/services/user-service/internal/transport/http/dtos"
 	"github.com/SamPariat/roundup/shared/middleware"
+	"github.com/SamPariat/roundup/shared/pagination"
 	"github.com/SamPariat/roundup/shared/response"
 	"github.com/gofiber/fiber/v3"
 )
@@ -41,14 +42,19 @@ func (h *SquadHandler) Create(c fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(response.OK(dtos.SquadToResponse(squad)))
 }
 
-// List handles GET /api/v1/squads: the caller's squads.
+// List handles GET /api/v1/squads?limit=&cursor=: one page of the caller's squads.
 func (h *SquadHandler) List(c fiber.Ctx) error {
-	squads, err := h.uc.List(c.Context(), middleware.UserIDFrom(c))
+	page, err := pagination.FromQuery(c.Query("limit"), c.Query("cursor"))
+	if err != nil {
+		return response.Error(c, fiber.StatusBadRequest, err)
+	}
+
+	squads, next, err := h.uc.List(c.Context(), middleware.UserIDFrom(c), page)
 	if err != nil {
 		return response.Error(c, squadErrorStatus(err), err)
 	}
 
-	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.SquadsToResponse(squads)))
+	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.SquadsToResponse(squads, next)))
 }
 
 // Get handles GET /api/v1/squads/:squadID. Non-members get 404. venue-service
@@ -141,7 +147,7 @@ func (h *SquadHandler) RemoveMember(c fiber.Ctx) error {
 func squadErrorStatus(err error) int {
 	switch {
 	case errors.Is(err, domain.ErrInvalidSquadName), errors.Is(err, domain.ErrInvalidPhone),
-		errors.Is(err, domain.ErrInvalidRole):
+		errors.Is(err, domain.ErrInvalidRole), errors.Is(err, pagination.ErrInvalid):
 		return fiber.StatusBadRequest
 	case errors.Is(err, domain.ErrForbidden):
 		return fiber.StatusForbidden

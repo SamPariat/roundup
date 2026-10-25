@@ -11,15 +11,21 @@ import (
 type Querier interface {
 	// Saves a venue for a user within a squad, with a snapshot of its display fields.
 	AddFavorite(ctx context.Context, arg AddFavoriteParams) error
-	// Summarises a squad's visits per venue, most recently visited first.
-	// Display fields come from the latest visit. The average spend skips
+	// Summarises one page of a squad's visits per venue, most recently visited
+	// first. Display fields come from the latest visit. The average spend skips
 	// unknown (NULL) values and is 0 when none are known.
+	// A NULL cursor starts at the most recent; otherwise the page starts after
+	// the (last_visited_at, place_id) the cursor names, filtered outside the
+	// grouping because it compares grouped values.
 	// The casts give sqlc concrete column types instead of interface{}.
-	GetVisitHistory(ctx context.Context, squadID string) ([]GetVisitHistoryRow, error)
-	// Lists a squad's favorites, one row per venue, most recently saved first.
-	// Only saves by member_ids (the squad's current members) count, so a venue
-	// saved only by people who left is not listed. Display fields come from the
-	// latest save; saved_by lists who saved it, most recent first.
+	GetVisitHistory(ctx context.Context, arg GetVisitHistoryParams) ([]GetVisitHistoryRow, error)
+	// Lists one page of a squad's favorites, one row per venue, most recently
+	// saved first. Only saves by member_ids (the squad's current members) count,
+	// so a venue saved only by people who left is not listed. Display fields come
+	// from the latest save; saved_by lists who saved it, most recent first.
+	// A NULL cursor starts at the newest; otherwise the page starts after the
+	// (last_saved_at, place_id) the cursor names. The keyset compares grouped
+	// values, so it filters the grouped rows in an outer query.
 	// The casts give sqlc concrete column types instead of interface{}.
 	ListSquadFavorites(ctx context.Context, arg ListSquadFavoritesParams) ([]ListSquadFavoritesRow, error)
 	// Records one squad visit to a venue during an event, with a snapshot of its display fields.
