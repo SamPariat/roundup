@@ -12,10 +12,14 @@ import (
 
 // apiError is a non-2xx answer from Places API (New).
 type apiError struct {
-	status  int
-	code    string // e.g. "INVALID_ARGUMENT"
+	// status is the HTTP status code.
+	status int
+	// code is Google's status name, e.g. "INVALID_ARGUMENT".
+	code string
+	// message is Google's human-readable explanation.
 	message string
-	reason  string // from the ErrorInfo detail, e.g. "API_KEY_INVALID"
+	// reason is the ErrorInfo detail's reason, e.g. "API_KEY_INVALID"; "" when absent.
+	reason string
 }
 
 func (e *apiError) Error() string {
@@ -30,73 +34,121 @@ func (e *apiError) keyInvalid() bool {
 
 // searchTextRequest is the body of places:searchText.
 type searchTextRequest struct {
-	TextQuery           string              `json:"textQuery"`
-	IncludedType        string              `json:"includedType,omitempty"`
-	StrictTypeFiltering bool                `json:"strictTypeFiltering,omitempty"`
-	PageSize            int                 `json:"pageSize"`
-	PageToken           string              `json:"pageToken,omitempty"`
+	// TextQuery is what to look for, e.g. "rooftop bar".
+	TextQuery string `json:"textQuery"`
+	// IncludedType limits results to one Google place type, e.g. "bar"; omitted when empty.
+	IncludedType string `json:"includedType,omitempty"`
+	// StrictTypeFiltering drops places that don't have IncludedType.
+	StrictTypeFiltering bool `json:"strictTypeFiltering,omitempty"`
+	// PageSize is how many places one page holds, at most 20.
+	PageSize int `json:"pageSize"`
+	// PageToken is the previous page's NextPageToken; omitted for the first page.
+	PageToken string `json:"pageToken,omitempty"`
+	// LocationRestriction excludes places outside the search area.
 	LocationRestriction locationRestriction `json:"locationRestriction"`
 }
 
+// locationRestriction is a hard search area; Text Search only accepts a rectangle.
 type locationRestriction struct {
+	// Rectangle is the area results must fall inside.
 	Rectangle rectangle `json:"rectangle"`
 }
 
+// rectangle is a viewport given by two corners.
 type rectangle struct {
-	Low  latLng `json:"low"`
+	// Low is the south-west corner.
+	Low latLng `json:"low"`
+	// High is the north-east corner. A High longitude below Low's crosses 180°.
 	High latLng `json:"high"`
 }
 
+// latLng is a WGS-84 point.
 type latLng struct {
-	Latitude  float64 `json:"latitude"`
+	// Latitude in degrees, -90 to 90.
+	Latitude float64 `json:"latitude"`
+	// Longitude in degrees, -180 to 180.
 	Longitude float64 `json:"longitude"`
 }
 
+// searchTextResponse is one page of places:searchText results.
 type searchTextResponse struct {
-	Places        []place `json:"places"`
-	NextPageToken string  `json:"nextPageToken"`
+	// Places are this page's matches; absent when there are none.
+	Places []place `json:"places"`
+	// NextPageToken fetches the next page; "" on the last page.
+	NextPageToken string `json:"nextPageToken"`
 }
 
 // place is a Place resource; only the fields in the masks are filled.
 type place struct {
-	ID                       string         `json:"id"`
-	DisplayName              localizedText  `json:"displayName"`
-	FormattedAddress         string         `json:"formattedAddress"`
-	Location                 latLng         `json:"location"`
-	Rating                   float32        `json:"rating"`
-	UserRatingCount          int            `json:"userRatingCount"`
-	PriceLevel               string         `json:"priceLevel"`
-	Types                    []string       `json:"types"`
-	CurrentOpeningHours      *openingHours  `json:"currentOpeningHours"`
-	RegularOpeningHours      *openingHours  `json:"regularOpeningHours"`
-	Photos                   []photo        `json:"photos"`
-	InternationalPhoneNumber string         `json:"internationalPhoneNumber"`
-	WebsiteURI               string         `json:"websiteUri"`
-	Reviews                  []review       `json:"reviews"`
-	EditorialSummary         *localizedText `json:"editorialSummary"`
+	// ID is the Google Place ID.
+	ID string `json:"id"`
+	// DisplayName is the place's name in the local language.
+	DisplayName localizedText `json:"displayName"`
+	// FormattedAddress is the full street address.
+	FormattedAddress string `json:"formattedAddress"`
+	// Location is where the place is.
+	Location latLng `json:"location"`
+	// Rating is the average rating, 1–5; 0 when unrated.
+	Rating float32 `json:"rating"`
+	// UserRatingCount is how many ratings Rating is based on.
+	UserRatingCount int `json:"userRatingCount"`
+	// PriceLevel is Google's price enum, e.g. "PRICE_LEVEL_MODERATE"; "" when unknown.
+	PriceLevel string `json:"priceLevel"`
+	// Types are Google's category tags, e.g. "bar", "restaurant".
+	Types []string `json:"types"`
+	// CurrentOpeningHours carries OpenNow; nil when Google doesn't know the hours.
+	CurrentOpeningHours *openingHours `json:"currentOpeningHours"`
+	// RegularOpeningHours carries the weekly schedule; nil when unknown.
+	RegularOpeningHours *openingHours `json:"regularOpeningHours"`
+	// Photos are up to 10 photos, best first.
+	Photos []photo `json:"photos"`
+	// InternationalPhoneNumber is the phone number with its country code.
+	InternationalPhoneNumber string `json:"internationalPhoneNumber"`
+	// WebsiteURI is the place's own website.
+	WebsiteURI string `json:"websiteUri"`
+	// Reviews are up to 5 recent reviews.
+	Reviews []review `json:"reviews"`
+	// EditorialSummary is Google's one-line description; nil when there is none.
+	EditorialSummary *localizedText `json:"editorialSummary"`
 }
 
+// localizedText is text in one language.
 type localizedText struct {
+	// Text is the text itself.
 	Text string `json:"text"`
 }
 
+// openingHours is the part of Google's opening hours the adapter reads.
 type openingHours struct {
-	OpenNow             *bool    `json:"openNow"`
+	// OpenNow is whether the place is open right now; nil when unknown.
+	OpenNow *bool `json:"openNow"`
+	// WeekdayDescriptions are one line per day, e.g. "Monday: 12:00 PM – 1:30 AM",
+	// with narrow no-break spaces around the times.
 	WeekdayDescriptions []string `json:"weekdayDescriptions"`
 }
 
+// photo is a reference to one place photo.
 type photo struct {
-	Name     string `json:"name"`
-	WidthPx  int    `json:"widthPx"`
-	HeightPx int    `json:"heightPx"`
+	// Name is the photo's resource name, places/{placeId}/photos/{ref}.
+	Name string `json:"name"`
+	// WidthPx is the original width in pixels.
+	WidthPx int `json:"widthPx"`
+	// HeightPx is the original height in pixels.
+	HeightPx int `json:"heightPx"`
 }
 
+// review is one user review.
 type review struct {
-	Rating            float32        `json:"rating"`
-	Text              *localizedText `json:"text"`
+	// Rating is the reviewer's score, 1–5.
+	Rating float32 `json:"rating"`
+	// Text is the review body; nil for a rating without text.
+	Text *localizedText `json:"text"`
+	// AuthorAttribution names the reviewer.
 	AuthorAttribution struct {
+		// DisplayName is the reviewer's public name.
 		DisplayName string `json:"displayName"`
 	} `json:"authorAttribution"`
+	// PublishTime is when the review was posted.
 	PublishTime time.Time `json:"publishTime"`
 }
 
