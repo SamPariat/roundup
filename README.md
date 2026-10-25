@@ -244,7 +244,7 @@ Or use the Makefile shortcuts, e.g. `make auth-run`, `make user-run`, `make venu
 | gateway              | Go       | 8080 | Routes /api/v1, verifies access tokens |
 | auth-service         | Go       | 3001 | Phone OTP login, JWT issuing            |
 | user-service         | Go       | 3002 | Profiles, squads, device tokens         |
-| event-service        | Go       | 3003 | Outing lifecycle, RSVP, voting          |
+| event-service        | Go       | 3003 | Events, RSVPs, suggestions, open votes  |
 | billing-service      | Go       | 3004 | Bill tab, split strategies, debt graph  |
 | venue-service        | Go       | 3006 | Google Places facade, Redis cache       |
 | notification-service | Go       | 3007 | FCM push, WhatsApp                      |

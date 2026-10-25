@@ -67,9 +67,9 @@ func (u *upstream) last(t *testing.T) seen {
 }
 
 type fixture struct {
-	app               *fiber.App
-	auth, user, venue *upstream
-	token             string
+	app                      *fiber.App
+	auth, user, event, venue *upstream
+	token                    string
 }
 
 func newFixture(t *testing.T) *fixture {
@@ -80,10 +80,10 @@ func newFixture(t *testing.T) *fixture {
 	token, _, err := authtoken.Sign(priv, userID, time.Minute)
 	require.NoError(t, err)
 
-	f := &fixture{auth: newUpstream(t, "auth"), user: newUpstream(t, "user"), venue: newUpstream(t, "venue"), token: token}
+	f := &fixture{auth: newUpstream(t, "auth"), user: newUpstream(t, "user"), event: newUpstream(t, "event"), venue: newUpstream(t, "venue"), token: token}
 	f.app = fiber.New()
 	f.app.Use(sharedmw.GenerateRequestID(), middleware.StripIdentity())
-	RegisterRoutes(f.app, config.Upstreams{Auth: f.auth.srv.URL, User: f.user.srv.URL, Venue: f.venue.srv.URL}, pub, 2*time.Second)
+	RegisterRoutes(f.app, config.Upstreams{Auth: f.auth.srv.URL, User: f.user.srv.URL, Event: f.event.srv.URL, Venue: f.venue.srv.URL}, pub, 2*time.Second)
 
 	return f
 }
@@ -119,6 +119,8 @@ func TestRoutesToUpstreams(t *testing.T) {
 		{"SquadFavorites", http.MethodPost, "/api/v1/squads/s1/favorites/", `{"placeID":"p1"}`, true, func(f *fixture) *upstream { return f.venue }, userID},
 		{"SquadFavoriteRemove", http.MethodDelete, "/api/v1/squads/s1/favorites/p1", "", true, func(f *fixture) *upstream { return f.venue }, userID},
 		{"SquadHistory", http.MethodGet, "/api/v1/squads/s1/history", "", true, func(f *fixture) *upstream { return f.venue }, userID},
+		{"SquadEvents", http.MethodPost, "/api/v1/squads/s1/events", `{"name":"Friday"}`, true, func(f *fixture) *upstream { return f.event }, userID},
+		{"EventVote", http.MethodPut, "/api/v1/events/e1/vote", `{"placeID":"p1"}`, true, func(f *fixture) *upstream { return f.event }, userID},
 		{"CreateSquad", http.MethodPost, "/api/v1/squads", `{"name":"Friday crew"}`, true, func(f *fixture) *upstream { return f.user }, userID},
 		{"ListSquads", http.MethodGet, "/api/v1/squads/", "", true, func(f *fixture) *upstream { return f.user }, userID},
 		{"GetSquad", http.MethodGet, "/api/v1/squads/s1", "", true, func(f *fixture) *upstream { return f.user }, userID},
@@ -148,12 +150,13 @@ func TestRoutesToUpstreams(t *testing.T) {
 func TestProtectedRoutesNeedToken(t *testing.T) {
 	f := newFixture(t)
 
-	for _, path := range []string{"/api/v1/users/me", "/api/v1/venues/", "/api/v1/squads/s1/history/", "/api/v1/squads", "/api/v1/squads/s1/members"} {
+	for _, path := range []string{"/api/v1/users/me", "/api/v1/venues/", "/api/v1/squads/s1/history/", "/api/v1/squads", "/api/v1/squads/s1/members", "/api/v1/squads/s1/events", "/api/v1/events/e1"} {
 		resp := f.do(t, http.MethodGet, path, "", false)
 		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, path)
 	}
 
 	assert.Empty(t, f.user.got)
+	assert.Empty(t, f.event.got)
 	assert.Empty(t, f.venue.got)
 }
 
@@ -180,7 +183,7 @@ func TestUpstreamDownIsBadGateway(t *testing.T) {
 func TestUnbuiltServices(t *testing.T) {
 	f := newFixture(t)
 
-	assert.Equal(t, http.StatusNotImplemented, f.do(t, http.MethodGet, "/api/v1/events/123", "", false).StatusCode)
+	assert.Equal(t, http.StatusNotImplemented, f.do(t, http.MethodGet, "/api/v1/billing/123", "", false).StatusCode)
 }
 
 func TestClientRequestIDIsReplaced(t *testing.T) {

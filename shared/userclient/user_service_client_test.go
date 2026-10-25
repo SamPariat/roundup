@@ -7,6 +7,7 @@ import (
 	"time"
 
 	sharedmw "github.com/SamPariat/roundup/shared/middleware"
+	"github.com/SamPariat/roundup/shared/serviceclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -121,8 +122,7 @@ func TestMembersTimesOut(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	client := NewUserServiceClient(srv.URL)
-	client.http.Timeout = 50 * time.Millisecond
+	client := &UserServiceClient{client: serviceclient.New(srv.URL, 50*time.Millisecond)}
 
 	_, err := client.Members(t.Context(), squadID, userID)
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/SamPariat/roundup/services/auth-service/internal/domain"
 	sharedmw "github.com/SamPariat/roundup/shared/middleware"
+	"github.com/SamPariat/roundup/shared/serviceclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -84,8 +85,7 @@ func TestEnsureUserTimesOut(t *testing.T) {
 		time.Sleep(200 * time.Millisecond)
 	}))
 	t.Cleanup(srv.Close)
-	client := NewUserServiceClient(srv.URL)
-	client.http.Timeout = 50 * time.Millisecond
+	client := &UserServiceClient{client: serviceclient.New(srv.URL, 50*time.Millisecond)}
 
 	_, _, err := client.EnsureUser(t.Context(), "+919876543210")
 

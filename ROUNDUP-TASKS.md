@@ -315,71 +315,54 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 
 ## Event Service `[Go]`
 
+Built in PR B. See `services/event-service/ARCHITECTURE.md`. Kafka publishing is replaced by direct calls; invites and guests are deferred.
+
 ### Project setup
 
-- [ ] `go mod init github.com/SamPariat/roundup/services/event-service` — venue-service layout
-- [ ] Hand-rolled state machine (no external lib)
-- [ ] Write `Dockerfile`
+- [x] `go mod init github.com/SamPariat/roundup/services/event-service` — venue-service layout
+- [x] Hand-rolled state machine (no external lib)
+- [x] Write `Dockerfile`
 
 ### Database schema (goose migrations)
 
-- [ ] `0001_create_events.sql` — id, squad_id, name, type (DRINKS/DINING/BOTH), status, created_by, deadline, created_at
-- [ ] `0002_create_event_members.sql` — event_id, user_id, rsvp_status, is_guest, joined_at
-- [ ] `0003_create_votes.sql` — event_id, user_id, venue_id, cast_at
-- [ ] `0004_create_invite_links.sql` — token (uuid), event_id, created_by, expires_at, max_uses, use_count
-- [ ] Add indexes on all foreign keys and status columns
+- [x] `0001_create_events.sql` — status, times, winner place
+- [x] `0002_create_event_rsvps.sql` — one answer per member; no row = pending
+- [x] `0003_create_nominations.sql` — suggested places with a venue snapshot
+- [x] `0004_create_votes.sql` — one vote per member, kept after close
+- [x] Indexes for the squad list and the due sweeps
 
 ### State machine
 
-- [ ] `EventStatus` type: `DRAFT`, `VOTING`, `CONFIRMED`, `ACTIVE`, `CLOSED`
-- [ ] Transition map in `domain/event_state.go`
-- [ ] `Transition(current, next)` — returns `ErrInvalidTransition`
-- [ ] Unit test every valid transition
-- [ ] Unit test every invalid transition errors
-
-### Domain & repositories
-
-- [ ] `Event`, `EventMember`, `Vote`, `InviteLink` domain types
-- [ ] `EventRepository` port + Postgres adapter (sqlc)
+- [x] `Status`: `DRAFT`, `VOTING`, `CONFIRMED`, `ACTIVE`, `CLOSED`; `CanMoveTo` allows only the next step
+- [x] Unit test every status pair
+- [x] Status checks repeated inside each guarded SQL write
 
 ### Use cases
 
-- [ ] `EventUseCase` — create, open voting, confirm venue, open tab, close, get, list squad events (paginated)
-- [ ] `RSVPUseCase` — update RSVP (GOING / NOT_GOING / MAYBE), headcount; publish `rsvp.updated`
-- [ ] `VotingUseCase` — cast vote (one per user per event), tally, resolve winner
-- [ ] `InviteUseCase` — generate link, validate (not expired, under max uses), redeem as guest
-- [ ] `GuestUseCase` — join as guest with phone + name
+- [x] Create, list (paged, open first), get, edit
+- [x] RSVP (GOING / MAYBE / NOT_GOING)
+- [x] Suggest and withdraw places (snapshot from venue-service)
+- [x] Open votes; winner = most votes, tie → earliest suggestion
+- [x] Start/close voting, start the night, close the night (records the visit)
+- [x] Internal `confirm-due` and `close-due` sweeps for scheduler-service
+- [x] Permissions from `policy.csv` (MEMBER, ADMIN, CREATOR)
+- [ ] `ACTIVE` opens and closes the bill — needs billing-service (PR C)
+- [ ] Invite links and guests — deferred
 
 ### Controllers (REST)
 
-- [ ] `POST /api/v1/events` — create outing
-- [ ] `GET /api/v1/events/:id` — get event detail
-- [ ] `GET /api/v1/events` — get events for my squads
-- [ ] `PATCH /api/v1/events/:id/status` — transition status
-- [ ] `POST /api/v1/events/:id/rsvp` — update my RSVP
-- [ ] `GET /api/v1/events/:id/rsvp` — get all RSVPs
-- [ ] `POST /api/v1/events/:id/votes` — cast vote
-- [ ] `GET /api/v1/events/:id/votes` — get tally
-- [ ] `POST /api/v1/events/:id/invite` — generate invite link
-- [ ] `POST /api/v1/invites/:token/redeem` — join via link
-- [ ] `GET /api/v1/events/:id/members` — list members + RSVP status
-
-### Kafka events (publish)
-
-- [ ] `event.created` — on new event
-- [ ] `rsvp.updated` — on any RSVP change
-- [ ] `vote.cast` — on new vote
-- [ ] `event.confirmed` — on venue confirmed
-- [ ] `event.closed` — on event close
+- [x] `GET/POST /api/v1/squads/:squadID/events`
+- [x] `GET/PATCH /api/v1/events/:eventID`
+- [x] `PUT /api/v1/events/:eventID/rsvp`
+- [x] `POST /api/v1/events/:eventID/nominations`, `DELETE …/nominations/:placeID`
+- [x] `PUT /api/v1/events/:eventID/vote`
+- [x] `POST /api/v1/events/:eventID/voting/start`, `…/voting/close`, `…/start`, `…/close`
+- [x] `POST /internal/v1/events/confirm-due`, `…/close-due`
 
 ### Tests
 
-- [ ] Unit test state machine — all transitions
-- [ ] Unit test vote resolution — tie-breaking
-- [ ] Unit test invite expiry validation
-- [ ] E2E test full event lifecycle DRAFT → CLOSED
-
----
+- [x] Domain, policy, use cases (fakes), Postgres repository, venue client, routes vs spec
+- [x] Concurrent sweeps move each event exactly once
 
 ## Billing Service `[Go]`
 
@@ -515,7 +498,7 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 
 ### Recording visits automatically
 
-- [ ] Record a visit when an event is confirmed (needs event-service; called directly, not through Kafka)
+- [x] Record a visit when an event closes (event-service calls it directly, not through Kafka)
 
 ### Tests
 

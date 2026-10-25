@@ -5,7 +5,6 @@ package userclient
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -15,9 +14,8 @@ import (
 
 	"github.com/SamPariat/roundup/shared/api"
 	"github.com/SamPariat/roundup/shared/domainerr"
-	sharedmw "github.com/SamPariat/roundup/shared/middleware"
 	"github.com/SamPariat/roundup/shared/pagination"
-	"github.com/SamPariat/roundup/shared/response"
+	"github.com/SamPariat/roundup/shared/serviceclient"
 )
 
 var (
@@ -33,15 +31,25 @@ var (
 // SquadMember is a squad member as user-service describes them. Role is the
 // squad role, "ADMIN" or "MEMBER".
 type SquadMember struct {
-	UserID    string
-	Name      string
+	// UserID is the member's user ID.
+	UserID string
+
+	// Name is the member's display name.
+	Name string
+
+	// AvatarURL is the member's avatar; "" when they have none.
 	AvatarURL string
-	Role      string
+
+	// Role is the squad role, "ADMIN" or "MEMBER".
+	Role string
 }
 
 // Squad is a squad as it appears in a user's list.
 type Squad struct {
-	ID   string
+	// ID is the squad's UUID.
+	ID string
+
+	// Name is the squad's display name.
 	Name string
 }
 
@@ -52,33 +60,45 @@ const requestTimeout = 3 * time.Second
 // UserServiceClient calls user-service directly (not through the gateway) as
 // the caller, so user-service's own membership rules apply.
 type UserServiceClient struct {
-	baseURL string
-	http    *http.Client
+	client *serviceclient.Client
 }
 
 // NewUserServiceClient constructs a client for the user-service at baseURL,
 // e.g. "http://localhost:3002".
 func NewUserServiceClient(baseURL string) *UserServiceClient {
-	return &UserServiceClient{baseURL: baseURL, http: &http.Client{Timeout: requestTimeout}}
+	return &UserServiceClient{client: serviceclient.New(baseURL, requestTimeout)}
 }
 
 // squadDetail is the part of user-service's GET /squads/{id} body we read.
 type squadDetail struct {
+	// Members are the squad's members.
 	Members []struct {
-		UserID    string `json:"userID"`
-		Name      string `json:"name"`
+		// UserID is the member's user ID.
+		UserID string `json:"userID"`
+
+		// Name is the member's display name.
+		Name string `json:"name"`
+
+		// AvatarURL is the member's avatar; "" when they have none.
 		AvatarURL string `json:"avatarURL"`
-		Role      string `json:"role"`
+
+		// Role is "ADMIN" or "MEMBER".
+		Role string `json:"role"`
 	} `json:"members"`
 }
 
 // squadList is the part of user-service's GET /squads body we read.
 type squadList struct {
+	// Squads are this page of the caller's squads.
 	Squads []struct {
-		ID   string `json:"id"`
+		// ID is the squad's UUID.
+		ID string `json:"id"`
+
+		// Name is the squad's display name.
 		Name string `json:"name"`
 	} `json:"squads"`
 
+	// NextCursor fetches the next page; null on the last page.
 	NextCursor *string `json:"nextCursor"`
 }
 
@@ -140,18 +160,7 @@ func (c *UserServiceClient) Squads(ctx context.Context, userID string) ([]Squad,
 // It returns the status for 200 and 404 and ErrUserServiceUnavailable for
 // anything else, a transport failure, or an undecodable body.
 func (c *UserServiceClient) get(ctx context.Context, path, userID string, out any) (int, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
-	if err != nil {
-		return 0, err
-	}
-
-	req.Header.Set(sharedmw.UserIDHeader, userID)
-	// Pass the request ID on so user-service logs the same ID.
-	if id := sharedmw.RequestIDFromContext(ctx); id != "" {
-		req.Header.Set(sharedmw.RequestIDHeader, id)
-	}
-
-	resp, err := c.http.Do(req)
+	resp, err := c.client.Do(ctx, http.MethodGet, path, userID, nil)
 	if err != nil {
 		return 0, unavailable(err.Error())
 	}
@@ -159,9 +168,8 @@ func (c *UserServiceClient) get(ctx context.Context, path, userID string, out an
 
 	switch resp.StatusCode {
 	case http.StatusOK:
-		envelope := response.Response[any]{Data: out}
-		if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
-			return 0, unavailable("decode response: " + err.Error())
+		if err := serviceclient.DecodeData(resp.Body, out); err != nil {
+			return 0, unavailable(err.Error())
 		}
 
 		return resp.StatusCode, nil

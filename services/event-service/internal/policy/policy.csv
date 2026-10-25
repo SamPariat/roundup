@@ -1,0 +1,16 @@
+p, MEMBER, event:create
+p, MEMBER, event:rsvp
+p, MEMBER, event:nominate
+p, MEMBER, event:vote
+p, MEMBER, event:remove_own_nomination
+p, ADMIN, event:create
+p, ADMIN, event:rsvp
+p, ADMIN, event:nominate
+p, ADMIN, event:vote
+p, ADMIN, event:remove_own_nomination
+p, ADMIN, event:remove_nomination
+p, ADMIN, event:edit
+p, ADMIN, event:manage
+p, CREATOR, event:remove_nomination
+p, CREATOR, event:edit
+p, CREATOR, event:manage

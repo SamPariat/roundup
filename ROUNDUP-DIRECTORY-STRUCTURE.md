@@ -209,25 +209,29 @@ db/migrations/
 ```
 internal/
 ├── domain/
-│   ├── event.go
-│   ├── event_state.go                   # DRAFT → VOTING → CONFIRMED → ACTIVE → CLOSED
-│   ├── member.go
-│   ├── vote.go
-│   └── invite.go
+│   ├── event.go                         # DRAFT → VOTING → CONFIRMED → ACTIVE → CLOSED
+│   ├── schedule.go                      # start time and voting deadline rules
+│   ├── rsvp.go
+│   ├── nomination.go                    # Place, Nomination, Vote
+│   ├── authz.go                         # roles (incl. CREATOR), actions
+│   ├── view.go                          # EventSummary, EventDetail, Permissions
+│   ├── port.go
+│   └── errors.go
+├── policy/policy.csv
 ├── application/
-│   ├── event_usecase.go
-│   ├── rsvp_usecase.go
-│   ├── voting_usecase.go
-│   ├── invite_usecase.go
-│   └── guest_usecase.go
-└── adapters/kafka/
-    ├── publisher.go
-    └── consumer.go
+│   ├── event_usecase.go                 # create, list, get, update
+│   ├── participation.go                 # RSVP, suggest, vote
+│   ├── lifecycle.go                     # start/close voting, start/close night, due sweeps
+│   └── view.go
+├── adapters/
+│   ├── persistence/
+│   └── venues/                          # venue-service client
+└── transport/http/
 db/migrations/
 ├── 0001_create_events.sql
-├── 0002_create_event_members.sql
-├── 0003_create_votes.sql
-└── 0004_create_invite_links.sql
+├── 0002_create_event_rsvps.sql
+├── 0003_create_nominations.sql
+└── 0004_create_votes.sql
 ```
 
 ### billing-service

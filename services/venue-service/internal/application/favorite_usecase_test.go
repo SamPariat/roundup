@@ -173,10 +173,10 @@ func TestNonMembersNeverReachTheRepository(t *testing.T) {
 func TestAddFavoriteStoresSnapshotOfDetail(t *testing.T) {
 	var got domain.VenueSnapshot
 
-	detail := domain.VenueDetail{Venue: domain.Venue{
+	detail := domain.VenueDetail{
 		Name: "The Rooftop", Address: "12 Church St", AverageRating: 4.5, RatingCount: 1240, PriceLevel: 2,
 		PhotoRefs: []domain.PhotoRef{{Reference: "first", Width: 800, Height: 600}, {Reference: "second"}},
-	}}
+	}
 	uc := NewFavoriteUseCase(&fakeVenueRepo{
 		addFavoriteFn: func(_ context.Context, _ domain.AddFavoriteCommand, snapshot domain.VenueSnapshot) error {
 			got = snapshot
@@ -251,8 +251,8 @@ func TestListFavoritesAttachesMembers(t *testing.T) {
 
 	// Grouped by the database; "dev" left between the two calls.
 	groups := []domain.FavoriteGroup{
-		{PlaceID: "toit", VenueSnapshot: domain.VenueSnapshot{Name: "Toit Brewpub"}, SavedBy: []string{"bob", "dev", "alice"}, LastSavedAt: day(20)},
-		{PlaceID: "byg", VenueSnapshot: domain.VenueSnapshot{Name: "Byg Brewski"}, SavedBy: []string{"alice"}, LastSavedAt: day(18)},
+		{PlaceID: "toit", Name: "Toit Brewpub", SavedBy: []string{"bob", "dev", "alice"}, LastSavedAt: day(20)},
+		{PlaceID: "byg", Name: "Byg Brewski", SavedBy: []string{"alice"}, LastSavedAt: day(18)},
 	}
 	uc := NewFavoriteUseCase(&fakeVenueRepo{
 		listFavoritesFn: func(_ context.Context, _ string, memberIDs []string, page pagination.Page) ([]domain.FavoriteGroup, string, error) {
@@ -272,17 +272,17 @@ func TestListFavoritesAttachesMembers(t *testing.T) {
 	assert.Equal(t, "next-page", next)
 	assert.Equal(t, []domain.SquadFavorite{
 		{
-			PlaceID:       "toit",
-			VenueSnapshot: domain.VenueSnapshot{Name: "Toit Brewpub"},
-			SavedBy:       []domain.SquadMember{bob, alice},
-			SavedByMe:     true,
-			LastSavedAt:   day(20),
+			PlaceID:     "toit",
+			Name:        "Toit Brewpub",
+			SavedBy:     []domain.SquadMember{bob, alice},
+			SavedByMe:   true,
+			LastSavedAt: day(20),
 		},
 		{
-			PlaceID:       "byg",
-			VenueSnapshot: domain.VenueSnapshot{Name: "Byg Brewski"},
-			SavedBy:       []domain.SquadMember{alice},
-			LastSavedAt:   day(18),
+			PlaceID:     "byg",
+			Name:        "Byg Brewski",
+			SavedBy:     []domain.SquadMember{alice},
+			LastSavedAt: day(18),
 		},
 	}, got, "IDs become members, in order; an unknown ID is skipped")
 }

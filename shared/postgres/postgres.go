@@ -8,10 +8,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/SamPariat/roundup/shared/domainerr"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -59,6 +61,11 @@ func NoRowsAs(err, sentinel error, detail string) error {
 	}
 
 	return err
+}
+
+// Timestamptz converts t to a non-NULL timestamptz query parameter.
+func Timestamptz(t time.Time) pgtype.Timestamptz {
+	return pgtype.Timestamptz{Time: t, Valid: true}
 }
 
 // InTx runs fn in a transaction, committing only if fn returns nil; any error

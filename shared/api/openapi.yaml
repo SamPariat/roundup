@@ -16,8 +16,8 @@ info:
     - **Request IDs:** the gateway generates a fresh `X-Request-ID` for every
       request (a client-sent one is ignored) and returns it on the response.
       Quote it when reporting a problem.
-    - `/api/v1/events`, `/billing`, `/media` and `/realtime` are reserved and
-      answer 501 until those services exist.
+    - `/api/v1/billing`, `/media` and `/realtime` are reserved and answer 501
+      until those services exist.
 
     This file is checked against every service's router in tests
     (`TestRoutesAreDocumented`), so a new route fails CI until it is added here.
@@ -41,6 +41,8 @@ tags:
     description: Venues a user saved for a squad.
   - name: History
     description: Venues a squad has visited.
+  - name: Events
+    description: Nights out planned by a squad. DRAFT → VOTING → CONFIRMED → ACTIVE → CLOSED.
   - name: Health
     description: Liveness and readiness probes. Every service exposes these.
   - name: Internal
@@ -964,6 +966,540 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  # ─── Events ──────────────────────────────────────────────────────────────
+
+  /api/v1/squads/{squadID}/events:
+    x-service: event-service
+    parameters:
+      - $ref: '#/components/parameters/SquadID'
+    get:
+      tags: [Events]
+      operationId: listSquadEvents
+      summary: List the squad's events
+      description: |
+        Open events soonest first, then closed ones most recent first, each with
+        RSVP counts, up to 5 going members, the number of suggested places, the
+        winner once confirmed, and the caller's answer and vote. `openCount` counts
+        every open event, for the tab label. Paged; see `nextCursor`.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: One page of events.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SquadEventsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/SquadNotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Events]
+      operationId: createEvent
+      summary: Create an event
+      description: |
+        Creates a DRAFT event; the caller is its creator. Without
+        `votingDeadline`, voting stays open until `startsAt`. 400 for a blank
+        name, an unknown type, or times that can't work.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventRequest'
+      responses:
+        '201':
+          description: Created.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Event'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/SquadNotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/events/{eventID}:
+    x-service: event-service
+    parameters:
+      - $ref: '#/components/parameters/EventID'
+    get:
+      tags: [Events]
+      operationId: getEvent
+      summary: Get an event
+      description: |
+        Everything the event screen shows: members with their answers, suggested
+        places with their voters (votes are open), the winner, and `permissions`:
+        which buttons the caller may use right now, from the policy and the status.
+      responses:
+        '200':
+          description: The event.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/EventDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [Events]
+      operationId: updateEvent
+      summary: Edit an event
+      description: |
+        Creator and admins, while DRAFT or VOTING. Omitted fields are unchanged;
+        moving `startsAt` without a new `votingDeadline` moves the deadline to the new start.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEventRequest'
+      responses:
+        '200':
+          description: The updated event.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/EventDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '409':
+          $ref: '#/components/responses/EventConflict'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/events/{eventID}/rsvp:
+    x-service: event-service
+    parameters:
+      - $ref: '#/components/parameters/EventID'
+    put:
+      tags: [Events]
+      operationId: setRSVP
+      summary: Answer going, maybe or not going
+      description: |
+        Any member, until the event is closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RSVPRequest'
+      responses:
+        '200':
+          description: The updated event.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/EventDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '409':
+          $ref: '#/components/responses/EventConflict'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/events/{eventID}/nominations:
+    x-service: event-service
+    parameters:
+      - $ref: '#/components/parameters/EventID'
+    post:
+      tags: [Events]
+      operationId: nominate
+      summary: Suggest a place
+      description: |
+        Any member, while DRAFT. The place's details are copied from
+        venue-service. 404 for an unknown place; 409 if already suggested or
+        suggestions are closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceRequest'
+      responses:
+        '200':
+          description: The updated event.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/EventDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '409':
+          $ref: '#/components/responses/EventConflict'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/events/{eventID}/nominations/{placeID}:
+    x-service: event-service
+    parameters:
+      - $ref: '#/components/parameters/EventID'
+      - $ref: '#/components/parameters/PlaceID'
+    delete:
+      tags: [Events]
+      operationId: removeNomination
+      summary: Withdraw a suggestion
+      description: |
+        Your own, or anyone's for the creator and admins, while DRAFT. 404 if the place wasn't suggested.
+      responses:
+        '200':
+          description: The updated event.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/EventDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '409':
+          $ref: '#/components/responses/EventConflict'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/events/{eventID}/vote:
+    x-service: event-service
+    parameters:
+      - $ref: '#/components/parameters/EventID'
+    put:
+      tags: [Events]
+      operationId: vote
+      summary: Vote for a place
+      description: |
+        Any member, while VOTING. A second vote replaces the first. 400 for a place nobody suggested.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceRequest'
+      responses:
+        '200':
+          description: The updated event.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/EventDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '409':
+          $ref: '#/components/responses/EventConflict'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/events/{eventID}/voting/start:
+    x-service: event-service
+    parameters:
+      - $ref: '#/components/parameters/EventID'
+    post:
+      tags: [Events]
+      operationId: startVoting
+      summary: Start voting
+      description: |
+        Creator and admins. DRAFT → VOTING; needs at least one suggestion (409 otherwise).
+      responses:
+        '200':
+          description: The updated event.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/EventDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '409':
+          $ref: '#/components/responses/EventConflict'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/events/{eventID}/voting/close:
+    x-service: event-service
+    parameters:
+      - $ref: '#/components/parameters/EventID'
+    post:
+      tags: [Events]
+      operationId: closeVoting
+      summary: Close voting
+      description: |
+        Creator and admins. VOTING → CONFIRMED: the most votes wins, a tie (or no
+        votes) goes to the earliest suggestion. Also happens on its own at
+        `votingDeadline`.
+      responses:
+        '200':
+          description: The updated event.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/EventDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '409':
+          $ref: '#/components/responses/EventConflict'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/events/{eventID}/start:
+    x-service: event-service
+    parameters:
+      - $ref: '#/components/parameters/EventID'
+    post:
+      tags: [Events]
+      operationId: startNight
+      summary: Start the night
+      description: |
+        Creator and admins. CONFIRMED → ACTIVE.
+      responses:
+        '200':
+          description: The updated event.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/EventDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '409':
+          $ref: '#/components/responses/EventConflict'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/events/{eventID}/close:
+    x-service: event-service
+    parameters:
+      - $ref: '#/components/parameters/EventID'
+    post:
+      tags: [Events]
+      operationId: closeEvent
+      summary: Close the night
+      description: |
+        Creator and admins. ACTIVE → CLOSED, and the winning place is added to the
+        squad's history. Nights nobody closes close on their own 12 hours after
+        they start.
+      responses:
+        '200':
+          description: The updated event.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/EventDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '409':
+          $ref: '#/components/responses/EventConflict'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   # ─── Internal ────────────────────────────────────────────────────────────
 
   /api/v1/users:
@@ -992,6 +1528,66 @@ paths:
           $ref: '#/components/responses/User'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /internal/v1/events/confirm-due:
+    x-service: event-service
+    servers:
+      - url: http://localhost:3003
+        description: event-service (direct; the gateway doesn't route /internal)
+    post:
+      tags: [Internal]
+      operationId: confirmDueEvents
+      summary: Confirm events past their voting deadline
+      description: 'Called by scheduler-service every minute. Idempotent and safe to run concurrently: each event is confirmed once.'
+      security: []
+      responses:
+        '200':
+          description: How many events moved on.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DueResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /internal/v1/events/close-due:
+    x-service: event-service
+    servers:
+      - url: http://localhost:3003
+        description: event-service (direct; the gateway doesn't route /internal)
+    post:
+      tags: [Internal]
+      operationId: closeDueEvents
+      summary: Close nights that started 12 hours ago
+      description: 'Called by scheduler-service every minute. Closes CONFIRMED and ACTIVE events and records their visits as the creator. Idempotent and safe to run concurrently.'
+      security: []
+      responses:
+        '200':
+          description: How many events moved on.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DueResponse'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -1065,6 +1661,13 @@ components:
       required: true
       schema:
         type: string
+    EventID:
+      name: eventID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     PlaceID:
       name: placeID
       in: path
@@ -1178,6 +1781,24 @@ components:
           example:
             success: false
             error: user not found
+    EventNotFound:
+      description: The event does not exist, or the caller is not in its squad.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: 'event not found: 6f1c…'
+    EventConflict:
+      description: The event's status doesn't allow this now, or the place was already suggested.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: 'not allowed while the event is in this state: DRAFT → ACTIVE'
     Conflict:
       description: The resource already exists.
       content:
@@ -1784,3 +2405,258 @@ components:
           type: string
           nullable: true
           description: Pass as `cursor` for the next page; null on the last page.
+
+    # ─── Events ────────────────────────────────────────────────────────────
+    EventType:
+      type: string
+      enum: [DRINKS, DINING, BOTH]
+    EventStatus:
+      type: string
+      enum: [DRAFT, VOTING, CONFIRMED, ACTIVE, CLOSED]
+    RSVPStatus:
+      type: string
+      enum: [GOING, MAYBE, NOT_GOING]
+    CreateEventRequest:
+      type: object
+      required: [name, type, startsAt]
+      properties:
+        name:
+          type: string
+          example: Friday drinks
+        type:
+          $ref: '#/components/schemas/EventType'
+        startsAt:
+          type: string
+          format: date-time
+        votingDeadline:
+          type: string
+          format: date-time
+          description: Optional. Defaults to startsAt, so voting stays open until the event starts.
+    UpdateEventRequest:
+      type: object
+      description: Omitted fields are left unchanged.
+      properties:
+        name:
+          type: string
+        type:
+          $ref: '#/components/schemas/EventType'
+        startsAt:
+          type: string
+          format: date-time
+        votingDeadline:
+          type: string
+          format: date-time
+    RSVPRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/RSVPStatus'
+    PlaceRequest:
+      type: object
+      required: [placeID]
+      properties:
+        placeID:
+          type: string
+    EventPlace:
+      type: object
+      description: A suggested place's details, copied from venue-service when suggested.
+      properties:
+        placeID:
+          type: string
+        name:
+          type: string
+        address:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        rating:
+          type: number
+        priceLevel:
+          type: integer
+        photo:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Photo'
+    Winner:
+      allOf:
+        - $ref: '#/components/schemas/EventPlace'
+        - type: object
+          properties:
+            votes:
+              type: integer
+              description: Votes it won with. Only on the event detail.
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        squadID:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          $ref: '#/components/schemas/EventType'
+        status:
+          $ref: '#/components/schemas/EventStatus'
+        createdBy:
+          type: string
+          format: uuid
+        startsAt:
+          type: string
+          format: date-time
+        votingDeadline:
+          type: string
+          format: date-time
+        winner:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Winner'
+        closedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    RSVPCounts:
+      type: object
+      properties:
+        going:
+          type: integer
+        maybe:
+          type: integer
+        notGoing:
+          type: integer
+        pending:
+          type: integer
+          description: Members who haven't answered.
+    EventSummary:
+      allOf:
+        - $ref: '#/components/schemas/Event'
+        - type: object
+          properties:
+            rsvpCounts:
+              $ref: '#/components/schemas/RSVPCounts'
+            goingPreview:
+              type: array
+              maxItems: 5
+              items:
+                $ref: '#/components/schemas/Member'
+            nominationCount:
+              type: integer
+            myRsvp:
+              nullable: true
+              allOf:
+                - $ref: '#/components/schemas/RSVPStatus'
+            hasVoted:
+              type: boolean
+    SquadEventsResponse:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventSummary'
+        nextCursor:
+          type: string
+          nullable: true
+        openCount:
+          type: integer
+    EventMember:
+      allOf:
+        - $ref: '#/components/schemas/Member'
+        - type: object
+          properties:
+            rsvp:
+              nullable: true
+              allOf:
+                - $ref: '#/components/schemas/RSVPStatus'
+            isMe:
+              type: boolean
+    Nomination:
+      allOf:
+        - $ref: '#/components/schemas/EventPlace'
+        - type: object
+          properties:
+            nominatedBy:
+              type: string
+              format: uuid
+            nominatedByName:
+              type: string
+              nullable: true
+              description: Null if they left the squad.
+            nominatedAt:
+              type: string
+              format: date-time
+            voteCount:
+              type: integer
+            voters:
+              type: array
+              items:
+                $ref: '#/components/schemas/Member'
+            votedByMe:
+              type: boolean
+            canRemove:
+              type: boolean
+    EventPermissions:
+      type: object
+      description: Which actions the caller may take right now.
+      properties:
+        canEdit:
+          type: boolean
+        canRsvp:
+          type: boolean
+        canNominate:
+          type: boolean
+        canVote:
+          type: boolean
+        canStartVoting:
+          type: boolean
+        canCloseVoting:
+          type: boolean
+        canStart:
+          type: boolean
+        canClose:
+          type: boolean
+    EventDetail:
+      allOf:
+        - $ref: '#/components/schemas/Event'
+        - type: object
+          properties:
+            createdByName:
+              type: string
+              nullable: true
+            memberCount:
+              type: integer
+            votedCount:
+              type: integer
+              description: Current members who voted.
+            totalVotes:
+              type: integer
+            myRsvp:
+              nullable: true
+              allOf:
+                - $ref: '#/components/schemas/RSVPStatus'
+            myVote:
+              type: string
+              nullable: true
+            members:
+              type: array
+              items:
+                $ref: '#/components/schemas/EventMember'
+            nominations:
+              type: array
+              items:
+                $ref: '#/components/schemas/Nomination'
+            permissions:
+              $ref: '#/components/schemas/EventPermissions'
+    DueResponse:
+      type: object
+      properties:
+        count:
+          type: integer

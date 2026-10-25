@@ -35,15 +35,18 @@ func RegisterRoutes(app *fiber.App, upstreams config.Upstreams, pub ed25519.Publ
 	v1.Get("/venues/photos/:ref", middleware.PhotoRateLimit(), proxy.To(upstreams.Venue, timeout))
 	v1.Group("/venues", auth).All("/*", proxy.To(upstreams.Venue, timeout))
 
-	// A squad's favorites and history live in venue-service; the squad itself
-	// and its members live in user-service. The specific groups are registered
+	// A squad's favorites and history live in venue-service and its events in
+	// event-service; the squad itself and its members live in user-service. The specific groups are registered
 	// first so they win over the /squads catch-all.
 	v1.Group("/squads/:squadID/favorites", auth).All("/*", proxy.To(upstreams.Venue, timeout))
 	v1.Group("/squads/:squadID/history", auth).All("/*", proxy.To(upstreams.Venue, timeout))
+	v1.Group("/squads/:squadID/events", auth).All("/*", proxy.To(upstreams.Event, timeout))
 	v1.Group("/squads", auth).All("/*", proxy.To(upstreams.User, timeout))
 
+	v1.Group("/events", auth).All("/*", proxy.To(upstreams.Event, timeout))
+
 	// Services that don't exist yet.
-	for _, name := range []string{"events", "billing", "media", "realtime"} {
+	for _, name := range []string{"billing", "media", "realtime"} {
 		v1.All("/"+name+"/*", notImplementedHandler)
 	}
 }

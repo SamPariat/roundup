@@ -30,8 +30,11 @@ type PostgresSquadRepository struct {
 // squadCursor is the position after which the next page of a squad list
 // starts: the last squad's (created_at, id), the list's sort key.
 type squadCursor struct {
+	// CreatedAt is the last squad's creation time.
 	CreatedAt time.Time `json:"createdAt"`
-	ID        uuid.UUID `json:"id"`
+
+	// ID breaks ties between squads created at the same time.
+	ID uuid.UUID `json:"id"`
 }
 
 // NewPostgresSquadRepository constructs a PostgresSquadRepository from a pgxpool.
@@ -111,7 +114,7 @@ func (r *PostgresSquadRepository) ListForUser(ctx context.Context, userID string
 			return nil, "", err
 		}
 
-		params.CursorAt = pgtype.Timestamptz{Time: after.CreatedAt, Valid: true}
+		params.CursorAt = postgres.Timestamptz(after.CreatedAt)
 		params.CursorID = pgtype.UUID{Bytes: after.ID, Valid: true}
 	}
 
