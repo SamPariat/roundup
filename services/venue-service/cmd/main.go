@@ -36,11 +36,7 @@ func main() {
 
 	venueRepo := persistence.NewPostgresVenueRepository(pool)
 
-	placeProvider, err := places.NewGoogleMapsAdapter(cfg.GoogleMapsAPIKey)
-	if err != nil {
-		log.Fatal("failed to init Google Maps adapter", zap.Error(err))
-	}
-
+	placeProvider := places.NewGooglePlacesAdapter(places.BaseURL, cfg.GoogleMapsAPIKey)
 	venueCache := cache.NewRedisCacheAdapter(redisClient, cache.DefaultTTL, log)
 	squadDirectory := userclient.NewUserServiceClient(cfg.UserServiceURL)
 

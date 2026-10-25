@@ -15,8 +15,9 @@ import (
 const DefaultTTL = 10 * time.Minute
 
 // detailKeyPrefix namespaces detail entries, so a place ID can never collide
-// with another key in the same Redis.
-const detailKeyPrefix = "venue:detail:"
+// with another key in the same Redis. Bump the version when the cached shape
+// changes.
+const detailKeyPrefix = "venue:detail:v1:"
 
 // RedisCacheAdapter implements domain.VenueCache by storing domain types as JSON
 // in Redis. Cache misses (redis.Nil) are returned as (nil, nil), not as errors.

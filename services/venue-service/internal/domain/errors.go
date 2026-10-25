@@ -17,7 +17,7 @@ var (
 	ErrPhotoNotFound = errors.New("photo not found")
 
 	// ErrProviderUnavailable is returned when the external place provider
-	// (e.g., Google Maps) cannot be reached or returns an unrecoverable error.
+	// (e.g., Google Places) cannot be reached or returns an unrecoverable error.
 	ErrProviderUnavailable = errors.New("place provider unavailable")
 
 	// ErrAlreadySaved is returned when a user attempts to save a venue they

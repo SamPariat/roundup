@@ -1,0 +1,10 @@
+{
+  "status": 400,
+  "body": {
+    "error": {
+      "code": 400,
+      "message": "The provided Place ID: ChIJ_not_a_real_place is not valid.\n",
+      "status": "INVALID_ARGUMENT"
+    }
+  }
+}

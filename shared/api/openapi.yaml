@@ -636,9 +636,11 @@ paths:
       operationId: searchVenues
       summary: Search venues near a point
       description: |
-        One page of up to 20 venues; Google fixes the page size, so there is no
-        `limit`. Pass `nextCursor` back as `cursor` for the next page. Results
-        are cached for 10 minutes per page.
+        One page of up to 20 venues inside the square around the radius, best
+        match first; Google fixes the page size, so there is no `limit`. Up to
+        3 pages (60 venues) per search. Pass `nextCursor` back as `cursor`, with
+        the same other parameters, for the next page. Results are cached for
+        10 minutes per page.
       parameters:
         - name: lat
           in: query
@@ -669,12 +671,12 @@ paths:
           example: 2000
         - name: query
           in: query
-          description: Optional keyword, e.g. "rooftop".
+          description: Optional search words, e.g. "rooftop bar". Without it the search looks for the type, else "bars and restaurants".
           schema:
             type: string
         - name: type
           in: query
-          description: Optional Google place type, e.g. "restaurant".
+          description: Optional Google place type, e.g. "bar"; only places of that type are returned.
           schema:
             type: string
         - $ref: '#/components/parameters/Cursor'

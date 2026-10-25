@@ -1,7 +1,7 @@
 # venue-service: Hexagonal Architecture LLD
 
 ## Context
-The venue-service wraps the Google Places API but must allow swapping the provider in the future (Foursquare, HERE, etc.) with zero changes to business logic. Hexagonal architecture (ports & adapters) achieves this by keeping the domain at the centre, defining provider contracts as interfaces inside the domain package, and pushing all external concerns (HTTP, Redis, Postgres, Google Maps) out to adapter packages.
+The venue-service wraps Google Places API (New) but must allow swapping the provider in the future (Foursquare, HERE, etc.) with zero changes to business logic. Hexagonal architecture (ports & adapters) achieves this by keeping the domain at the centre, defining provider contracts as interfaces inside the domain package, and pushing all external concerns (HTTP, Redis, Postgres, Google Places) out to adapter packages.
 
 ---
 
@@ -17,7 +17,7 @@ The venue-service wraps the Google Places API but must allow swapping the provid
 ┌──────────────────────┐           ┌───────────────────────────┐
 │  DRIVING ADAPTERS    │           │  DRIVEN ADAPTERS          │
 │  transport/http/     │           │  adapters/places/         │
-│    VenueHandler      │           │    GoogleMapsAdapter      │ ◄─ implements PlaceProvider
+│    VenueHandler      │           │    GooglePlacesAdapter    │ ◄─ implements PlaceProvider
 │    FavoriteHandler   │           │  adapters/cache/          │
 │    HistoryHandler    │           │    RedisCacheAdapter      │ ◄─ implements VenueCache
 │    router.go (Fiber) │           │  adapters/persistence/    │
@@ -121,7 +121,7 @@ package domain
 
 import "context"
 
-// PlaceProvider — swap Google Maps for any provider by writing a new adapter
+// PlaceProvider — swap Google Places for any provider by writing a new adapter
 type PlaceProvider interface {
     SearchNearby(ctx context.Context, params SearchParams) (*SearchResult, error) // one page; Venues + NextPageToken
     GetDetail(ctx context.Context, placeID string) (*VenueDetail, error)
@@ -253,12 +253,12 @@ type VisitSummary struct {
 
 | Adapter | File | Implements |
 |---|---|---|
-| `GoogleMapsAdapter` | `adapters/places/google_maps_adapter.go` | `domain.PlaceProvider` |
+| `GooglePlacesAdapter` | `adapters/places/google_places_adapter.go` (plain HTTP to `places.googleapis.com/v1`) | `domain.PlaceProvider` |
 | `RedisCacheAdapter` | `adapters/cache/redis_cache_adapter.go` | `domain.VenueCache` |
 | `PostgresVenueRepository` | `adapters/persistence/postgres_venue_repository.go` | `domain.VenueRepository` |
 | `userclient.UserServiceClient` | `shared/userclient` (shared with every service that checks squad membership) | `domain.SquadDirectory` |
 
-To swap Google Maps: write `adapters/places/foursquare_adapter.go` implementing `PlaceProvider`, change one line in `main.go`. Domain and application layers are untouched.
+To swap Google Places: write `adapters/places/foursquare_adapter.go` implementing `PlaceProvider`, change one line in `main.go`. Domain and application layers are untouched.
 
 ---
 
@@ -274,7 +274,7 @@ pool, err := postgres.Connect(ctx, cfg.PostgresDSN) // shared/postgres — pings
 
 // 3. Driven adapters
 venueRepo      := persistence.NewPostgresVenueRepository(pool)
-placeProvider  := places.NewGoogleMapsAdapter(cfg.GoogleMapsAPIKey)
+placeProvider  := places.NewGooglePlacesAdapter(cfg.GoogleMapsAPIKey)
 venueCache     := cache.NewRedisCacheAdapter(redisClient, cache.DefaultTTL, log)
 squadDirectory := userclient.NewUserServiceClient(cfg.UserServiceURL) // shared/userclient
 
@@ -315,7 +315,7 @@ Search takes query params `lat`, `lng`, `radius`, `query`, `type` and `cursor`.
 
 **Paging** (see the root README):
 - **Favorites and history:** take `limit` (default 25, max 100) and `cursor`, and return `nextCursor`. The keyset is `(last_saved_at, place_id)` / `(last_visited_at, place_id)`. It is applied in an outer query, because it compares grouped values.
-- **Search:** pages with Google's own `next_page_token` as the cursor. Google needs about 2s before a token works, so the adapter retries `INVALID_REQUEST` once after `pageTokenWait`. A token Google still rejects is `ErrInvalidSearch` (400).
+- **Search:** every search is a Text Search (New), because Nearby Search (New) can't page. The text is `query`, else the `type`, else "bars and restaurants"; `type` also filters strictly. The circle becomes the square around it, since Text Search only restricts to rectangles. Google's `nextPageToken` is the cursor (20 per page, 60 per search); a token Google rejects is `ErrInvalidSearch` (400).
 - **`savedIn`:** `UserServiceClient.Squads` follows user-service's `nextCursor` with `limit=100`, so it covers every squad.
 
 All `/squads/:squadID/*` routes, and `GET /venues/:placeID` (for `savedIn`), require a UUID `X-User-ID` header (`shared/middleware.UserID()`); without it they return 401. Handlers read the caller with `middleware.UserIDFrom(c)` — the user ID is never taken from the body or query string.
@@ -359,13 +359,13 @@ CREATE TABLE saved_venues (
 
 ## Error Propagation Chain
 
-Library errors are translated into domain sentinels at the adapter boundary. The use-case layer never sees `pgx`, `redis`, or `googlemaps` types.
+Library errors are translated into domain sentinels at the adapter boundary. The use-case layer never sees `pgx`, `redis`, or Google response types.
 
 ```
 ┌───────────────┐   wrap    ┌──────────────────────┐  pass-through  ┌────────────┐  *ErrorStatus  ┌──────────┐
 │ External lib  │ ────────► │ Adapter (driven)     │ ─────────────► │ Use-case   │ ─────────────► │ Handler  │
 │ pgx / redis / │           │ returns domain error │                │ returns    │                │ → HTTP   │
-│ googlemaps    │           └──────────────────────┘                └────────────┘                └──────────┘
+│ Google HTTP   │           └──────────────────────┘                └────────────┘                └──────────┘
 └───────────────┘
 ```
 
@@ -376,9 +376,11 @@ Library errors are translated into domain sentinels at the adapter boundary. The
 | `PostgresVenueRepository` | unique violation on visits | `domain.ErrVisitAlreadyRecorded` |
 | `RedisCacheAdapter` | `redis.Nil` | `nil` return — a cache miss, not an error |
 | `RedisCacheAdapter` | timeout / conn refused / bad JSON | logged with zap, swallowed (best-effort) |
-| `GoogleMapsAdapter` | `NOT_FOUND`; `INVALID_REQUEST` on place details | `domain.ErrVenueNotFound` |
-| `GoogleMapsAdapter` | `ZERO_RESULTS` | not an error — empty result list |
-| `GoogleMapsAdapter` | `REQUEST_DENIED` / `OVER_QUERY_LIMIT` / `UNKNOWN_ERROR` | `domain.ErrProviderUnavailable` |
+| `GooglePlacesAdapter` | 404, or 400 for an unparseable ID, on details | `domain.ErrVenueNotFound` |
+| `GooglePlacesAdapter` | 404 or 400 on a photo, or a reference it did not issue | `domain.ErrPhotoNotFound` |
+| `GooglePlacesAdapter` | 400 on search (a stale cursor, an unknown type) | `domain.ErrInvalidSearch` |
+| `GooglePlacesAdapter` | no `places` in the answer | not an error — empty result list |
+| `GooglePlacesAdapter` | 400 `API_KEY_INVALID`, 401, 403, 429, 5xx, network failure | `domain.ErrProviderUnavailable` |
 
 **Rule:** If an adapter cannot map a library error to a known sentinel, it returns it as-is so the handler's default branch returns 500.
 
@@ -406,8 +408,8 @@ The `RedisCacheAdapter` implements `domain.VenueCache`. All cache operations are
 
 | Data | Key | TTL |
 |---|---|---|
-| Nearby search (one page) | `venue:search:v2:{lat}:{lng}:{radius}:{query}:{type}:{pageToken}` | 10 min |
-| Venue detail | `venue:detail:{placeID}` | 10 min |
+| Search (one page) | `venue:search:v1:{lat}:{lng}:{radius}:{query}:{type}:{pageToken}` | 10 min |
+| Venue detail | `venue:detail:v1:{placeID}` | 10 min |
 
 Every key is namespaced under `venue:` so entries never collide with other users of the same Redis. The TTL is `cache.DefaultTTL`, passed to `NewRedisCacheAdapter` in `main.go` and applied to every write.
 
@@ -420,7 +422,7 @@ Client ──► VenueUseCase.Search()
                │       ├── cached != nil  → return cached
                │       └── cached == nil  ↓
                │
-               ├── provider.SearchNearby(params)      // Google Maps call
+               ├── provider.SearchNearby(params)      // Google Places call
                │
                ├── _ = cache.SetNearby(key, results)  // best-effort write
                │
@@ -480,3 +482,7 @@ Squads live in user-service. Before any favorites or history operation, `Favorit
 3. **Status-code mapping lives in the handlers** — domain never knows about HTTP status codes
 4. **sqlc types never cross into application/domain** — the repository adapter maps them at the boundary
 5. **Cache writes are best-effort** — `_ = cache.SetNearby(...)` so a cache failure never degrades an API response
+
+## Photo references
+
+Google names a photo `places/{placeId}/photos/{ref}`, which has slashes, so the adapter stores and serves it base64url-encoded as one opaque `reference` (`/api/v1/venues/photos/{reference}`). `Photo` decodes it and fetches only names of exactly that shape, so a crafted reference can't make venue-service call another Google path with its key. Google redirects the photo to an image host; the adapter drops the key header on that redirect. References saved before the move to Places API (New) don't decode and return 404.

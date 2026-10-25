@@ -7,10 +7,10 @@ import (
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 )
 
-// searchKeyPrefix namespaces search entries in the cache. v2 entries hold a
-// whole page (venues and next token); the version keeps old list-only
-// entries from being read as pages.
-const searchKeyPrefix = "venue:search:v2:"
+// searchKeyPrefix namespaces search entries in the cache. Each entry holds a
+// whole page (venues and next token); bump the version when that shape
+// changes, so old entries are never read as the new one.
+const searchKeyPrefix = "venue:search:v1:"
 
 // VenueLookup returns a venue's details. FavoriteUseCase and HistoryUseCase
 // use it to snapshot a venue; VenueUseCase implements it, so lookups go

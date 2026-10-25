@@ -7,7 +7,7 @@ import (
 	"github.com/SamPariat/roundup/shared/userclient"
 )
 
-// PlaceProvider abstracts the external place-search API (Google Maps, Foursquare, etc.).
+// PlaceProvider abstracts the external place-search API (Google Places, Foursquare, etc.).
 // Swap the provider by writing a new adapter; domain and application layers stay untouched.
 type PlaceProvider interface {
 	// SearchNearby returns one page of venues matching params. An area with

@@ -23,7 +23,7 @@ type Config struct {
 	// RedisAddr is the Redis server address. Defaults to localhost:6379.
 	RedisAddr string
 
-	// GoogleMapsAPIKey is the Google Maps Places API key. Required.
+	// GoogleMapsAPIKey is the Google key with Places API (New) enabled. Required.
 	GoogleMapsAPIKey string
 
 	// UserServiceURL is user-service's base URL, e.g. "http://localhost:3002",

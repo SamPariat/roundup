@@ -469,25 +469,25 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 
 - [x] `go mod init github.com/SamPariat/roundup/services/venue-service`
 - [x] Add `gofiber/fiber/v3`
-- [x] Add `googlemaps.github.io/maps`
+- [x] Places API (New) over plain HTTP (no Google client library)
 - [x] Add `redis/go-redis/v9`
 - [x] Write `Dockerfile`
 
 ### Google Places integration
 
-- [x] `internal/adapters/places/google_maps_adapter.go` — implements `domain.PlaceProvider`
-- [x] Nearby search (lat, lng, radius, keyword, type) → `[]Venue`
+- [x] `internal/adapters/places/google_places_adapter.go` — implements `domain.PlaceProvider` with Places API (New)
+- [x] Search (lat, lng, radius, query, type) → `[]Venue`, as Text Search (New) inside the square around the radius
 - [x] Place details → `VenueDetail` (phone, website, hours, reviews, summary)
 - [x] Photos streamed through `GET /api/v1/venues/photos/:ref`, so the API key never reaches clients (`Cache-Control: public, max-age=86400`)
-- [x] Map Google responses to domain `Venue`, including `ratingCount` from `user_ratings_total`
-- [x] Field mask on details to fetch only needed fields (cost control)
-- [ ] Paging (`nextPageToken`): kept in the stash "venue-display full version (backup)"
+- [x] Map Google responses to domain `Venue`, including `ratingCount` from `userRatingCount`
+- [x] Field masks on search and details to fetch only needed fields (cost control)
+- [x] Paging with Google's `nextPageToken` as the cursor (20 per page, 60 per search)
 - [ ] Structured opening hours / open-status labels / distance: kept in the same stash
 
 ### Redis cache layer
 
 - [x] `internal/adapters/cache/redis_cache_adapter.go` — implements `domain.VenueCache`, best-effort (errors logged, never returned)
-- [x] Search key `venue:search:{lat}:{lng}:{radius}:{query}:{type}` and detail key `venue:detail:{placeID}`, both 10 min TTL (`cache.DefaultTTL`)
+- [x] Search key `venue:search:v1:{lat}:{lng}:{radius}:{query}:{type}:{pageToken}` and detail key `venue:detail:v1:{placeID}`, both 10 min TTL (`cache.DefaultTTL`)
 - [x] On a cache miss, fetch from Google, then cache
 
 ### Database schema
