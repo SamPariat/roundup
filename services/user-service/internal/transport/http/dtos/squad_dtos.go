@@ -11,6 +11,16 @@ type CreateSquadRequest struct {
 	AvatarURL string `json:"avatarURL"`
 }
 
+// UpdateSquadRequest carries the JSON body for PATCH /api/v1/squads/:squadID.
+// Omitted fields are left unchanged.
+type UpdateSquadRequest struct {
+	// Name is the new display name. Trimmed; a blank name is rejected with 400.
+	Name *string `json:"name"`
+
+	// AvatarURL is the new picture URL; "" removes the picture.
+	AvatarURL *string `json:"avatarURL"`
+}
+
 // AddMemberRequest carries the JSON body for POST /api/v1/squads/:squadID/members.
 type AddMemberRequest struct {
 	// Phone is the E.164 number of the Roundup user to add.
@@ -51,6 +61,9 @@ type SquadSummaryResponse struct {
 
 	// MemberCount is the number of members, the caller included.
 	MemberCount int `json:"memberCount"`
+
+	// MemberPreview is the first 4 members, earliest joiner first. Never null.
+	MemberPreview []SquadMemberResponse `json:"memberPreview"`
 }
 
 // SquadsResponse lists the caller's squads.
@@ -77,10 +90,46 @@ type SquadMemberResponse struct {
 	JoinedAt time.Time `json:"joinedAt"`
 }
 
-// SquadDetailResponse is a squad with its members.
+// SquadDetailMemberResponse is a member as listed on the squad detail.
+type SquadDetailMemberResponse struct {
+	SquadMemberResponse
+
+	// IsMe is true for the caller's own entry.
+	IsMe bool `json:"isMe"`
+}
+
+// PermissionsResponse says which squad actions the caller may take.
+type PermissionsResponse struct {
+	// CanAddMembers is true while the squad has room.
+	CanAddMembers bool `json:"canAddMembers"`
+
+	// CanRemoveMembers is whether the caller may remove other members.
+	CanRemoveMembers bool `json:"canRemoveMembers"`
+
+	// CanChangeRoles is whether the caller may promote or demote members.
+	CanChangeRoles bool `json:"canChangeRoles"`
+
+	// CanEditSquad is whether the caller may rename the squad or change its picture.
+	CanEditSquad bool `json:"canEditSquad"`
+}
+
+// SquadDetailResponse is a squad with its members, as the caller sees it.
 type SquadDetailResponse struct {
 	SquadResponse
 
+	// MyRole is the caller's role in the squad.
+	MyRole string `json:"myRole"`
+
+	// MemberCount is the number of members, the caller included.
+	MemberCount int `json:"memberCount"`
+
+	// CreatedByName is the creator's profile name; null if they have left
+	// the squad, "" if they have not set a name.
+	CreatedByName *string `json:"createdByName"`
+
 	// Members are earliest joiner first. Never null.
-	Members []SquadMemberResponse `json:"members"`
+	Members []SquadDetailMemberResponse `json:"members"`
+
+	// Permissions are what the caller may do in the squad.
+	Permissions PermissionsResponse `json:"permissions"`
 }

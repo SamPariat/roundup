@@ -49,10 +49,16 @@ func SquadToResponse(s *domain.Squad) SquadResponse {
 func SquadsToResponse(squads []domain.SquadSummary) SquadsResponse {
 	out := make([]SquadSummaryResponse, 0, len(squads))
 	for _, s := range squads {
+		preview := make([]SquadMemberResponse, 0, len(s.MemberPreview))
+		for i := range s.MemberPreview {
+			preview = append(preview, SquadMemberToResponse(&s.MemberPreview[i]))
+		}
+
 		out = append(out, SquadSummaryResponse{
 			SquadResponse: SquadToResponse(&s.Squad),
 			Role:          string(s.Role),
 			MemberCount:   s.MemberCount,
+			MemberPreview: preview,
 		})
 	}
 
@@ -72,10 +78,32 @@ func SquadMemberToResponse(m *domain.SquadMember) SquadMemberResponse {
 
 // SquadDetailToResponse maps a domain.SquadDetail to a SquadDetailResponse.
 func SquadDetailToResponse(d *domain.SquadDetail) SquadDetailResponse {
-	members := make([]SquadMemberResponse, 0, len(d.Members))
+	var createdByName *string
+
+	members := make([]SquadDetailMemberResponse, 0, len(d.Members))
 	for i := range d.Members {
-		members = append(members, SquadMemberToResponse(&d.Members[i]))
+		m := &d.Members[i]
+		if m.UserID == d.CreatedBy {
+			createdByName = &m.Name
+		}
+
+		members = append(members, SquadDetailMemberResponse{
+			SquadMemberResponse: SquadMemberToResponse(m),
+			IsMe:                m.UserID == d.Me.UserID,
+		})
 	}
 
-	return SquadDetailResponse{SquadResponse: SquadToResponse(&d.Squad), Members: members}
+	return SquadDetailResponse{
+		SquadResponse: SquadToResponse(&d.Squad),
+		MyRole:        string(d.Me.Role),
+		MemberCount:   len(d.Members),
+		CreatedByName: createdByName,
+		Members:       members,
+		Permissions: PermissionsResponse{
+			CanAddMembers:    d.Permissions.CanAddMembers,
+			CanRemoveMembers: d.Permissions.CanRemoveMembers,
+			CanChangeRoles:   d.Permissions.CanChangeRoles,
+			CanEditSquad:     d.Permissions.CanEditSquad,
+		},
+	}
 }

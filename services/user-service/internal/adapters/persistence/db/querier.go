@@ -36,6 +36,9 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	// Returns the active user with this phone number.
 	GetUserByPhone(ctx context.Context, phone string) (User, error)
+	// Returns the first per_squad active members (earliest joiner first) of each
+	// of the given squads in one query, for the avatar row on the squad list.
+	ListMemberPreviews(ctx context.Context, arg ListMemberPreviewsParams) ([]ListMemberPreviewsRow, error)
 	// Lists a squad's active members with their profile, earliest joiner first.
 	ListSquadMembers(ctx context.Context, squadID uuid.UUID) ([]ListSquadMembersRow, error)
 	// Lists the squads a user belongs to, newest first, with their role and the
@@ -52,6 +55,9 @@ type Querier interface {
 	RemoveSquadMember(ctx context.Context, arg RemoveSquadMemberParams) (int64, error)
 	// Marks a user deleted. Their phone number becomes free to sign up again.
 	SoftDeleteUser(ctx context.Context, id uuid.UUID) (int64, error)
+	// Sets the name and/or avatar of a squad; a NULL argument leaves that column
+	// as it is, and an empty avatar URL clears the picture.
+	UpdateSquad(ctx context.Context, arg UpdateSquadParams) (Squad, error)
 	// Sets a member's role. Returns 0 rows if they are not in the squad.
 	UpdateSquadMemberRole(ctx context.Context, arg UpdateSquadMemberRoleParams) (int64, error)
 	// Updates the given profile fields; a NULL argument leaves that column as is.

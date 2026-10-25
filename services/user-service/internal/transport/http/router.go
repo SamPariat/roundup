@@ -41,6 +41,7 @@ func RegisterRoutes(app *fiber.App, h *Handlers) {
 	squads.Post("/", h.Squad.Create)
 	squads.Get("/", h.Squad.List)
 	squads.Get("/:squadID", h.Squad.Get)
+	squads.Patch("/:squadID", h.Squad.Update)
 
 	members := squads.Group("/:squadID/members")
 	members.Post("/", h.Squad.AddMember)

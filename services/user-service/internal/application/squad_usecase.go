@@ -5,21 +5,25 @@ import (
 	"strings"
 
 	"github.com/SamPariat/roundup/services/user-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/domainerr"
 	"github.com/SamPariat/roundup/shared/phone"
 )
 
 // SquadUseCase handles creating squads and managing who is in them.
-// Permission rules live in the domain (domain.CanRemove, domain.CanChangeRole);
-// rules that must hold under concurrency (the member cap, admin succession,
+// Which role may take which action comes from the authorization policy
+// (domain.Authorizer, see docs/PERMISSIONS.md); the same policy builds the
+// permissions shown to clients. Rules that must hold under concurrency (the member cap, admin succession,
 // deleting an empty squad) are enforced by the repository in a transaction.
 type SquadUseCase struct {
 	squads domain.SquadRepository
 	users  domain.UserRepository
+	authz  domain.Authorizer
 }
 
-// NewSquadUseCase constructs a SquadUseCase with the given repositories.
-func NewSquadUseCase(squads domain.SquadRepository, users domain.UserRepository) *SquadUseCase {
-	return &SquadUseCase{squads: squads, users: users}
+// NewSquadUseCase constructs a SquadUseCase with the given repositories and
+// authorizer.
+func NewSquadUseCase(squads domain.SquadRepository, users domain.UserRepository, authz domain.Authorizer) *SquadUseCase {
+	return &SquadUseCase{squads: squads, users: users, authz: authz}
 }
 
 // Create makes a squad with the creator as its first admin. Returns
@@ -38,8 +42,9 @@ func (u *SquadUseCase) List(ctx context.Context, userID string) ([]domain.SquadS
 	return u.squads.ListForUser(ctx, userID)
 }
 
-// Get returns the squad with its members. Returns domain.ErrSquadNotFound if
-// the squad does not exist or userID is not a member.
+// Get returns the squad with its members, the caller's own membership and
+// what they may do. Returns domain.ErrSquadNotFound if the squad does not
+// exist or userID is not a member.
 func (u *SquadUseCase) Get(ctx context.Context, squadID, userID string) (*domain.SquadDetail, error) {
 	squad, err := u.squads.GetForMember(ctx, squadID, userID)
 	if err != nil {
@@ -51,16 +56,57 @@ func (u *SquadUseCase) Get(ctx context.Context, squadID, userID string) (*domain
 		return nil, err
 	}
 
-	return &domain.SquadDetail{Squad: *squad, Members: members}, nil
+	me, ok := findMember(members, userID)
+	if !ok {
+		return nil, domainerr.New(domain.ErrSquadNotFound, squadID)
+	}
+
+	return &domain.SquadDetail{
+		Squad:       *squad,
+		Members:     members,
+		Me:          me,
+		Permissions: domain.PermissionsFor(u.authz, me, len(members)),
+	}, nil
 }
 
-// AddMember adds the Roundup user with cmd.Phone to the squad. Any member may
-// add people. Returns domain.ErrSquadNotFound if the actor is not a member,
-// domain.ErrInvalidPhone or domain.ErrUserNotFound for a bad or unknown
-// number, and domain.ErrAlreadyMember or domain.ErrSquadFull from the
-// repository.
+// Update renames the squad and/or changes its picture. Returns
+// domain.ErrSquadNotFound if the actor is not a member, domain.ErrForbidden
+// if the policy does not let their role edit, and domain.ErrInvalidSquadName
+// for a blank name.
+func (u *SquadUseCase) Update(ctx context.Context, cmd domain.UpdateSquadCommand) (*domain.Squad, error) {
+	actor, err := u.squads.GetMember(ctx, cmd.SquadID, cmd.ActorID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := u.authorize(*actor, domain.ActionEditSquad); err != nil {
+		return nil, err
+	}
+
+	if cmd.Name != nil {
+		name := strings.TrimSpace(*cmd.Name)
+		if name == "" {
+			return nil, domain.ErrInvalidSquadName
+		}
+
+		cmd.Name = &name
+	}
+
+	return u.squads.Update(ctx, cmd)
+}
+
+// AddMember adds the Roundup user with cmd.Phone to the squad. Returns
+// domain.ErrSquadNotFound if the actor is not a member, domain.ErrForbidden if
+// the policy does not let their role add people, domain.ErrInvalidPhone or
+// domain.ErrUserNotFound for a bad or unknown number, and
+// domain.ErrAlreadyMember or domain.ErrSquadFull from the repository.
 func (u *SquadUseCase) AddMember(ctx context.Context, cmd domain.AddMemberCommand) (*domain.SquadMember, error) {
-	if _, err := u.squads.GetMember(ctx, cmd.SquadID, cmd.ActorID); err != nil {
+	actor, err := u.squads.GetMember(ctx, cmd.SquadID, cmd.ActorID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := u.authorize(*actor, domain.ActionAddMember); err != nil {
 		return nil, err
 	}
 
@@ -78,15 +124,21 @@ func (u *SquadUseCase) AddMember(ctx context.Context, cmd domain.AddMemberComman
 
 // RemoveMember removes cmd.UserID from the squad; removing yourself is
 // leaving. squadDeleted reports whether that emptied and deleted the squad.
-// Returns domain.ErrSquadNotFound if the actor is not a member and
-// domain.ErrNotAdmin if a member tries to remove someone else.
+// Removing yourself is domain.ActionLeave; removing anyone else is
+// domain.ActionRemoveMember. Returns domain.ErrSquadNotFound if the actor is
+// not a member and domain.ErrForbidden if the policy does not allow it.
 func (u *SquadUseCase) RemoveMember(ctx context.Context, cmd domain.RemoveMemberCommand) (squadDeleted bool, err error) {
 	actor, err := u.squads.GetMember(ctx, cmd.SquadID, cmd.ActorID)
 	if err != nil {
 		return false, err
 	}
 
-	if err := domain.CanRemove(*actor, cmd.UserID); err != nil {
+	action := domain.ActionRemoveMember
+	if cmd.UserID == cmd.ActorID {
+		action = domain.ActionLeave
+	}
+
+	if err := u.authorize(*actor, action); err != nil {
 		return false, err
 	}
 
@@ -94,7 +146,8 @@ func (u *SquadUseCase) RemoveMember(ctx context.Context, cmd domain.RemoveMember
 }
 
 // ChangeRole sets a member's role. Returns domain.ErrSquadNotFound if the
-// actor is not a member, domain.ErrNotAdmin if they are not an admin,
+// actor is not a member, domain.ErrForbidden if the policy does not let their
+// role change roles,
 // domain.ErrInvalidRole for an unknown role, and domain.ErrLastAdmin if the
 // squad would be left without an admin.
 func (u *SquadUseCase) ChangeRole(ctx context.Context, cmd domain.ChangeRoleCommand) error {
@@ -103,7 +156,7 @@ func (u *SquadUseCase) ChangeRole(ctx context.Context, cmd domain.ChangeRoleComm
 		return err
 	}
 
-	if err := domain.CanChangeRole(*actor); err != nil {
+	if err := u.authorize(*actor, domain.ActionChangeRole); err != nil {
 		return err
 	}
 
@@ -112,4 +165,25 @@ func (u *SquadUseCase) ChangeRole(ctx context.Context, cmd domain.ChangeRoleComm
 	}
 
 	return u.squads.ChangeRole(ctx, cmd.SquadID, cmd.UserID, cmd.Role)
+}
+
+// authorize returns domain.ErrForbidden unless the policy lets actor's role
+// take action.
+func (u *SquadUseCase) authorize(actor domain.SquadMember, action domain.Action) error {
+	if !u.authz.Can(actor.Role, action) {
+		return domainerr.New(domain.ErrForbidden, string(action))
+	}
+
+	return nil
+}
+
+// findMember returns the member with userID from members.
+func findMember(members []domain.SquadMember, userID string) (domain.SquadMember, bool) {
+	for _, m := range members {
+		if m.UserID == userID {
+			return m, true
+		}
+	}
+
+	return domain.SquadMember{}, false
 }

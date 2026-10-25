@@ -167,6 +167,66 @@ func (q *Queries) GetSquadMember(ctx context.Context, arg GetSquadMemberParams) 
 	return i, err
 }
 
+const listMemberPreviews = `-- name: ListMemberPreviews :many
+SELECT p.squad_id, p.user_id, p.role, p.joined_at, p.name, p.avatar_url
+FROM (SELECT m.squad_id,
+             m.user_id,
+             m.role,
+             m.joined_at,
+             u.name,
+             u.avatar_url,
+             ROW_NUMBER() OVER (PARTITION BY m.squad_id ORDER BY m.joined_at, m.user_id) AS position
+      FROM squad_members m
+               JOIN users u ON u.id = m.user_id
+      WHERE m.squad_id = ANY ($1::uuid[])
+        AND u.deleted_at IS NULL) p
+WHERE p.position <= $2::bigint
+ORDER BY p.squad_id, p.position
+`
+
+type ListMemberPreviewsParams struct {
+	SquadIds []uuid.UUID `json:"squad_ids"`
+	PerSquad int64       `json:"per_squad"`
+}
+
+type ListMemberPreviewsRow struct {
+	SquadID   uuid.UUID          `json:"squad_id"`
+	UserID    uuid.UUID          `json:"user_id"`
+	Role      string             `json:"role"`
+	JoinedAt  pgtype.Timestamptz `json:"joined_at"`
+	Name      *string            `json:"name"`
+	AvatarUrl *string            `json:"avatar_url"`
+}
+
+// Returns the first per_squad active members (earliest joiner first) of each
+// of the given squads in one query, for the avatar row on the squad list.
+func (q *Queries) ListMemberPreviews(ctx context.Context, arg ListMemberPreviewsParams) ([]ListMemberPreviewsRow, error) {
+	rows, err := q.db.Query(ctx, listMemberPreviews, arg.SquadIds, arg.PerSquad)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMemberPreviewsRow
+	for rows.Next() {
+		var i ListMemberPreviewsRow
+		if err := rows.Scan(
+			&i.SquadID,
+			&i.UserID,
+			&i.Role,
+			&i.JoinedAt,
+			&i.Name,
+			&i.AvatarUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSquadMembers = `-- name: ListSquadMembers :many
 SELECT m.user_id, m.role, m.joined_at, u.name, u.avatar_url
 FROM squad_members m
@@ -313,6 +373,38 @@ func (q *Queries) RemoveSquadMember(ctx context.Context, arg RemoveSquadMemberPa
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const updateSquad = `-- name: UpdateSquad :one
+UPDATE squads
+SET name       = COALESCE($1, name),
+    avatar_url = CASE
+                     WHEN $2::text IS NULL THEN avatar_url
+                     ELSE NULLIF($2::text, '')
+        END
+WHERE id = $3
+RETURNING id, name, avatar_url, created_by, created_at
+`
+
+type UpdateSquadParams struct {
+	Name      *string   `json:"name"`
+	AvatarUrl *string   `json:"avatar_url"`
+	ID        uuid.UUID `json:"id"`
+}
+
+// Sets the name and/or avatar of a squad; a NULL argument leaves that column
+// as it is, and an empty avatar URL clears the picture.
+func (q *Queries) UpdateSquad(ctx context.Context, arg UpdateSquadParams) (Squad, error) {
+	row := q.db.QueryRow(ctx, updateSquad, arg.Name, arg.AvatarUrl, arg.ID)
+	var i Squad
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.AvatarUrl,
+		&i.CreatedBy,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const updateSquadMemberRole = `-- name: UpdateSquadMemberRole :execrows

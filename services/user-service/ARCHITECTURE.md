@@ -155,6 +155,8 @@ type DeviceTokenRepository interface {
 | Adapter | File | Implements |
 |---|---|---|
 | `PostgresUserRepository` | `adapters/persistence/postgres_user_repository.go` | `domain.UserRepository`, `domain.DeviceTokenRepository` |
+| `PostgresSquadRepository` | `adapters/persistence/postgres_squad_repository.go` | `domain.SquadRepository` |
+| `CasbinAuthorizer` | `adapters/authz/casbin_authorizer.go` (+ embedded `model.conf`, `policy.csv`) | `domain.Authorizer` |
 
 Domain IDs are plain strings. The adapter parses them into `uuid.UUID` for sqlc and maps sqlc rows (with nullable `*string` columns) back into domain structs, so sqlc and pgx types never reach the application layer.
 
@@ -176,7 +178,8 @@ squadRepo := persistence.NewPostgresSquadRepository(pool)
 // 4. Use-cases (depend on ports, not concrete adapters)
 userUC        := application.NewUserUseCase(userRepo, userRepo)
 deviceTokenUC := application.NewDeviceTokenUseCase(userRepo)
-squadUC       := application.NewSquadUseCase(squadRepo, userRepo)
+authorizer, _ := authz.NewCasbinAuthorizer() // embedded policy; see docs/PERMISSIONS.md
+squadUC       := application.NewSquadUseCase(squadRepo, userRepo, authorizer)
 
 // 5. Driving adapters
 app := fiber.New()
@@ -207,6 +210,7 @@ All routes are versioned under `/api/v1`. Routes under `/users/me` require the `
 | POST | /api/v1/squads | SquadHandler.Create | SquadUseCase.Create | 201 |
 | GET | /api/v1/squads | SquadHandler.List | SquadUseCase.List | 200 |
 | GET | /api/v1/squads/:squadID | SquadHandler.Get | SquadUseCase.Get | 200 |
+| PATCH | /api/v1/squads/:squadID | SquadHandler.Update | SquadUseCase.Update | 200 |
 | POST | /api/v1/squads/:squadID/members | SquadHandler.AddMember | SquadUseCase.AddMember | 201 |
 | PATCH | /api/v1/squads/:squadID/members/:userID | SquadHandler.ChangeRole | SquadUseCase.ChangeRole | 204 |
 | DELETE | /api/v1/squads/:squadID/members/:userID | SquadHandler.RemoveMember | SquadUseCase.RemoveMember | 204 |
@@ -221,9 +225,16 @@ A squad is a group of friends, with WhatsApp-group rules:
 
 - **Roles:** `ADMIN` and `MEMBER`; a squad can have several admins. The creator is the first admin.
 - **Adding:** any member can add a Roundup user by phone. A squad holds at most `domain.MaxSquadMembers` (50).
-- **Removing and roles:** only admins can remove someone else or change roles (`domain.CanRemove`, `domain.CanChangeRole`). Demoting the only admin is refused (`ErrLastAdmin`).
+- **Permissions:** which role may add, remove, leave, change roles or edit is set in the Casbin policy (`internal/adapters/authz/policy.csv`), not in code. Today, admins may do everything, and members may add people and leave. See [docs/PERMISSIONS.md](docs/PERMISSIONS.md) for how to read and change it. A denied action returns `ErrForbidden` (403).
+- **Last admin:** demoting the only admin is refused (`ErrLastAdmin`).
+- **Unknown numbers:** adding a phone that isn't on Roundup returns 404. There are no pending invites.
 - **Leaving:** anyone can leave, by removing their own user ID. If the last admin leaves, the member who joined earliest becomes admin. If the last member leaves, the squad is deleted.
 - **Privacy:** every squad route answers 404 to non-members, so a squad you are not in looks the same as one that does not exist.
+
+What clients get, so they never re-derive these rules:
+
+- **Squad list:** each entry has the caller's `role`, `memberCount` and `memberPreview` (the first `domain.MemberPreviewSize` = 4 members). Previews for every listed squad come from one `ROW_NUMBER() OVER (PARTITION BY squad_id)` query, so listing n squads costs two queries, not n+1.
+- **Squad detail:** `myRole`, `memberCount`, `createdByName` (null if the creator left), `members[].isMe`, and `permissions`. `domain.PermissionsFor` builds `permissions` by asking the same `Authorizer` the use case enforces with, so a button the app shows never meets a 403.
 
 The member cap, admin succession and deleting an empty squad are enforced in `PostgresSquadRepository`, inside a transaction that first locks the squad row (`SELECT … FOR UPDATE`). That way concurrent joins or leaves on one squad are applied one at a time and can't overshoot the cap or leave it without an admin.
 

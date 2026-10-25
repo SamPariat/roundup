@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 
+	"github.com/SamPariat/roundup/services/user-service/internal/adapters/authz"
 	"github.com/SamPariat/roundup/services/user-service/internal/adapters/persistence"
 	"github.com/SamPariat/roundup/services/user-service/internal/application"
 	"github.com/SamPariat/roundup/services/user-service/internal/config"
@@ -32,9 +33,14 @@ func main() {
 	userRepo := persistence.NewPostgresUserRepository(pool)
 	squadRepo := persistence.NewPostgresSquadRepository(pool)
 
+	authorizer, err := authz.NewCasbinAuthorizer()
+	if err != nil {
+		log.Fatal("failed to load the authorization policy", zap.Error(err))
+	}
+
 	userUC := application.NewUserUseCase(userRepo, userRepo)
 	deviceTokenUC := application.NewDeviceTokenUseCase(userRepo)
-	squadUC := application.NewSquadUseCase(squadRepo, userRepo)
+	squadUC := application.NewSquadUseCase(squadRepo, userRepo, authorizer)
 
 	app := fiber.New()
 	app.Use(middleware.RequestID(), middleware.Logging(log), middleware.Recover(log))

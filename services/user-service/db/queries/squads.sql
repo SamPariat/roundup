@@ -39,6 +39,24 @@ WHERE m.squad_id = $1
   AND u.deleted_at IS NULL
 ORDER BY m.joined_at, m.user_id;
 
+-- name: ListMemberPreviews :many
+-- Returns the first per_squad active members (earliest joiner first) of each
+-- of the given squads in one query, for the avatar row on the squad list.
+SELECT p.squad_id, p.user_id, p.role, p.joined_at, p.name, p.avatar_url
+FROM (SELECT m.squad_id,
+             m.user_id,
+             m.role,
+             m.joined_at,
+             u.name,
+             u.avatar_url,
+             ROW_NUMBER() OVER (PARTITION BY m.squad_id ORDER BY m.joined_at, m.user_id) AS position
+      FROM squad_members m
+               JOIN users u ON u.id = m.user_id
+      WHERE m.squad_id = ANY (@squad_ids::uuid[])
+        AND u.deleted_at IS NULL) p
+WHERE p.position <= @per_squad::bigint
+ORDER BY p.squad_id, p.position;
+
 -- name: GetSquadMember :one
 -- Returns one member's role and profile. No rows means not a member.
 SELECT m.user_id, m.role, m.joined_at, u.name, u.avatar_url
@@ -46,6 +64,18 @@ FROM squad_members m
          JOIN users u ON u.id = m.user_id
 WHERE m.squad_id = $1
   AND m.user_id = $2;
+
+-- name: UpdateSquad :one
+-- Sets the name and/or avatar of a squad; a NULL argument leaves that column
+-- as it is, and an empty avatar URL clears the picture.
+UPDATE squads
+SET name       = COALESCE(sqlc.narg('name'), name),
+    avatar_url = CASE
+                     WHEN sqlc.narg('avatar_url')::text IS NULL THEN avatar_url
+                     ELSE NULLIF(sqlc.narg('avatar_url')::text, '')
+        END
+WHERE id = sqlc.arg('id')
+RETURNING *;
 
 -- name: LockSquad :one
 -- Serialises membership changes to one squad for the rest of the transaction.

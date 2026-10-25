@@ -106,6 +106,80 @@ func TestListForUser(t *testing.T) {
 	assert.Equal(t, 2, squads[0].MemberCount)
 }
 
+func TestListForUserPreviewsFirstMembersPerSquad(t *testing.T) {
+	f := newSquadFixture(t)
+
+	users := make([]string, 6)
+	for i := range users {
+		users[i] = f.user(t)
+	}
+
+	big := f.squad(t, users[0])
+	for _, u := range users[1:] {
+		f.add(t, big, u)
+	}
+
+	small := f.squad(t, users[5])
+	require.NoError(t, f.users.SoftDelete(t.Context(), users[2]))
+
+	squads, err := f.squads.ListForUser(t.Context(), users[5])
+	require.NoError(t, err)
+
+	require.Len(t, squads, 2)
+
+	previews := map[string][]string{}
+
+	for _, s := range squads {
+		for _, m := range s.MemberPreview {
+			previews[s.ID] = append(previews[s.ID], m.UserID)
+		}
+	}
+
+	assert.Equal(t, []string{users[0], users[1], users[3], users[4]}, previews[big],
+		"earliest joiners first, at most MemberPreviewSize, deleted users hidden")
+	assert.Equal(t, []string{users[5]}, previews[small])
+}
+
+func TestListForUserWithNoSquads(t *testing.T) {
+	f := newSquadFixture(t)
+
+	squads, err := f.squads.ListForUser(t.Context(), f.user(t))
+
+	require.NoError(t, err)
+	assert.Empty(t, squads)
+}
+
+func TestUpdateSquad(t *testing.T) {
+	f := newSquadFixture(t)
+	squadID := f.squad(t, f.user(t))
+	text := func(s string) *string { return &s }
+
+	squad, err := f.squads.Update(t.Context(), domain.UpdateSquadCommand{SquadID: squadID, AvatarURL: text("https://img/new.png")})
+	require.NoError(t, err)
+	assert.Equal(t, "Friday crew", squad.Name, "a nil name is left unchanged")
+	assert.Equal(t, "https://img/new.png", squad.AvatarURL)
+
+	squad, err = f.squads.Update(t.Context(), domain.UpdateSquadCommand{SquadID: squadID, Name: text("Saturday crew")})
+	require.NoError(t, err)
+	assert.Equal(t, "Saturday crew", squad.Name)
+	assert.Equal(t, "https://img/new.png", squad.AvatarURL, "a nil avatar is left unchanged")
+
+	squad, err = f.squads.Update(t.Context(), domain.UpdateSquadCommand{SquadID: squadID, AvatarURL: text("")})
+	require.NoError(t, err)
+	assert.Empty(t, squad.AvatarURL, "an empty avatar removes the picture")
+}
+
+func TestUpdateMissingSquad(t *testing.T) {
+	f := newSquadFixture(t)
+	name := "Ghost crew"
+
+	_, err := f.squads.Update(t.Context(), domain.UpdateSquadCommand{SquadID: "6f1c2a9e-1111-4c2b-9d7e-2b1f0a9c4e11", Name: &name})
+	require.ErrorIs(t, err, domain.ErrSquadNotFound)
+
+	_, err = f.squads.Update(t.Context(), domain.UpdateSquadCommand{SquadID: "not-a-uuid", Name: &name})
+	assert.ErrorIs(t, err, domain.ErrSquadNotFound)
+}
+
 func TestAddMemberTwiceReturnsErrAlreadyMember(t *testing.T) {
 	f := newSquadFixture(t)
 	creator, friend := f.user(t), f.user(t)
