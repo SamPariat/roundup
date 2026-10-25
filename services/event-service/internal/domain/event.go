@@ -38,9 +38,14 @@ type Type string
 
 // Event types.
 const (
+	// TypeDrinks is a night out for drinks.
 	TypeDrinks Type = "DRINKS"
+
+	// TypeDining is a night out for a meal.
 	TypeDining Type = "DINING"
-	TypeBoth   Type = "BOTH"
+
+	// TypeBoth is dinner and drinks.
+	TypeBoth Type = "BOTH"
 )
 
 // AutoCloseAfter is how long after it starts an event closes on its own, if
@@ -70,7 +75,7 @@ type Event struct {
 	// StartsAt is when the night starts.
 	StartsAt time.Time
 
-	// VotingDeadline is when voting closes on its own. Always before StartsAt.
+	// VotingDeadline is when voting closes on its own. Never after StartsAt.
 	VotingDeadline time.Time
 
 	// Winner is the confirmed place; nil until voting closes.
@@ -85,18 +90,34 @@ type Event struct {
 
 // NewEvent carries what a member sends to create an event.
 type NewEvent struct {
-	SquadID   string
+	// SquadID is the squad planning it.
+	SquadID string
+
+	// CreatedBy is the member creating it.
 	CreatedBy string
-	Name      string
-	Type      Type
-	Schedule  Schedule
+
+	// Name is the display name, already trimmed and checked.
+	Name string
+
+	// Type is drinks, dining or both.
+	Type Type
+
+	// Schedule is the start and voting deadline, already checked.
+	Schedule Schedule
 }
 
 // EventChanges carries an edit. Nil fields are left unchanged.
 type EventChanges struct {
-	Name           *string
-	Type           *Type
-	StartsAt       *time.Time
+	// Name is the new display name.
+	Name *string
+
+	// Type is the new type.
+	Type *Type
+
+	// StartsAt is the new start. Without VotingDeadline, the deadline moves to it.
+	StartsAt *time.Time
+
+	// VotingDeadline is the new deadline.
 	VotingDeadline *time.Time
 }
 

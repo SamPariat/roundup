@@ -45,9 +45,16 @@ type Config struct {
 
 // Upstreams holds each service's base URL, e.g. "http://localhost:3002".
 type Upstreams struct {
-	Auth  string
-	User  string
+	// Auth is auth-service, from AUTH_SERVICE_URL.
+	Auth string
+
+	// User is user-service, from USER_SERVICE_URL.
+	User string
+
+	// Event is event-service, from EVENT_SERVICE_URL.
 	Event string
+
+	// Venue is venue-service, from VENUE_SERVICE_URL.
 	Venue string
 }
 

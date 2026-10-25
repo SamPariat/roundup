@@ -26,24 +26,49 @@ type VenueServiceClient struct {
 
 // venueDetail is the part of GET /api/v1/venues/{placeID} a nomination keeps.
 type venueDetail struct {
-	PlaceID       string  `json:"placeID"`
-	Name          string  `json:"name"`
-	Address       string  `json:"address"`
-	Latitude      float64 `json:"latitude"`
-	Longitude     float64 `json:"longitude"`
+	// PlaceID is the Google Place ID.
+	PlaceID string `json:"placeID"`
+
+	// Name is the venue's display name.
+	Name string `json:"name"`
+
+	// Address is the formatted street address.
+	Address string `json:"address"`
+
+	// Latitude is the WGS-84 latitude.
+	Latitude float64 `json:"latitude"`
+
+	// Longitude is the WGS-84 longitude.
+	Longitude float64 `json:"longitude"`
+
+	// AverageRating is the average rating, 1–5; 0 when unrated.
 	AverageRating float32 `json:"averageRating"`
-	PriceLevel    int     `json:"priceLevel"`
-	Photos        []struct {
-		URL    string `json:"url"`
-		Width  int    `json:"width"`
-		Height int    `json:"height"`
+
+	// PriceLevel is 0–4 (0 = free or unknown, 4 = very expensive).
+	PriceLevel int `json:"priceLevel"`
+
+	// Photos are the venue's photos, best first; only the first is kept.
+	Photos []struct {
+		// URL is the photo's path on venue-service.
+		URL string `json:"url"`
+
+		// Width is the original width in pixels.
+		Width int `json:"width"`
+
+		// Height is the original height in pixels.
+		Height int `json:"height"`
 	} `json:"photos"`
 }
 
 // recordVisitRequest is the body of POST /api/v1/squads/{squadID}/history.
 type recordVisitRequest struct {
-	EventID   string    `json:"eventID"`
-	PlaceID   string    `json:"placeID"`
+	// EventID is the closed event; venue-service records one visit per event.
+	EventID string `json:"eventID"`
+
+	// PlaceID is the winning place.
+	PlaceID string `json:"placeID"`
+
+	// VisitedAt is when the night started.
 	VisitedAt time.Time `json:"visitedAt"`
 }
 

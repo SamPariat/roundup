@@ -22,8 +22,11 @@ type PostgresVenueRepository struct {
 // placeCursor is the position after which the next page of favorites or
 // history starts: the last row's (time, place_id), both lists' sort key.
 type placeCursor struct {
-	At      time.Time `json:"at"`
-	PlaceID string    `json:"placeID"`
+	// At is the last row's time: last saved for favorites, last visited for history.
+	At time.Time `json:"at"`
+
+	// PlaceID breaks ties between rows with the same time.
+	PlaceID string `json:"placeID"`
 }
 
 // NewPostgresVenueRepository constructs a PostgresVenueRepository from a pgxpool.

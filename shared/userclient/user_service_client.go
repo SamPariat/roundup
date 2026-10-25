@@ -31,15 +31,25 @@ var (
 // SquadMember is a squad member as user-service describes them. Role is the
 // squad role, "ADMIN" or "MEMBER".
 type SquadMember struct {
-	UserID    string
-	Name      string
+	// UserID is the member's user ID.
+	UserID string
+
+	// Name is the member's display name.
+	Name string
+
+	// AvatarURL is the member's avatar; "" when they have none.
 	AvatarURL string
-	Role      string
+
+	// Role is the squad role, "ADMIN" or "MEMBER".
+	Role string
 }
 
 // Squad is a squad as it appears in a user's list.
 type Squad struct {
-	ID   string
+	// ID is the squad's UUID.
+	ID string
+
+	// Name is the squad's display name.
 	Name string
 }
 
@@ -61,21 +71,34 @@ func NewUserServiceClient(baseURL string) *UserServiceClient {
 
 // squadDetail is the part of user-service's GET /squads/{id} body we read.
 type squadDetail struct {
+	// Members are the squad's members.
 	Members []struct {
-		UserID    string `json:"userID"`
-		Name      string `json:"name"`
+		// UserID is the member's user ID.
+		UserID string `json:"userID"`
+
+		// Name is the member's display name.
+		Name string `json:"name"`
+
+		// AvatarURL is the member's avatar; "" when they have none.
 		AvatarURL string `json:"avatarURL"`
-		Role      string `json:"role"`
+
+		// Role is "ADMIN" or "MEMBER".
+		Role string `json:"role"`
 	} `json:"members"`
 }
 
 // squadList is the part of user-service's GET /squads body we read.
 type squadList struct {
+	// Squads are this page of the caller's squads.
 	Squads []struct {
-		ID   string `json:"id"`
+		// ID is the squad's UUID.
+		ID string `json:"id"`
+
+		// Name is the squad's display name.
 		Name string `json:"name"`
 	} `json:"squads"`
 
+	// NextCursor fetches the next page; null on the last page.
 	NextCursor *string `json:"nextCursor"`
 }
 

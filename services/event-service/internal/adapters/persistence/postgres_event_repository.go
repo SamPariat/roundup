@@ -27,9 +27,14 @@ type PostgresEventRepository struct {
 // eventCursor is the position after which the next page of a squad's events
 // starts: the last event's (closed, starts_at, id), the list's sort key.
 type eventCursor struct {
-	Closed   bool      `json:"closed"`
+	// Closed is whether the last event was closed; open events sort first.
+	Closed bool `json:"closed"`
+
+	// StartsAt is the last event's start.
 	StartsAt time.Time `json:"startsAt"`
-	ID       uuid.UUID `json:"id"`
+
+	// ID breaks ties between events with the same start.
+	ID uuid.UUID `json:"id"`
 }
 
 // NewPostgresEventRepository constructs a PostgresEventRepository from a pgxpool.

@@ -28,10 +28,19 @@ type EventUseCase struct {
 
 // CreateEventCommand carries what a member sends to create an event.
 type CreateEventCommand struct {
-	SquadID  string
-	UserID   string
-	Name     string
-	Type     domain.Type
+	// SquadID is the squad to create it in.
+	SquadID string
+
+	// UserID is the caller, who becomes the creator.
+	UserID string
+
+	// Name is the display name as sent; trimmed and checked by Create.
+	Name string
+
+	// Type is drinks, dining or both.
+	Type domain.Type
+
+	// StartsAt is when the night starts.
 	StartsAt time.Time
 
 	// VotingDeadline is nil when the member didn't pick one.
@@ -40,7 +49,11 @@ type CreateEventCommand struct {
 
 // SquadEvents is one page of a squad's events.
 type SquadEvents struct {
-	Events     []domain.EventSummary
+	// Events are this page: open events soonest first, then closed ones most
+	// recent first.
+	Events []domain.EventSummary
+
+	// NextCursor fetches the next page; "" on the last page.
 	NextCursor string
 
 	// OpenCount counts all the squad's events that aren't closed, for the

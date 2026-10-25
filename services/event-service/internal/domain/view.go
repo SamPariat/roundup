@@ -57,14 +57,29 @@ type NominationView struct {
 // Permissions says which actions the caller may take on the event right now,
 // from the policy and the event's status, so the app shows only those buttons.
 type Permissions struct {
-	CanEdit        bool
-	CanRSVP        bool
-	CanNominate    bool
-	CanVote        bool
+	// CanEdit allows changing the name, type or times.
+	CanEdit bool
+
+	// CanRSVP allows answering going, maybe or not going.
+	CanRSVP bool
+
+	// CanNominate allows suggesting a place.
+	CanNominate bool
+
+	// CanVote allows voting for a suggested place.
+	CanVote bool
+
+	// CanStartVoting allows moving DRAFT to VOTING.
 	CanStartVoting bool
+
+	// CanCloseVoting allows moving VOTING to CONFIRMED before the deadline.
 	CanCloseVoting bool
-	CanStart       bool
-	CanClose       bool
+
+	// CanStart allows moving CONFIRMED to ACTIVE ("Start the night").
+	CanStart bool
+
+	// CanClose allows moving ACTIVE to CLOSED.
+	CanClose bool
 }
 
 // EventDetail is everything the event screen shows.

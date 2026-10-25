@@ -8,7 +8,10 @@ import (
 
 // Schedule is when an event starts and when its voting closes.
 type Schedule struct {
-	StartsAt       time.Time
+	// StartsAt is when the night starts. Always in the future when checked.
+	StartsAt time.Time
+
+	// VotingDeadline is when voting closes. Never after StartsAt.
 	VotingDeadline time.Time
 }
 

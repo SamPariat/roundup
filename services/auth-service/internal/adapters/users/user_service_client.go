@@ -20,6 +20,7 @@ const requestTimeout = 3 * time.Second
 
 // createdUser is the part of user-service's response data we read.
 type createdUser struct {
+	// ID is the new (or existing) user's UUID.
 	ID string `json:"id"`
 }
 
