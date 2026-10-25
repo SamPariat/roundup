@@ -1,17 +1,18 @@
-// Package users provides a client for user-service, implementing
-// domain.SquadDirectory.
-package users
+// Package userclient is the one client for user-service's squad routes,
+// shared by every service that needs to know who is in which squad. A service
+// maps its types and sentinel errors onto its own domain.
+package userclient
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
 
-	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 	"github.com/SamPariat/roundup/shared/api"
 	"github.com/SamPariat/roundup/shared/domainerr"
 	sharedmw "github.com/SamPariat/roundup/shared/middleware"
@@ -19,12 +20,37 @@ import (
 	"github.com/SamPariat/roundup/shared/response"
 )
 
+var (
+	// ErrSquadNotFound is returned by Members when the squad does not exist or
+	// the caller is not in it. user-service answers both with 404.
+	ErrSquadNotFound = errors.New("squad not found")
+
+	// ErrUserServiceUnavailable is returned when user-service cannot answer: it
+	// is unreachable, timed out, or replied with an unexpected status or body.
+	ErrUserServiceUnavailable = errors.New("user service unavailable")
+)
+
+// SquadMember is a squad member as user-service describes them. Role is the
+// squad role, "ADMIN" or "MEMBER".
+type SquadMember struct {
+	UserID    string
+	Name      string
+	AvatarURL string
+	Role      string
+}
+
+// Squad is a squad as it appears in a user's list.
+type Squad struct {
+	ID   string
+	Name string
+}
+
 // requestTimeout bounds each call so a slow user-service fails the request
 // fast instead of hanging it.
 const requestTimeout = 3 * time.Second
 
-// UserServiceClient implements domain.SquadDirectory by calling user-service
-// directly (not through the gateway) as the caller.
+// UserServiceClient calls user-service directly (not through the gateway) as
+// the caller, so user-service's own membership rules apply.
 type UserServiceClient struct {
 	baseURL string
 	http    *http.Client
@@ -42,6 +68,7 @@ type squadDetail struct {
 		UserID    string `json:"userID"`
 		Name      string `json:"name"`
 		AvatarURL string `json:"avatarURL"`
+		Role      string `json:"role"`
 	} `json:"members"`
 }
 
@@ -58,7 +85,7 @@ type squadList struct {
 // Members calls GET /api/v1/squads/{squadID}. That route answers 404 to
 // non-members, so membership is its status; anything else but 200,
 // including a timeout, is ErrUserServiceUnavailable.
-func (c *UserServiceClient) Members(ctx context.Context, squadID, userID string) ([]domain.SquadMember, error) {
+func (c *UserServiceClient) Members(ctx context.Context, squadID, userID string) ([]SquadMember, error) {
 	var body squadDetail
 
 	status, err := c.get(ctx, api.SquadsPath+"/"+url.PathEscape(squadID), userID, &body)
@@ -67,12 +94,12 @@ func (c *UserServiceClient) Members(ctx context.Context, squadID, userID string)
 	}
 
 	if status == http.StatusNotFound {
-		return nil, domainerr.New(domain.ErrSquadNotFound, squadID)
+		return nil, domainerr.New(ErrSquadNotFound, squadID)
 	}
 
-	members := make([]domain.SquadMember, 0, len(body.Members))
+	members := make([]SquadMember, 0, len(body.Members))
 	for _, m := range body.Members {
-		members = append(members, domain.SquadMember{UserID: m.UserID, Name: m.Name, AvatarURL: m.AvatarURL})
+		members = append(members, SquadMember{UserID: m.UserID, Name: m.Name, AvatarURL: m.AvatarURL, Role: m.Role})
 	}
 
 	return members, nil
@@ -81,8 +108,8 @@ func (c *UserServiceClient) Members(ctx context.Context, squadID, userID string)
 // Squads calls GET /api/v1/squads, which lists the caller's squads, and
 // follows nextCursor with the largest page size until the last page, so the
 // result holds every squad.
-func (c *UserServiceClient) Squads(ctx context.Context, userID string) ([]domain.Squad, error) {
-	squads := []domain.Squad{}
+func (c *UserServiceClient) Squads(ctx context.Context, userID string) ([]Squad, error) {
+	squads := []Squad{}
 	query := url.Values{"limit": {strconv.Itoa(pagination.MaxLimit)}}
 
 	for {
@@ -98,7 +125,7 @@ func (c *UserServiceClient) Squads(ctx context.Context, userID string) ([]domain
 		}
 
 		for _, s := range body.Squads {
-			squads = append(squads, domain.Squad{ID: s.ID, Name: s.Name})
+			squads = append(squads, Squad{ID: s.ID, Name: s.Name})
 		}
 
 		if body.NextCursor == nil {
@@ -147,5 +174,5 @@ func (c *UserServiceClient) get(ctx context.Context, path, userID string, out an
 
 // unavailable wraps detail in ErrUserServiceUnavailable.
 func unavailable(detail string) error {
-	return domainerr.New(domain.ErrUserServiceUnavailable, detail)
+	return domainerr.New(ErrUserServiceUnavailable, detail)
 }

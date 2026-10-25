@@ -156,7 +156,7 @@ type DeviceTokenRepository interface {
 |---|---|---|
 | `PostgresUserRepository` | `adapters/persistence/postgres_user_repository.go` | `domain.UserRepository`, `domain.DeviceTokenRepository` |
 | `PostgresSquadRepository` | `adapters/persistence/postgres_squad_repository.go` | `domain.SquadRepository` |
-| `CasbinAuthorizer` | `adapters/authz/casbin_authorizer.go` (+ embedded `model.conf`, `policy.csv`) | `domain.Authorizer` |
+| `authz.Enforcer[Role, Action]` | `shared/authz`, built in `cmd/main.go` over `internal/policy/policy.csv` | `domain.Authorizer` |
 
 Domain IDs are plain strings. The adapter parses them into `uuid.UUID` for sqlc and maps sqlc rows (with nullable `*string` columns) back into domain structs, so sqlc and pgx types never reach the application layer.
 
@@ -178,7 +178,7 @@ squadRepo := persistence.NewPostgresSquadRepository(pool)
 // 4. Use-cases (depend on ports, not concrete adapters)
 userUC        := application.NewUserUseCase(userRepo, userRepo)
 deviceTokenUC := application.NewDeviceTokenUseCase(userRepo)
-authorizer, _ := authz.NewCasbinAuthorizer() // embedded policy; see docs/PERMISSIONS.md
+authorizer, _ := authz.New[domain.Role, domain.Action](policy.CSV) // shared/authz; see docs/PERMISSIONS.md
 squadUC       := application.NewSquadUseCase(squadRepo, userRepo, authorizer)
 
 // 5. Driving adapters
@@ -225,7 +225,7 @@ A squad is a group of friends, with WhatsApp-group rules:
 
 - **Roles:** `ADMIN` and `MEMBER`; a squad can have several admins. The creator is the first admin.
 - **Adding:** any member can add a Roundup user by phone. A squad holds at most `domain.MaxSquadMembers` (50).
-- **Permissions:** which role may add, remove, leave, change roles or edit is set in the Casbin policy (`internal/adapters/authz/policy.csv`), not in code. Today, admins may do everything, and members may add people and leave. See [docs/PERMISSIONS.md](docs/PERMISSIONS.md) for how to read and change it. A denied action returns `ErrForbidden` (403).
+- **Permissions:** which role may add, remove, leave, change roles or edit is set in the Casbin policy (`internal/policy/policy.csv`), not in code. Today, admins may do everything, and members may add people and leave. See [docs/PERMISSIONS.md](docs/PERMISSIONS.md) for how to read and change it. A denied action returns `ErrForbidden` (403).
 - **Last admin:** demoting the only admin is refused (`ErrLastAdmin`).
 - **Unknown numbers:** adding a phone that isn't on Roundup returns 404. There are no pending invites.
 - **Leaving:** anyone can leave, by removing their own user ID. If the last admin leaves, the member who joined earliest becomes admin. If the last member leaves, the squad is deleted.

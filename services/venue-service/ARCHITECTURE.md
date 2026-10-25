@@ -153,6 +153,8 @@ type SquadDirectory interface {
 }
 ```
 
+`SquadMember`, `Squad`, `ErrSquadNotFound` and `ErrUserServiceUnavailable` are aliases of `shared/userclient`'s, so `userclient.UserServiceClient` implements `SquadDirectory` as is, with no adapter in this service.
+
 ---
 
 ## Domain Models
@@ -254,7 +256,7 @@ type VisitSummary struct {
 | `GoogleMapsAdapter` | `adapters/places/google_maps_adapter.go` | `domain.PlaceProvider` |
 | `RedisCacheAdapter` | `adapters/cache/redis_cache_adapter.go` | `domain.VenueCache` |
 | `PostgresVenueRepository` | `adapters/persistence/postgres_venue_repository.go` | `domain.VenueRepository` |
-| `UserServiceClient` | `adapters/users/user_service_client.go` | `domain.SquadDirectory` |
+| `userclient.UserServiceClient` | `shared/userclient` (shared with every service that checks squad membership) | `domain.SquadDirectory` |
 
 To swap Google Maps: write `adapters/places/foursquare_adapter.go` implementing `PlaceProvider`, change one line in `main.go`. Domain and application layers are untouched.
 
@@ -274,7 +276,7 @@ pool, err := postgres.Connect(ctx, cfg.PostgresDSN) // shared/postgres — pings
 venueRepo      := persistence.NewPostgresVenueRepository(pool)
 placeProvider  := places.NewGoogleMapsAdapter(cfg.GoogleMapsAPIKey)
 venueCache     := cache.NewRedisCacheAdapter(redisClient, cache.DefaultTTL, log)
-squadDirectory := users.NewUserServiceClient(cfg.UserServiceURL)
+squadDirectory := userclient.NewUserServiceClient(cfg.UserServiceURL) // shared/userclient
 
 // 4. Use-cases (depend on ports, not concrete adapters)
 venueUC    := application.NewVenueUseCase(placeProvider, venueCache)

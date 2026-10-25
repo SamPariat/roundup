@@ -9,7 +9,6 @@ import (
 	"github.com/SamPariat/roundup/services/venue-service/internal/adapters/cache"
 	"github.com/SamPariat/roundup/services/venue-service/internal/adapters/persistence"
 	"github.com/SamPariat/roundup/services/venue-service/internal/adapters/places"
-	"github.com/SamPariat/roundup/services/venue-service/internal/adapters/users"
 	"github.com/SamPariat/roundup/services/venue-service/internal/application"
 	"github.com/SamPariat/roundup/services/venue-service/internal/config"
 	transporthttp "github.com/SamPariat/roundup/services/venue-service/internal/transport/http"
@@ -18,6 +17,7 @@ import (
 	"github.com/SamPariat/roundup/shared/middleware"
 	"github.com/SamPariat/roundup/shared/postgres"
 	"github.com/SamPariat/roundup/shared/server"
+	"github.com/SamPariat/roundup/shared/userclient"
 	"github.com/gofiber/fiber/v3"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -42,7 +42,7 @@ func main() {
 	}
 
 	venueCache := cache.NewRedisCacheAdapter(redisClient, cache.DefaultTTL, log)
-	squadDirectory := users.NewUserServiceClient(cfg.UserServiceURL)
+	squadDirectory := userclient.NewUserServiceClient(cfg.UserServiceURL)
 
 	venueUC := application.NewVenueUseCase(placeProvider, venueCache)
 	favoriteUC := application.NewFavoriteUseCase(venueRepo, squadDirectory, venueUC)

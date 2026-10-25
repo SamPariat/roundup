@@ -8,7 +8,7 @@ import (
 
 // allowList is an Authorizer that allows exactly the listed actions for every
 // role, so these tests check PermissionsFor's wiring, not the policy (that
-// lives in adapters/authz).
+// lives in internal/policy).
 type allowList map[Action]bool
 
 func (a allowList) Can(_ Role, action Action) bool { return a[action] }

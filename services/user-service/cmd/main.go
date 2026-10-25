@@ -6,12 +6,14 @@ package main
 import (
 	"context"
 
-	"github.com/SamPariat/roundup/services/user-service/internal/adapters/authz"
 	"github.com/SamPariat/roundup/services/user-service/internal/adapters/persistence"
 	"github.com/SamPariat/roundup/services/user-service/internal/application"
 	"github.com/SamPariat/roundup/services/user-service/internal/config"
+	"github.com/SamPariat/roundup/services/user-service/internal/domain"
+	"github.com/SamPariat/roundup/services/user-service/internal/policy"
 	transporthttp "github.com/SamPariat/roundup/services/user-service/internal/transport/http"
 	"github.com/SamPariat/roundup/shared/api"
+	"github.com/SamPariat/roundup/shared/authz"
 	"github.com/SamPariat/roundup/shared/logger"
 	"github.com/SamPariat/roundup/shared/middleware"
 	"github.com/SamPariat/roundup/shared/postgres"
@@ -33,7 +35,7 @@ func main() {
 	userRepo := persistence.NewPostgresUserRepository(pool)
 	squadRepo := persistence.NewPostgresSquadRepository(pool)
 
-	authorizer, err := authz.NewCasbinAuthorizer()
+	authorizer, err := authz.New[domain.Role, domain.Action](policy.CSV)
 	if err != nil {
 		log.Fatal("failed to load the authorization policy", zap.Error(err))
 	}

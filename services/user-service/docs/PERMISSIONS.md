@@ -4,10 +4,10 @@ Who may do what in a squad is decided by a policy, not by Go code. The policy is
 
 | File | What it holds |
 |---|---|
-| [`internal/adapters/authz/model.conf`](../internal/adapters/authz/model.conf) | The *shape* of a permission check: what a question looks like and how it is matched. Rarely changes. |
-| [`internal/adapters/authz/policy.csv`](../internal/adapters/authz/policy.csv) | The *rules*: which role may take which action. This is the file you edit. |
+| [`shared/authz/model.conf`](../../../shared/authz/model.conf) | The *shape* of a permission check: what a question looks like and how it is matched. Shared by every service. Rarely changes. |
+| [`internal/policy/policy.csv`](../internal/policy/policy.csv) | The *rules*: which role may take which action. This is the file you edit. |
 
-Both are embedded into the binary with `go:embed`, so a change needs a rebuild and redeploy, and goes through code review like any other change.
+Both are embedded into the binary with `go:embed`, so a change needs a rebuild and redeploy, and goes through code review like any other change. `cmd/main.go` loads the policy into the shared enforcer: `authz.New[domain.Role, domain.Action](policy.CSV)`.
 
 Code asks one question, `Authorizer.Can(role, action)`, in two places:
 
@@ -107,7 +107,7 @@ If Meera had sent her own ID, the action would be `squad:leave`. The line `p, ME
 
 ## Changing permissions
 
-Always update the table in `internal/adapters/authz/casbin_authorizer_test.go` in the same change. It checks every role and action pair, so an accidental grant or removal fails the build.
+Always update the table in `internal/policy/policy_test.go` in the same change. It checks every role and action pair, so an accidental grant or removal fails the build.
 
 - **Let a role do something:** add a line, e.g. `p, MEMBER, squad:edit` to let every member rename the squad. Nothing else changes: the 403 stops, and `canEditSquad` becomes true for members.
 - **Take something away:** delete the line.

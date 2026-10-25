@@ -1,4 +1,4 @@
-package users
+package userclient
 
 import (
 	"net/http"
@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 	sharedmw "github.com/SamPariat/roundup/shared/middleware"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -43,17 +42,17 @@ func TestMembers(t *testing.T) {
 		name    string
 		status  int
 		body    string
-		want    []domain.SquadMember
+		want    []SquadMember
 		wantErr error
 	}{
-		{name: "Member", status: http.StatusOK, body: squadBody, want: []domain.SquadMember{
-			{UserID: userID, Name: "Meera", AvatarURL: "https://a/m.png"},
-			{UserID: "u-2"},
+		{name: "Member", status: http.StatusOK, body: squadBody, want: []SquadMember{
+			{UserID: userID, Name: "Meera", AvatarURL: "https://a/m.png", Role: "ADMIN"},
+			{UserID: "u-2", Role: "MEMBER"},
 		}},
-		{name: "NotMember", status: http.StatusNotFound, body: `{"success":false}`, wantErr: domain.ErrSquadNotFound},
-		{name: "BadBody", status: http.StatusOK, body: `not json`, wantErr: domain.ErrUserServiceUnavailable},
-		{name: "ServerError", status: http.StatusInternalServerError, wantErr: domain.ErrUserServiceUnavailable},
-		{name: "Unauthorized", status: http.StatusUnauthorized, wantErr: domain.ErrUserServiceUnavailable},
+		{name: "NotMember", status: http.StatusNotFound, body: `{"success":false}`, wantErr: ErrSquadNotFound},
+		{name: "BadBody", status: http.StatusOK, body: `not json`, wantErr: ErrUserServiceUnavailable},
+		{name: "ServerError", status: http.StatusInternalServerError, wantErr: ErrUserServiceUnavailable},
+		{name: "Unauthorized", status: http.StatusUnauthorized, wantErr: ErrUserServiceUnavailable},
 	}
 
 	for _, tt := range tests {
@@ -78,18 +77,18 @@ func TestSquads(t *testing.T) {
 		name    string
 		status  int
 		body    string
-		want    []domain.Squad
+		want    []Squad
 		wantErr error
 	}{
 		{
 			name: "Some", status: http.StatusOK, body: `{"success":true,"data":{"squads":[
 			{"id":"s-1","name":"Friday crew","role":"ADMIN","memberCount":4},
 			{"id":"s-2","name":"Office","role":"MEMBER","memberCount":9}]}}`,
-			want: []domain.Squad{{ID: "s-1", Name: "Friday crew"}, {ID: "s-2", Name: "Office"}},
+			want: []Squad{{ID: "s-1", Name: "Friday crew"}, {ID: "s-2", Name: "Office"}},
 		},
-		{name: "None", status: http.StatusOK, body: `{"success":true,"data":{"squads":[]}}`, want: []domain.Squad{}},
-		{name: "NotFoundIsUnavailable", status: http.StatusNotFound, wantErr: domain.ErrUserServiceUnavailable},
-		{name: "ServerError", status: http.StatusInternalServerError, wantErr: domain.ErrUserServiceUnavailable},
+		{name: "None", status: http.StatusOK, body: `{"success":true,"data":{"squads":[]}}`, want: []Squad{}},
+		{name: "NotFoundIsUnavailable", status: http.StatusNotFound, wantErr: ErrUserServiceUnavailable},
+		{name: "ServerError", status: http.StatusInternalServerError, wantErr: ErrUserServiceUnavailable},
 	}
 
 	for _, tt := range tests {
@@ -112,7 +111,7 @@ func TestSquads(t *testing.T) {
 func TestMembersUnreachable(t *testing.T) {
 	_, err := NewUserServiceClient("http://127.0.0.1:1").Members(t.Context(), squadID, userID)
 
-	assert.ErrorIs(t, err, domain.ErrUserServiceUnavailable)
+	assert.ErrorIs(t, err, ErrUserServiceUnavailable)
 }
 
 func TestMembersTimesOut(t *testing.T) {
@@ -127,7 +126,7 @@ func TestMembersTimesOut(t *testing.T) {
 
 	_, err := client.Members(t.Context(), squadID, userID)
 
-	assert.ErrorIs(t, err, domain.ErrUserServiceUnavailable)
+	assert.ErrorIs(t, err, ErrUserServiceUnavailable)
 }
 
 func TestMembersEscapesSquadID(t *testing.T) {
@@ -188,6 +187,6 @@ func TestSquadsFollowsEveryPage(t *testing.T) {
 	got, err := NewUserServiceClient(srv.URL).Squads(t.Context(), userID)
 
 	require.NoError(t, err)
-	assert.Equal(t, []domain.Squad{{ID: "s-1", Name: "A"}, {ID: "s-2", Name: "B"}, {ID: "s-3", Name: "C"}, {ID: "s-4", Name: "D"}}, got)
+	assert.Equal(t, []Squad{{ID: "s-1", Name: "A"}, {ID: "s-2", Name: "B"}, {ID: "s-3", Name: "C"}, {ID: "s-4", Name: "D"}}, got)
 	assert.Equal(t, []string{"100", "100", "100"}, limits, "asks for the largest page to keep calls few")
 }

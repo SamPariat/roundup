@@ -3,6 +3,7 @@ module github.com/SamPariat/roundup/shared
 go 1.27.0
 
 require (
+	github.com/casbin/casbin/v2 v2.135.0
 	github.com/getkin/kin-openapi v0.151.0
 	github.com/gofiber/fiber/v3 v3.6.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
@@ -16,6 +17,8 @@ require (
 )
 
 require (
+	github.com/bmatcuk/doublestar/v4 v4.6.1 // indirect
+	github.com/casbin/govaluate v1.3.0 // indirect
 	github.com/go-openapi/jsonpointer v0.22.5 // indirect
 	github.com/go-openapi/swag/jsonname v0.25.5 // indirect
 	github.com/gofiber/schema v1.8.8 // indirect
