@@ -25,14 +25,14 @@ func NewPostgresOTPRepository(pool *pgxpool.Pool) *PostgresOTPRepository {
 
 // CountSince returns how many codes were created for phone at or after since.
 func (r *PostgresOTPRepository) CountSince(ctx context.Context, phone string, since time.Time) (int, error) {
-	n, err := r.queries.CountOTPCodesSince(ctx, db.CountOTPCodesSinceParams{Phone: phone, CreatedAt: timestamptz(since)})
+	n, err := r.queries.CountOTPCodesSince(ctx, db.CountOTPCodesSinceParams{Phone: phone, CreatedAt: postgres.Timestamptz(since)})
 
 	return int(n), err
 }
 
 // Create stores a new code hash for phone.
 func (r *PostgresOTPRepository) Create(ctx context.Context, phone string, codeHash []byte, expiresAt time.Time) error {
-	return r.queries.CreateOTPCode(ctx, db.CreateOTPCodeParams{Phone: phone, CodeHash: codeHash, ExpiresAt: timestamptz(expiresAt)})
+	return r.queries.CreateOTPCode(ctx, db.CreateOTPCodeParams{Phone: phone, CodeHash: codeHash, ExpiresAt: postgres.Timestamptz(expiresAt)})
 }
 
 // Latest returns the newest code for phone, or ErrInvalidCode if there is none.
@@ -69,10 +69,6 @@ func (r *PostgresOTPRepository) Consume(ctx context.Context, id int64) error {
 	}
 
 	return nil
-}
-
-func timestamptz(t time.Time) pgtype.Timestamptz {
-	return pgtype.Timestamptz{Time: t, Valid: true}
 }
 
 func timePtr(ts pgtype.Timestamptz) *time.Time {

@@ -5,7 +5,9 @@ AUTH_MIGRATIONS_DIR := $(AUTH_DIR)/db/migrations
 GATEWAY_DIR := services/gateway
 USER_DIR := services/user-service
 USER_MIGRATIONS_DIR := $(USER_DIR)/db/migrations
-SERVICE_DIRS := $(AUTH_DIR) $(GATEWAY_DIR) $(USER_DIR) $(VENUE_DIR)
+EVENT_DIR := services/event-service
+EVENT_MIGRATIONS_DIR := $(EVENT_DIR)/db/migrations
+SERVICE_DIRS := $(AUTH_DIR) $(EVENT_DIR) $(GATEWAY_DIR) $(USER_DIR) $(VENUE_DIR)
 
 # Selects services/<name>/.env.<APP_ENV>. Override per command:
 #   make user-run APP_ENV=prod
@@ -37,7 +39,13 @@ export APP_ENV
 	user-migrate-status \
 	user-sqlc \
 	user-run \
-	user-test
+	user-test \
+	event-migrate-up \
+	event-migrate-down \
+	event-migrate-status \
+	event-sqlc \
+	event-run \
+	event-test
 
 install:
 	go install github.com/pressly/goose/v3/cmd/goose@latest
@@ -54,7 +62,7 @@ setup:
 		fi; \
 	done
 
-# Builds and runs all four Go services in Docker alongside the databases
+# Builds and runs all five Go services in Docker alongside the databases
 # (compose "services" profile, services/*/.env.$(APP_ENV)). Logs: Docker Desktop or
 # `make services-logs`. Stop with `make services-down` before `make *-run`,
 # since both use the same ports.
@@ -62,10 +70,10 @@ services-up:
 	docker compose --profile services up -d --build
 
 services-down:
-	docker compose --profile services stop gateway auth-service venue-service user-service
+	docker compose --profile services stop gateway auth-service event-service venue-service user-service
 
 services-logs:
-	docker compose --profile services logs -f gateway auth-service venue-service user-service
+	docker compose --profile services logs -f gateway auth-service event-service venue-service user-service
 
 # Generates an Ed25519 keypair for access tokens: the private key goes to
 # auth-service (signs), the public key to the gateway (verifies). Run after
@@ -142,3 +150,21 @@ user-run:
 
 user-test:
 	cd $(USER_DIR) && go test ./...
+
+event-migrate-up:
+	goose -dir $(EVENT_MIGRATIONS_DIR) postgres "$(POSTGRES_DSN)" up
+
+event-migrate-down:
+	goose -dir $(EVENT_MIGRATIONS_DIR) postgres "$(POSTGRES_DSN)" down
+
+event-migrate-status:
+	goose -dir $(EVENT_MIGRATIONS_DIR) postgres "$(POSTGRES_DSN)" status
+
+event-sqlc:
+	cd $(EVENT_DIR) && sqlc generate
+
+event-run:
+	cd $(EVENT_DIR) && go run ./cmd
+
+event-test:
+	cd $(EVENT_DIR) && go test ./...

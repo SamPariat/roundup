@@ -47,6 +47,7 @@ type Config struct {
 type Upstreams struct {
 	Auth  string
 	User  string
+	Event string
 	Venue string
 }
 
@@ -69,6 +70,7 @@ func Load() *Config {
 		Upstreams: Upstreams{
 			Auth:  env.Require("AUTH_SERVICE_URL"),
 			User:  env.Require("USER_SERVICE_URL"),
+			Event: env.Require("EVENT_SERVICE_URL"),
 			Venue: env.Require("VENUE_SERVICE_URL"),
 		},
 		JWTPublicKey:    publicKey,

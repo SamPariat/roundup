@@ -111,7 +111,7 @@ func (r *PostgresSquadRepository) ListForUser(ctx context.Context, userID string
 			return nil, "", err
 		}
 
-		params.CursorAt = pgtype.Timestamptz{Time: after.CreatedAt, Valid: true}
+		params.CursorAt = postgres.Timestamptz(after.CreatedAt)
 		params.CursorID = pgtype.UUID{Bytes: after.ID, Valid: true}
 	}
 

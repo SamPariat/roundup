@@ -33,6 +33,23 @@ services:
       timeout: 5s
       retries: 5
 
+  postgres-event:
+    image: postgres:18-alpine
+    container_name: roundup-postgres-event
+    environment:
+      POSTGRES_DB: events
+      POSTGRES_USER: event_user
+      POSTGRES_PASSWORD: event_pass
+    ports:
+      - "5435:5432"
+    volumes:
+      - event_db_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U event_user -d events"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   postgres-user:
     image: postgres:18-alpine
     container_name: roundup-postgres-user
@@ -113,6 +130,29 @@ services:
       user-service:
         condition: service_started
 
+  event-service:
+    profiles: [services]
+    build:
+      context: .
+      dockerfile: services/event-service/Dockerfile
+    image: roundup-event-service
+    container_name: roundup-event-service
+    env_file: services/event-service/.env.${APP_ENV:-beta}
+    environment:
+      APP_ENV: ${APP_ENV:-beta}
+      POSTGRES_DSN: postgres://event_user:event_pass@postgres-event:5432/events
+      USER_SERVICE_URL: http://user-service:3002
+      VENUE_SERVICE_URL: http://venue-service:3006
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres-event:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      venue-service:
+        condition: service_started
+
   auth-service:
     profiles: [services]
     build:
@@ -145,16 +185,19 @@ services:
       APP_ENV: ${APP_ENV:-beta}
       AUTH_SERVICE_URL: http://auth-service:3001
       USER_SERVICE_URL: http://user-service:3002
+      EVENT_SERVICE_URL: http://event-service:3003
       VENUE_SERVICE_URL: http://venue-service:3006
     ports:
       - "8080:8080"
     depends_on:
       - auth-service
       - user-service
+      - event-service
       - venue-service
 
 volumes:
   auth_db_data:
   venue_db_data:
+  event_db_data:
   user_db_data:
   redis_data:

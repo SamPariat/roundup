@@ -23,6 +23,7 @@ func setRequired(t *testing.T) {
 	t.Setenv("APP_ENV", "beta")
 	t.Setenv("AUTH_SERVICE_URL", "http://localhost:3001")
 	t.Setenv("USER_SERVICE_URL", "http://localhost:3002")
+	t.Setenv("EVENT_SERVICE_URL", "http://localhost:3003")
 	t.Setenv("VENUE_SERVICE_URL", "http://localhost:3006")
 	t.Setenv("JWT_PUBLIC_KEY", string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: der})))
 }
@@ -40,6 +41,7 @@ func TestLoadDefaults(t *testing.T) {
 
 func TestLoadPanics(t *testing.T) {
 	for name, env := range map[string]map[string]string{
+		"MissingEventURL": {"EVENT_SERVICE_URL": ""},
 		"MissingVenueURL": {"VENUE_SERVICE_URL": ""},
 		"BadPublicKey":    {"JWT_PUBLIC_KEY": "not a key"},
 		"BadTimeout":      {"UPSTREAM_TIMEOUT": "ten seconds"},

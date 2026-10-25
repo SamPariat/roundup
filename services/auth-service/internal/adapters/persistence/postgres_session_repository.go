@@ -45,7 +45,7 @@ func (r *PostgresSessionRepository) Create(ctx context.Context, userID string, t
 			return err
 		}
 
-		return q.CreateRefreshToken(ctx, db.CreateRefreshTokenParams{SessionID: sessionID, TokenHash: tokenHash, ExpiresAt: timestamptz(expiresAt)})
+		return q.CreateRefreshToken(ctx, db.CreateRefreshTokenParams{SessionID: sessionID, TokenHash: tokenHash, ExpiresAt: postgres.Timestamptz(expiresAt)})
 	})
 	if err != nil {
 		return "", err
@@ -92,7 +92,7 @@ func (r *PostgresSessionRepository) Rotate(ctx context.Context, oldID int64, ses
 			return domainerr.New(domain.ErrInvalidRefreshToken, "token already used")
 		}
 
-		return q.CreateRefreshToken(ctx, db.CreateRefreshTokenParams{SessionID: sid, TokenHash: newHash, ExpiresAt: timestamptz(expiresAt)})
+		return q.CreateRefreshToken(ctx, db.CreateRefreshTokenParams{SessionID: sid, TokenHash: newHash, ExpiresAt: postgres.Timestamptz(expiresAt)})
 	})
 }
 

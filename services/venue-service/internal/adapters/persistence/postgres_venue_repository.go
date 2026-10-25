@@ -102,17 +102,15 @@ func (r *PostgresVenueRepository) ListSquadFavorites(ctx context.Context, squadI
 	result := make([]domain.FavoriteGroup, 0, len(rows))
 	for _, row := range rows {
 		result = append(result, domain.FavoriteGroup{
-			PlaceID: row.PlaceID,
-			VenueSnapshot: domain.VenueSnapshot{
-				Name:          row.Name,
-				Address:       row.Address,
-				AverageRating: row.Rating,
-				RatingCount:   int(row.RatingCount),
-				PriceLevel:    int(row.PriceLevel),
-				Photo:         photoRef(row.PhotoRef, row.PhotoWidth, row.PhotoHeight),
-			},
-			SavedBy:     row.SavedBy,
-			LastSavedAt: row.LastSavedAt.Time,
+			PlaceID:       row.PlaceID,
+			Name:          row.Name,
+			Address:       row.Address,
+			AverageRating: row.Rating,
+			RatingCount:   int(row.RatingCount),
+			PriceLevel:    int(row.PriceLevel),
+			Photo:         photoRef(row.PhotoRef, row.PhotoWidth, row.PhotoHeight),
+			SavedBy:       row.SavedBy,
+			LastSavedAt:   row.LastSavedAt.Time,
 		})
 	}
 
@@ -144,7 +142,7 @@ func (r *PostgresVenueRepository) RecordVisit(ctx context.Context, cmd domain.Re
 		EventID:         cmd.EventID,
 		PlaceID:         cmd.PlaceID,
 		Name:            snapshot.Name,
-		VisitedAt:       pgtype.Timestamptz{Time: cmd.VisitedAt, Valid: true},
+		VisitedAt:       postgres.Timestamptz(cmd.VisitedAt),
 		AvgSpendInPaise: pgtype.Int8{Int64: cmd.AvgSpendInPaise, Valid: cmd.AvgSpendInPaise > 0},
 		Address:         snapshot.Address,
 		Rating:          snapshot.AverageRating,
@@ -219,7 +217,7 @@ func decodePlaceCursor(page pagination.Page) (pgtype.Timestamptz, pgtype.Text, e
 		return pgtype.Timestamptz{}, pgtype.Text{}, err
 	}
 
-	return pgtype.Timestamptz{Time: after.At, Valid: true}, pgtype.Text{String: after.PlaceID, Valid: true}, nil
+	return postgres.Timestamptz(after.At), pgtype.Text{String: after.PlaceID, Valid: true}, nil
 }
 
 // photoRef builds a domain.PhotoRef from the photo_ref, photo_width and

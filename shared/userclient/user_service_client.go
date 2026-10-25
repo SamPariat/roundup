@@ -5,7 +5,6 @@ package userclient
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -15,9 +14,8 @@ import (
 
 	"github.com/SamPariat/roundup/shared/api"
 	"github.com/SamPariat/roundup/shared/domainerr"
-	sharedmw "github.com/SamPariat/roundup/shared/middleware"
 	"github.com/SamPariat/roundup/shared/pagination"
-	"github.com/SamPariat/roundup/shared/response"
+	"github.com/SamPariat/roundup/shared/serviceclient"
 )
 
 var (
@@ -52,14 +50,13 @@ const requestTimeout = 3 * time.Second
 // UserServiceClient calls user-service directly (not through the gateway) as
 // the caller, so user-service's own membership rules apply.
 type UserServiceClient struct {
-	baseURL string
-	http    *http.Client
+	client *serviceclient.Client
 }
 
 // NewUserServiceClient constructs a client for the user-service at baseURL,
 // e.g. "http://localhost:3002".
 func NewUserServiceClient(baseURL string) *UserServiceClient {
-	return &UserServiceClient{baseURL: baseURL, http: &http.Client{Timeout: requestTimeout}}
+	return &UserServiceClient{client: serviceclient.New(baseURL, requestTimeout)}
 }
 
 // squadDetail is the part of user-service's GET /squads/{id} body we read.
@@ -140,18 +137,7 @@ func (c *UserServiceClient) Squads(ctx context.Context, userID string) ([]Squad,
 // It returns the status for 200 and 404 and ErrUserServiceUnavailable for
 // anything else, a transport failure, or an undecodable body.
 func (c *UserServiceClient) get(ctx context.Context, path, userID string, out any) (int, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
-	if err != nil {
-		return 0, err
-	}
-
-	req.Header.Set(sharedmw.UserIDHeader, userID)
-	// Pass the request ID on so user-service logs the same ID.
-	if id := sharedmw.RequestIDFromContext(ctx); id != "" {
-		req.Header.Set(sharedmw.RequestIDHeader, id)
-	}
-
-	resp, err := c.http.Do(req)
+	resp, err := c.client.Do(ctx, http.MethodGet, path, userID, nil)
 	if err != nil {
 		return 0, unavailable(err.Error())
 	}
@@ -159,9 +145,8 @@ func (c *UserServiceClient) get(ctx context.Context, path, userID string, out an
 
 	switch resp.StatusCode {
 	case http.StatusOK:
-		envelope := response.Response[any]{Data: out}
-		if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
-			return 0, unavailable("decode response: " + err.Error())
+		if err := serviceclient.DecodeData(resp.Body, out); err != nil {
+			return 0, unavailable(err.Error())
 		}
 
 		return resp.StatusCode, nil
