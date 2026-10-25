@@ -8,7 +8,7 @@ This file is responsible for **wiring only** — it contains no business logic. 
 
 1. Load configuration from environment variables via `internal/config`
 2. Construct infrastructure clients (PostgreSQL pool via `shared/postgres`, Redis client)
-3. Instantiate all driven adapters (Google Maps, Redis cache, Postgres repository)
+3. Instantiate all driven adapters (Google Places, Redis cache, Postgres repository)
 4. Inject those adapters into the use-cases (application layer)
 5. Inject the use-cases into the driving adapters (HTTP handlers)
 6. Register shared middleware (`RequestID`, `Logging`) and start the Fiber HTTP server

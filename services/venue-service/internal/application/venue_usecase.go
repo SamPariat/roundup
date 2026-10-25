@@ -10,7 +10,7 @@ import (
 // searchKeyPrefix namespaces search entries in the cache. v2 entries hold a
 // whole page (venues and next token); the version keeps old list-only
 // entries from being read as pages.
-const searchKeyPrefix = "venue:search:v2:"
+const searchKeyPrefix = "venue:search:v3:"
 
 // VenueLookup returns a venue's details. FavoriteUseCase and HistoryUseCase
 // use it to snapshot a venue; VenueUseCase implements it, so lookups go

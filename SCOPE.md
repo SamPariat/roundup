@@ -737,7 +737,7 @@ bill_tabs/                              (collection)
 | Auth      | SMS provider (OTP delivery)          | Dev uses a fixed code, no SMS    | Auth Service         |
 | Push      | Firebase FCM (`firebase.google.com/go`) | Unlimited forever                | Notification Service |
 | Real-time | Firestore                            | 50k reads/day, 20k writes/day    | Media + Billing      |
-| Maps      | `googlemaps/google-maps-services-go` | 10,000 calls/month per SKU       | Venue Service        |
+| Maps      | Places API (New), plain HTTP         | 10,000 calls/month per SKU       | Venue Service        |
 | Media     | `cloudinary-go`                      | 25 credits/month, no card        | Media Service        |
 | Vision    | `cloud.google.com/go/vision`         | 1,000 units/month free           | Media Service        |
 | Queue     | `hibiken/asynq` + Redis              | Self-hosted on Redis             | Notification, Media  |

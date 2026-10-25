@@ -1,0 +1,10 @@
+{
+  "status": 400,
+  "body": {
+    "error": {
+      "code": 400,
+      "message": "decryption failed",
+      "status": "INVALID_ARGUMENT"
+    }
+  }
+}

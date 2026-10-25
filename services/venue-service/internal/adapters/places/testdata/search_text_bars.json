@@ -1,0 +1,517 @@
+{
+  "status": 200,
+  "body": {
+    "nextPageToken": "Aa-ngMa7fBpnxXiXy7kCHg0dV2JqUIJo-hPC5lJseMJTy9KSWCBVbCM8YOwYq44kBJ_6nklyyEmz5h6kn3wE8iu_IfDzovUxJ-IPT77WK0TPS47--aS0RTCSn7W3sgdH6LL4I0jW7wgi5ZJX-JUrFZgm_gGrjY-5KDeaqjCmYQpXTj1pyzjo7qtCzWqRVHqDpxjN3sMscDEp_dDLZs7thitRT-yEdMFFtvLDrl61pZW4aLk-2P17mVR2UPx4u94ExsxqMIvug7jNlLUN-VBbYEkakp9TcC2O9vY4qV7jXR-_z9oXlHi94H9e8zHhPvpGlOB1imGgqoKOGqmLy0JS_gNPI8LLATq064eNQqO3r-rs21dXZ_5TSfxakqTEVO9iTbuxR-1Hl0FVewkKzR3N-qj_It2RjXi-b-iPTr05NfAQ2Hq1LllIwPXW_gh1JYMtXtaZ1AYzzdcUb4CS09x8fxGI89iuLScdXJDJS-1Wh9fJCAaEt_C2Q-smapRqQ-pYzTzlsJVbM-YYPXHEyoDsHlnwP06Nj56BNA-LibL6vFnoAQ9SRFfxR91AOhj7s7G0rhsCQ7AGp-2lpSKudRKk_cUtoBhli_mfFtfAMXW8D2x7yJoDD7mew4e5ocXfsHh2iKw7wjTwgnfjUL6XYdBt9heaSrppyqAHNnYdhxuEOMGP-Zof_yJHR9YopPtAMAl_50yaSqvABe0znVrPDtXfYKB1TXDLJxujlLT6wcQ0UeV69WqHfWEaKguXqsZ6KoHXNKkaY2pFlpZHQfAbGwpXW_zXehXHvfA8V4ra2Xk54ovR2R0o7c0i96e2QNggYMOoB65159phLd2vakNu",
+    "places": [
+      {
+        "id": "ChIJOfd6YX3I5zsRwtCk41iQ47Y",
+        "types": [
+          "irish_pub",
+          "european_restaurant",
+          "restaurant",
+          "food",
+          "pub",
+          "bar",
+          "point_of_interest",
+          "establishment"
+        ],
+        "formattedAddress": "Level 1, PHOENIX MARKETCITY, Mall, Ashok Nagar, Kurla, Mumbai, Maharashtra 400070, India",
+        "location": {
+          "latitude": 19.0863016,
+          "longitude": 72.8884375
+        },
+        "rating": 4.3,
+        "userRatingCount": 2837,
+        "displayName": {
+          "text": "The Irish House, Kurla",
+          "languageCode": "en"
+        },
+        "currentOpeningHours": {
+          "openNow": false
+        },
+        "photos": [
+          {
+            "name": "places/ChIJOfd6YX3I5zsRwtCk41iQ47Y/photos/Aa-ngMYKnW2LVHWkFlyg_kdODq0gfd3pbAvCwmWpE0hh2L4d0_h8gn6UYmoBrf7BjB2JYj2utv4AjHDweuxGUhlspZTeNNYZ6YyQAw9xQLFb9xoOLTfTyLio_XtZjHk5EY-3WoihSdg6-Vt74b98RPgrI7cn__44tXuktftD3y334tU-M-HpUbtWAKxSLYtZabpuy0PX7C2p3EbrDG2f_nRMrsA7jXqYneUhPNHzuQrMRzSHy6nMU5dCTZ-mqIWay99OWYMHQrvJtv257FX-4eAmA31du_0-5httsia1Wd1bkV9xTJG3d649nc1-5lVdx1HRq11l-DNDqQkzsbgMAbBsQjR16-UBKJZRQ9Wi0qRCNupY0T_3hjoeSvgXBS_Gbumqf3bqQQIJRBrgwNd9eqOKq5AhTc-1FE5n2y-1_5hBrKRMcA",
+            "widthPx": 4032,
+            "heightPx": 3024,
+            "authorAttributions": [
+              {
+                "displayName": "Rajesh Iyer",
+                "uri": "https://maps.google.com/maps/contrib/101051899141680364269",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjWuUXeqd9rP87WMYmOxx-RzU5XWy8g2UkACWuZDC06X_P5HL9T25g=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhBr17Q_Vb7zFNhKwzxQdJMQ\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhBr17Q_Vb7zFNhKwzxQdJMQ!2e10!4m2!3m1!1s0x3be7c87d617af739:0xb6e39058e3a4d0c2"
+          },
+          {
+            "name": "places/ChIJOfd6YX3I5zsRwtCk41iQ47Y/photos/Aa-ngMYLr83Yv1iDa2lohL0rdXcgC2uugHxPSqxmw_eB6HtAAxge2Gn76czmA8PHuSsz1f7tLOjY-iNwBhpM5t2gDkFP3FpySXEi9TZ2_qs7JOCTwRk2PsUi1jdY_-iQo5WdGmqaUTMJAje6mI08wHCwm2BI2Ht96R_F4Oe__f8E2c40jJpMqm5OQx2ZpjammJ61QU4DTT_KJixoPPRqSbuuz58-CA13OS3NEsoA8hU-EwLHFT0-6rA66mguCcbWHA9BMiGVpWUmGKj9_khJWEVqNV9Pp4C33JqfAT45ng_Ntmd5paQZ8wLfrTiE-Z0GW7mRDhqjFkVFNvzp26hZKjMOVCj24cK0ZMC8IuJG10fIr6f4RaWhhJ34TrpsJpethUZ1nQpn38Mpwf606mO8SIm_71kZig",
+            "widthPx": 4800,
+            "heightPx": 3790,
+            "authorAttributions": [
+              {
+                "displayName": "The Irish House, Kurla",
+                "uri": "https://maps.google.com/maps/contrib/102540300023748701965",
+                "photoUri": "https://lh3.googleusercontent.com/a/ACg8ocJIxVygTZ3D4-Ewc8JA-qSQu4bMTmwe8HszROObitKHIKh8Og=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIHM0ogKEICAgID8kPaGFg\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIHM0ogKEICAgID8kPaGFg!2e10!4m2!3m1!1s0x3be7c87d617af739:0xb6e39058e3a4d0c2"
+          },
+          {
+            "name": "places/ChIJOfd6YX3I5zsRwtCk41iQ47Y/photos/Aa-ngMYMDt4EwUplpjbeigtxUdYc9Doyn4N90n0hrf3VvmUyN6426KC8VrwNgUDLmWo2cYae9-8qzsNIXYqAv_UW0o5rZQ25XEjJnSubHNAuWv-itge-aAkdV6D1IANma1knKQEOWLrKfwKsaSFjSU7fkVgpPvTYaP4ETrvDdtAcoos9zxg2iIZbcynhpCHIfFt50m-_Bcb4g78G0meeCjb-jFK9-WcxAEOkYTLGwRUyzgS-gY_N9yhCK0GjHpzmutd4Xei9gz5YpiOy1P_HAIbIthuOGR2OCzGfkskHQ6LhgBXoXAE3soS5qa-rWYDWBmUrEY7-Gy-VKdoinIcL1Rpl-LoVY1yNF-OhjIAY25NO9scO7fNLZXQO4kK9JirhQEEwqy9NZt_vDrno8WG9TvNQghcd79RNsTD2UmgXAanE1HNT",
+            "widthPx": 4800,
+            "heightPx": 3600,
+            "authorAttributions": [
+              {
+                "displayName": "Mr. Åvī Soul - Extractor",
+                "uri": "https://maps.google.com/maps/contrib/113448781222322011997",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjVy3eckr74ifYO7duLfRRUawQJIKdhCKPRv6S5jhTQWP97m8L-bCQ=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhAwpYO7exGew-bd0CrShbdy\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhAwpYO7exGew-bd0CrShbdy!2e10!4m2!3m1!1s0x3be7c87d617af739:0xb6e39058e3a4d0c2"
+          },
+          {
+            "name": "places/ChIJOfd6YX3I5zsRwtCk41iQ47Y/photos/Aa-ngMbeztxWDK4ZvfZKp3CqSxj4D9L45581_jsQlPj5gn_y2HmjWZuxych-eP2PmuVZFbUFHFaFmw3r--sfXTB_QvHM03Kcs-dq86fTZTQ2ioNpIuPsL7Pru1nh0U-Y20zpCSTia6XrMOFnelOIhKXJ6tKQkh6ZHvw3Vu0w9kU7jWM91SbkOBt6Ek7Xe_ynPHxSb2sYCGsJI7ZiR8-HrAwc3jNOvjHP_EKy2ZLb4mw4cuPUkRCEGkHC9i9Dtz3902bNvM0tDFsLfY_c525TWB3cRR-9tlkPweuOjjL7nEfqpKKxP43fF4mqhjDUF-wWJb_ikLbQ5M9YcSIGYF7pM2T2YVCWQAJ6sUoRAMyouB6cK_uaG2_264wDcl6YOyrSagTi_3elXkoxXrOchM1adLssCfUDEEgDRfjyp2t_n9RIBObR",
+            "widthPx": 3024,
+            "heightPx": 4032,
+            "authorAttributions": [
+              {
+                "displayName": "Rajesh Iyer",
+                "uri": "https://maps.google.com/maps/contrib/101051899141680364269",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjWuUXeqd9rP87WMYmOxx-RzU5XWy8g2UkACWuZDC06X_P5HL9T25g=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhCkbxoeOhgVCzA6AO-dKltu\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhCkbxoeOhgVCzA6AO-dKltu!2e10!4m2!3m1!1s0x3be7c87d617af739:0xb6e39058e3a4d0c2"
+          },
+          {
+            "name": "places/ChIJOfd6YX3I5zsRwtCk41iQ47Y/photos/Aa-ngMZGtY-YTxQqeTzCn1ECowLN-8lWji2cyY6fzD88TPVTeYBGwU4qXoWRWhpsolrIoBKu8l1xKaPAW5hAsTFDFC9etafd9Xg0e4dcmJ1XxTS0pPFdbl0_ZCulq7qh7tM972849W0qFhq7l3uXlBdxqpje2ajA7nNTGVOX5_7OrHEj_7ilkarfZurHcv5jkojSt3QUSiMiK3dtMHuIMK40brpiOlCNXYaRZNieqDlz44UMZ01PUCx21vU6Js_2Qv0V3St8rZITNQJxqV-epUYRY4UBzXPQhF1ie_Du3y8XSdEI2nPHclYvKb7xkdXtAUIUEETO-sPMI7Lilj2973tBms9qxLnpYA6BmF8fALZTDEhlZgU5wOsrqXMXnY-KvVvWAh9A8QrwtpTpOTPsHBYTG_9HHzUK87M",
+            "widthPx": 4032,
+            "heightPx": 3024,
+            "authorAttributions": [
+              {
+                "displayName": "gonal lakshmikanth",
+                "uri": "https://maps.google.com/maps/contrib/106525965016845589735",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjWBvkUL5N80YJHferuaiFPmz4xhQvk5WCco2VVB0KKO3GdfNHaLCw=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIHM0ogKEICAgIC455XQ-wE\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIHM0ogKEICAgIC455XQ-wE!2e10!4m2!3m1!1s0x3be7c87d617af739:0xb6e39058e3a4d0c2"
+          },
+          {
+            "name": "places/ChIJOfd6YX3I5zsRwtCk41iQ47Y/photos/Aa-ngMbOV3uwkTyYad_WdeqsYsr6ZXxD364QZIrzfPGw7fjFGGx7BKR5gEekl3jZoObWiZywDd6xpUP0gfy8gPy9sNaPqC7RopqGmPfoDYDZ3j_aBqEKkf57r2xdnxnlcLh0F9UoeRRwvFviHvSlkHhJx388xRKp2GHq1AHj6iVoEe-8IZNzq_8sHBl7_mU3slY_ugiN3nvoqtklDW-o1zieGfeTaq7KA0GX-dBz1IyV9HNkedsEZe3eq45WhoTV0hJSy8l8asbCcBIfpcgz9_TRLKYSSgwlxlqWY4ei89gZvazjnx9pKp9KK3K23XVrzI72C_2RfXEczxtLESI-wSo9A_6MRpQVW0AJfT21UOjBHaYuVZTTI496Bz-vfjKC_9frWBQJc1Ny0TyExLVwwQHdjBYWPcTZhvsghWH0NDrCCejnWw",
+            "widthPx": 3072,
+            "heightPx": 4096,
+            "authorAttributions": [
+              {
+                "displayName": "J B",
+                "uri": "https://maps.google.com/maps/contrib/110080024675160256374",
+                "photoUri": "https://lh3.googleusercontent.com/a/ACg8ocJgKEBzCqJO5GCXFGHrKo3DIeLHN6LGXdBY7H20CKZ71vpjQg=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhAXswCJ8xcjHdp55nFt9CFZ\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhAXswCJ8xcjHdp55nFt9CFZ!2e10!4m2!3m1!1s0x3be7c87d617af739:0xb6e39058e3a4d0c2"
+          },
+          {
+            "name": "places/ChIJOfd6YX3I5zsRwtCk41iQ47Y/photos/Aa-ngMaH_PI7oFAQ93p_nhB7Tz1LI3Z4pp84i7Tsdn5KjrwuMCC5tLV_kNACeB2n465n7M0XkxXeHBzEy4TwLwtPqm7pWTIVdaIRHz0pblsBzYpPWDQ5gR6I_CYtj9jOPkAJg_gBIwjjVUnhs8FFlDe44d4bsfefFspIRGtkgW9yMBJgWxF9zCMg304fCA9rhwqy-ILX3Otah22IuQe0lyaqRokFz8avmNltSFzKLlrERI853K3L71E9oVM8mn0TajV8SKuPPWaup7C8C7MTU2VmrSh6HmumlBZfom87PVjoK7gaSeWfLGLCpB5_LfmXL9CAJTYBPgKZS70ieZYWGwlp2MBQROgXk-TIBEnUtyfGTK1mLbNj9KMpqAztAbubAn9zJFEI2JaNfmj-3WUyZIoY5fFJe06cV2PpB6ZfuBaoOarVpw",
+            "widthPx": 4032,
+            "heightPx": 3024,
+            "authorAttributions": [
+              {
+                "displayName": "Rajesh Iyer",
+                "uri": "https://maps.google.com/maps/contrib/101051899141680364269",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjWuUXeqd9rP87WMYmOxx-RzU5XWy8g2UkACWuZDC06X_P5HL9T25g=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhBDq-QruXf9LfXGqvXXld_8\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhBDq-QruXf9LfXGqvXXld_8!2e10!4m2!3m1!1s0x3be7c87d617af739:0xb6e39058e3a4d0c2"
+          },
+          {
+            "name": "places/ChIJOfd6YX3I5zsRwtCk41iQ47Y/photos/Aa-ngMaWYBsJ6ideQMM0pKaAvPKQ23CLylqVjsrFnuXb794F9fr0ki3REdCJMMvkhgA3BN8q4dogQWUIbt7FPcBO0wBcYTx9X24VyoRhwUXP5SypgkcHlK0Y93iCQWHy_thUt2zJrY13oyHTJSZxpwPtVSBxy_lWJmxYCvp46rMFLxlE4w1EklE_4fFwgSvN5t3-1dAm7trNa7WgiRQcWhSrPLnXa8FLO7tVB0b9RXnfmUdcElb9g17xJq_N3_v_UfiyCk9H_IA-wvWpA6fdadwPNK2UI3wTnoIhoTxpf7szzIY_lfHBqzJ7VRw1mW6cIA_tQ7iYxXFDCrF7bloXOuz6mdjYikhS5w62zWW-cpXFCoWOnyM_ut9WD0tWG5WmKvtTNS4TkGrLvjX-tI3rOcNjUV1t2u8uOneYzH-rvSMWuBg9",
+            "widthPx": 3600,
+            "heightPx": 4800,
+            "authorAttributions": [
+              {
+                "displayName": "Pablo Eskobar",
+                "uri": "https://maps.google.com/maps/contrib/108224954722216706891",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjV2ZPwADIEvhLrgq6ndj2jHHL-dWxzFsahfhmQTlCT3tGdGdjPW=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhBopcwa7zIGjyVC9gb3GfsF\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhBopcwa7zIGjyVC9gb3GfsF!2e10!4m2!3m1!1s0x3be7c87d617af739:0xb6e39058e3a4d0c2"
+          },
+          {
+            "name": "places/ChIJOfd6YX3I5zsRwtCk41iQ47Y/photos/Aa-ngMZW-r5hRN-4Xjtwk1nnu4hSm0JHle_K5qNwSDs4d9kulyLSBZ3rKxD_59vAogLh5oCZBSUKGm4_PkyEY9RXVASZ7JsldnS3Atk5Bg8ocFCjkiGMwp_ln-FskXpG0gMJeETYJ1hIMpxY_cJaIZ3tRrCKx-Al2FJTFjLCNWu8V9RzbTchneinepyckAJRdQWt8391UP3gDdOOsiOcwAUWgPbq0m5Bd77GbDfupZMZnteDzfzGqfqI-c3VOHJ98RfQ2-u_nSzLco2DXrc6n0aH7WzHkBTMhS4D1bYWExmSlwa1j3vpPoW-ZJuXRxZOMQyEH6QlIUXDd1c2ZQd64qcQKdZ0XSEVrD4MB57vdjdBqHLKosjUFNaQfykWIP92UHtqh19z2gVrrOjp2HovjSQR4YGPXg",
+            "widthPx": 1792,
+            "heightPx": 1008,
+            "authorAttributions": [
+              {
+                "displayName": "Aneri Patel",
+                "uri": "https://maps.google.com/maps/contrib/109366045111854592652",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjWb3dWpfNy1EbV1L35YEIReoMAkxrwVctKaD-rONi2uZBRiHw3QVQ=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIHM0ogKEICAgICNxO6zcw\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIHM0ogKEICAgICNxO6zcw!2e10!4m2!3m1!1s0x3be7c87d617af739:0xb6e39058e3a4d0c2"
+          },
+          {
+            "name": "places/ChIJOfd6YX3I5zsRwtCk41iQ47Y/photos/Aa-ngMYtKYaMcAmTn0GR3oVbyAj_hufyGZjCYUz3sUQq361LffQOQlAfzkUlcVhe4pnMLI9AKAxigAbCNK_8BDAmfPmEfC9tPymiK98SHoHZxyPo7y8gqTH_aH0Jsrn_ZUAD9xQqi3hQsdxfJ707JXfl5kNR_Dy1CKqwGvcYk1WxEN0JPcWgm2J78EPeGgNllNi87qcCrIRQc6uMkPoYJzTob-Y6uU0BPx15kQxMVHat-NDAtZshOy5Wl73pCfeC50JibYzhJ_2-RD-Sau6-alkT-uMXsZI6uyOcnohhkQK3_nkvrdmVix-7PuEKVl8JOdXVhtF5oSWjh8gnMTPZc4SzmVHiee74x68o79PtA1J_bt-DNfO06aUQRAI_FGhAAs0nypq0C6F_zZ7eQer0HFke4xsLLjxJ2ZAjAWsb42aDJETj",
+            "widthPx": 3072,
+            "heightPx": 3505,
+            "authorAttributions": [
+              {
+                "displayName": "G A",
+                "uri": "https://maps.google.com/maps/contrib/105309316984248972097",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjVDe_FT1DxYDgzeeYrwVG3LEBx6fRFmu4oC-HnCfa5D3MZUATTL=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhBNcDXVGvHpsEgYoYzq5Y78\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhBNcDXVGvHpsEgYoYzq5Y78!2e10!4m2!3m1!1s0x3be7c87d617af739:0xb6e39058e3a4d0c2"
+          }
+        ]
+      },
+      {
+        "id": "ChIJJ2Kh6sLI5zsRrj0_9dbcMmk",
+        "types": [
+          "restaurant",
+          "brewpub",
+          "food",
+          "pub",
+          "bar",
+          "point_of_interest",
+          "establishment"
+        ],
+        "formattedAddress": "Jet Airways Godrej BKC, Ground Floor, 3, Plot No. C-68, G Block BKC, Bandra Kurla Complex, Bandra East, Mumbai, Maharashtra 400051, India",
+        "location": {
+          "latitude": 19.0595282,
+          "longitude": 72.86526649999999
+        },
+        "rating": 4.3,
+        "priceLevel": "PRICE_LEVEL_VERY_EXPENSIVE",
+        "userRatingCount": 2047,
+        "displayName": {
+          "text": "Gateway Taproom, BKC",
+          "languageCode": "en"
+        },
+        "currentOpeningHours": {
+          "openNow": false
+        },
+        "photos": [
+          {
+            "name": "places/ChIJJ2Kh6sLI5zsRrj0_9dbcMmk/photos/Aa-ngMYiFOgHAz4Mh3z-E7_8ELGP3u4I5GsnTxMoHqP9zvZb-QN_hv2Ni6JAduGgkQOrGV4NrV5gNmMFmoS9ZG3G7YEERoKGl0__2bViSKUb9OWUYZKhZUEl_i1_2mrBUQowrRy87RQ1_CfT-qrpmc-TG_17wltSVTeITV4Nme1uLS8vrWthTE5a7LHcSiS2V7pXDYzkn2qCguNQa3yyTtqczbBYOVdegqtlcBscauQZfSDtCJ0xsJrH51na30MOUhp1srz3miopNCGGhla1CRPo2IAtWO975hM2fKq-Y1JYM4C6eWc-eSNpumEZP_C0oOwzqOhcvaGUtkNhRp_Db0F3NNRPZy7bJC7SilhE6ZqkSfn1zlpBB9HWGDfqkZJoljczTav1i01vzpEIQvS-K5wg22ijBb1t",
+            "widthPx": 1600,
+            "heightPx": 1063,
+            "authorAttributions": [
+              {
+                "displayName": "Gateway Taproom, BKC",
+                "uri": "https://maps.google.com/maps/contrib/115424687772069740269",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjVPpy7abAceauZ2lA9K8FjW9BWBzDc6IP2_9CkNtVhLEOF_wNs=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIHM0ogKEICAgIC69ZH_8gE\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIHM0ogKEICAgIC69ZH_8gE!2e10!4m2!3m1!1s0x3be7c8c2eaa16227:0x6932dcd6f53f3dae"
+          },
+          {
+            "name": "places/ChIJJ2Kh6sLI5zsRrj0_9dbcMmk/photos/Aa-ngMYJIcf8YBnPL1vlAtz34jABfoZMhul3OwFyTHFbWarR3gSQt4UJEcdYnkHCyftHPFO-xejDaU9KpAjVJUsBsokkZRuYEKR5klTm2bZG5Dh7QXvIKcEQbfWSMKph2P6hMZk9AwiS7MT_WNk0FZEkT_N6910b7VzG4GK8tXv0TNd0pDHZOFfjCNuISeZ27kInVGU9lJKFva-t9YrNLuf9Mg4mQ8j045y5Vi9QCLlXvQU6R3elCk1DMog5wRXbA28Au7Kpv-OowPdzrXHqvRkYFovDxlQXXT0xZGppKfhDzQkgVSCoirox8NjBjHZq-Z-xg_eqdueFXh6u-ldIesD__OUhgzq6x_IgK5HovUeB0q6ApuK_zHwr1iNWqjdFmAEZOJ56Wac4dIogBT7a-nE8YvkaGleATAQLFKnSj54pmqGqTQ",
+            "widthPx": 930,
+            "heightPx": 1200,
+            "authorAttributions": [
+              {
+                "displayName": "Gateway Taproom, BKC",
+                "uri": "https://maps.google.com/maps/contrib/115424687772069740269",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjVPpy7abAceauZ2lA9K8FjW9BWBzDc6IP2_9CkNtVhLEOF_wNs=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhBx80VPWkFOqXpDmWqd3Wit\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhBx80VPWkFOqXpDmWqd3Wit!2e10!4m2!3m1!1s0x3be7c8c2eaa16227:0x6932dcd6f53f3dae"
+          },
+          {
+            "name": "places/ChIJJ2Kh6sLI5zsRrj0_9dbcMmk/photos/Aa-ngMb0pQE3V1ghFwXCe-mdchN1-Mx_s4DxuBAQsqtwwCZRzyve5OcMLDZp770-nHGWsTxNNOXIWPYUUkCrdP_083KR49Y7-eGKbtyItklhBoR90QFFbVTKdILJqOEMHE8I8cQ_izqSA6zWU18ufZyb0rzxoIqtcrNpUg3cU1EfjVkAjlb4p-dmKGCMof6efEqGsJ676s_bPoOzsJLrnKJuX3MPEI3HQWGyoZjuGagtN8CAOwUbRVE2UZBfbSxi7PC75_uqWwaU1YAV-FlbPEKmIZYBTpESo5bkUwaiE9CL-k1GLqnRL3FToMj7H17f3_pHYGdvX6HtMOnxASWJTcdXVvmF9mIbjlFPbRuhlJ-TDaV2UVfTYg9nZMbxCMPRVhlWWB2wA_asLEUhMsb6jJl3RtYf694BmrG-RPk_IwjnAHOhdw",
+            "widthPx": 3600,
+            "heightPx": 4800,
+            "authorAttributions": [
+              {
+                "displayName": "Dr Ankit Malu",
+                "uri": "https://maps.google.com/maps/contrib/113958649652305673541",
+                "photoUri": "https://lh3.googleusercontent.com/a/ACg8ocKU6x2U1Sy_wdEiEC-8ct8nQ9FZdmyenmcKdjfpB7oDYIwD23w=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhBvqiFT-hL9Xd5AatY-fvh7\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhBvqiFT-hL9Xd5AatY-fvh7!2e10!4m2!3m1!1s0x3be7c8c2eaa16227:0x6932dcd6f53f3dae"
+          },
+          {
+            "name": "places/ChIJJ2Kh6sLI5zsRrj0_9dbcMmk/photos/Aa-ngMY-MXgjECgalDphzOVawHFOi2Zh3uP1lMVgEdg604iedBG5DJ2heZDM6xK4YZ5u-22DbIRpUxDE3VWihV86LLLNFltgrB88m8t58D3gjXMtnLaHHtenKfU4AdcmExznh2aS-VQQZERBjYxlfO6v7-3ABHBmioOvl5c_Xtl1G8tiWYCfxJ7V-qy2HnULoZ6m9foEyrMC-OJFJIH9jwNVNAcKZJCl5s2H8QHbnxU3JCc47_3Z2aeu1CKbVd90drYF__g_jgu1hO-uOUS7hktkEbngSgorFtCfApFcYucTsoCo9wyi_yWJdgFzb1EpxZZWBAHRp0MPgT4UN1IgPVYIUe6o1hF-GVB-sAmd1IodoOjCqthoNlF9yo2j_TMRiinMxQz64_bj6dx-DcPpAV664GIymdWQo475Ycd9sOkG84_lfw",
+            "widthPx": 4096,
+            "heightPx": 3072,
+            "authorAttributions": [
+              {
+                "displayName": "Abhinav Vishwakarma",
+                "uri": "https://maps.google.com/maps/contrib/104154559049653335157",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjWrr-uSEWYB8B_uzcyGFSftIpDBusYPRumhrEVoQMYLT5-rglRwLQ=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhARhX1YnuEnE0LIkaID87hu\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhARhX1YnuEnE0LIkaID87hu!2e10!4m2!3m1!1s0x3be7c8c2eaa16227:0x6932dcd6f53f3dae"
+          },
+          {
+            "name": "places/ChIJJ2Kh6sLI5zsRrj0_9dbcMmk/photos/Aa-ngMY3SGQontPoLQcY_xbwzl31ZK82ukpVMlTjHRkgK9WEO-wAO9qSSgZ4qfZkvZ0BpjWfun0PGSa4fjvzpIWk_gDVvglior4o8T3B624ZTjBH7K1Acx33DtqyOq-b5sWS3Ul7wYOyxpooqdVA_laWG8ZGkoJpmnK7te5VoUZEZRn_quxS_ZmaJ5agp2jSUKxZdwvaSptUI5jLrRmBKhs_RheJTslylbUjbeGB7Kh8onOzw0mgItM1uOOvxqTmIU745n0FgEFUXT4dro4k_nIWK0FOwEvN8e9uWIBgXa7inH6ZppJZlsBNBSw8STCwyWU9CTXJ5w7tiAc6WR9ZMqhPeEQvNwxwTChb2Y5ihnQRy2AjO-GXuTYdnf_WNuJHKZvH9z-crPvuxWIkDVJsfWbEtu98ROaAHsQDqBvevig40Ad9",
+            "widthPx": 2268,
+            "heightPx": 4032,
+            "authorAttributions": [
+              {
+                "displayName": "Ankeet D",
+                "uri": "https://maps.google.com/maps/contrib/111655050901209499202",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjWqeuncrrdbL3P9lIdEKAy7k80iphM2k2MT-vgDbGi4PktutZu_qw=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhBroR0g4_dBv6eaMzUADyYi\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhBroR0g4_dBv6eaMzUADyYi!2e10!4m2!3m1!1s0x3be7c8c2eaa16227:0x6932dcd6f53f3dae"
+          },
+          {
+            "name": "places/ChIJJ2Kh6sLI5zsRrj0_9dbcMmk/photos/Aa-ngMZZqcLHcvnTkHkB5LIoKeBQ-oQNUtiKx-VLeuz4OiHyULJNqv8zFNlCZTvVZywovHabbo15NTuyfeeeFpSxV1Nalkb1-JeWNkGv9FeuxQUzviAbrDYxBsy7cqpvMKBH9NXWHtDTg4AfVIvGmWkeWbMdF99jYgwvecXGxcAd4S_wc1hwJNmnCjjNPIXUxDDLpCETZGGEkbGBkFUcJOxZVcbliL8G7BmxJILei4TLctX3SHCfo4GxAAuDAwt3Ohz-QgBFYQAeO2OZP6FaBy5VarKjLiuXf0Uv2bUxEQBOo6ok4nZg_r3DFu_gpuf7dcKHKOFReHbATZ-AQ-CbQQYhuP6PbfIFZfac7kqxjBIaXJ8HKubUE33blBK2__HQTE3VpEDFdZvdfuWVCSIfKm8A_EQxu_LbQrpzFac",
+            "widthPx": 4800,
+            "heightPx": 3600,
+            "authorAttributions": [
+              {
+                "displayName": "Darren Barton",
+                "uri": "https://maps.google.com/maps/contrib/112679538719011207040",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjUBz4rqiLSGbZTvzzjuNPj6173vGJ-FeA2SHSYFeN9xfO2BV4gR=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhBSop563DVWRe3mCo5UgHKu\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhBSop563DVWRe3mCo5UgHKu!2e10!4m2!3m1!1s0x3be7c8c2eaa16227:0x6932dcd6f53f3dae"
+          },
+          {
+            "name": "places/ChIJJ2Kh6sLI5zsRrj0_9dbcMmk/photos/Aa-ngMb7Wdprkc5NbqlaBKItT7HlfHWTeEjbhud03Ag4KLyIstgbqO61UVveeEDDH_D7ah6q__7WZaIJdVzHynDaNRXuTDuHk1HDfacRrlN0_PELizDW5sGPgkBSFxxt3p-whzpCaAcKfhC0ytSxKpU7GI_uzrV0Ene4g7zJR1h-P2pXR8BVmv2-bqPJraDsM3IT_c04_t6mz1ud3FNzJeyceGD0s4TDbQmLWKZncUsfXBzNS_3LKr-Ppnfw-dgpGXV9BQBrDr4i30l40M5tHkm5hLLhrg_aTiNhc2uh-RQqyXcPtX_RqFm5Oi0TU7_RrprDzaSuni59MwxGhl_pSKjVzQA_uJRnUdLUlVLX9PIa-0bXzs_QQ22yH1AygRUjWCWrwZak3gd9RJHxL1gbwGhPzjX8FZPziVKuGHbA80vsUvLbbw",
+            "widthPx": 3024,
+            "heightPx": 4032,
+            "authorAttributions": [
+              {
+                "displayName": "Vinay Mittal",
+                "uri": "https://maps.google.com/maps/contrib/114723888333151948659",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjXjS3WWMpdj4XaES3GSNhU2W-jkUj0I8UNE8vm36QuOLBPngqeQ=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhCz-GQb7pe0sxwzb8_m6AYM\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhCz-GQb7pe0sxwzb8_m6AYM!2e10!4m2!3m1!1s0x3be7c8c2eaa16227:0x6932dcd6f53f3dae"
+          },
+          {
+            "name": "places/ChIJJ2Kh6sLI5zsRrj0_9dbcMmk/photos/Aa-ngMabW-QjbE5CDBnUp4Hjcugzd_F-wBb6e87sPjPLRQnGRMNGP0ZKH3hCBt6jpMzzV8Uq8LIMBs8AUxGAWW-fMDUrz9H8G-2Kt5UQ9RaK9OBnLJvZbn0CIs7IemBneI9vSg96CPxYS7fkaLoLA3dDTnCsTAEUPrqGpZ625k6u7tFgYjflZsJFZpJuhjkEydj6A4MS6gexMT8B1LVrObrJdighq3kx9dFd6-AsX-vMR5ETUkoy2hOcadXxPuuGAXqCDRPIXSx5v4sJQLu-fMR8W6kXjKd5GPO8T9-Zlzo71G4jJRGq2IUR5aFpMZUEFb6bDH4KMaUoiOVosfURiqQrVRhE1D0sJ-AAol-vh0vqM_erBcfVoYPug-qimkLw76AZiyguEhJiGCCSroVPn5BRyMawBygi9MI2uFJt_HlCK9dp1Q",
+            "widthPx": 1080,
+            "heightPx": 1440,
+            "authorAttributions": [
+              {
+                "displayName": "Sanket V",
+                "uri": "https://maps.google.com/maps/contrib/112342086237972698139",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjUiIVX7c5873r0moCEfS-SzmQPDKl97X-nRPTPrsALvudo7QmYB=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhCqbgKGl8xo6PGXT1HgPJt5\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhCqbgKGl8xo6PGXT1HgPJt5!2e10!4m2!3m1!1s0x3be7c8c2eaa16227:0x6932dcd6f53f3dae"
+          },
+          {
+            "name": "places/ChIJJ2Kh6sLI5zsRrj0_9dbcMmk/photos/Aa-ngMY9B9D3LBnYve7IFdxBK3HEfZOiWC9H3dP-ciLz_yaIhnY4fTXYZ-uiIazwkdLXOQbMxFq6jFwUdfulUGJLqZUihPf5hTUhcsULPzpUOfI_vRcHT1gkvxriz66FkHZJ18SYyn2JZCF09rvj-c_GqpeZ_Bu_RL5AbQMhK9r71dO7YMMRMzSY9g5pGYuNAnoU1GdP09qg2Ec0rDbhkntg952k8Ij1bZaOxXj4oDxzbfhXxdhPRauAG0cRfuU_wkJqldXT9D3Z8K2mEV5Erw2XEKtl-8Wv9epoujXJ3Bdv3Yy7Uup3VMBfXuv80Jqx8sjipKud0vp7LFV5xpGrdMfTpVkALW-1J1haF_8IKjyUSnPrfCr43dBmSDI8Zq6vMIS4-72S3S4Ex6QB97P17ZslSo504CnWhBUkqeEEXo2_huEaIQ",
+            "widthPx": 3072,
+            "heightPx": 4096,
+            "authorAttributions": [
+              {
+                "displayName": "Shubham Bhatnagar",
+                "uri": "https://maps.google.com/maps/contrib/104464855389378767319",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjXaK57khLFbP41JeFN8eH_g609zyMb_HjUH0foNfgaDPQfDYdq7=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhA60OzbCxPc8oHJmDIPByQK\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhA60OzbCxPc8oHJmDIPByQK!2e10!4m2!3m1!1s0x3be7c8c2eaa16227:0x6932dcd6f53f3dae"
+          },
+          {
+            "name": "places/ChIJJ2Kh6sLI5zsRrj0_9dbcMmk/photos/Aa-ngMb8kuDVexS-JpUk4dEC4neB84N9sKwpqKdZWe0pDN_t8sacULQ1Ln2z1Lzj7bbeZt5h1IYuXrRb1BI-ZlKeEQYalhXePi_3sMMaDVl5iNDHddoNZuyFUKvgbYSxvxElgF4q-NlPjhdW_q_zYbSA6NRcIZVgH1FpwY1aEXnuqkxnuxm1-jJkMlY1PYjikEsx06N51GQ3mLr2VHdJ_ICyLlY54CwNvSpZgutJocrAprP-TgwBK_x78URvJ3Zuszd4jcz7EWjfHv39QX7vESQoDpreURhIZHHEhA0D7sLQMYMLtUczkTxDyvFGFuq95dW2s6AUhPmzhoS1zLFrpMplWhjljMI-rK8q9pCG4yodksI9Fkg8uY7uRjvTFIM871NIVlE54A0hl_fJuzT9TcTI-Q_xMWNCeMEBeCD0YPTikb_mqQ",
+            "widthPx": 2268,
+            "heightPx": 4032,
+            "authorAttributions": [
+              {
+                "displayName": "Ankeet D",
+                "uri": "https://maps.google.com/maps/contrib/111655050901209499202",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjWqeuncrrdbL3P9lIdEKAy7k80iphM2k2MT-vgDbGi4PktutZu_qw=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIABIhCWB7Wg6Jd89S_ra6SmdQvZ\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIABIhCWB7Wg6Jd89S_ra6SmdQvZ!2e10!4m2!3m1!1s0x3be7c8c2eaa16227:0x6932dcd6f53f3dae"
+          }
+        ]
+      },
+      {
+        "id": "ChIJhcFfhpPI5zsRq_HKtc96_Pc",
+        "types": [
+          "bar",
+          "south_indian_restaurant",
+          "hotel",
+          "indian_restaurant",
+          "restaurant",
+          "food",
+          "lodging",
+          "point_of_interest",
+          "establishment"
+        ],
+        "formattedAddress": "Buddhu Master Chawl, S.G Barve Marg, near Nasheman Hotel, Kurla West, Kurla, Mumbai, Maharashtra 400070, India",
+        "location": {
+          "latitude": 19.0682173,
+          "longitude": 72.878705099999991
+        },
+        "rating": 3.8,
+        "priceLevel": "PRICE_LEVEL_MODERATE",
+        "userRatingCount": 103,
+        "displayName": {
+          "text": "Saroj Bar and Restaurant",
+          "languageCode": "en"
+        },
+        "currentOpeningHours": {
+          "openNow": false
+        },
+        "photos": [
+          {
+            "name": "places/ChIJhcFfhpPI5zsRq_HKtc96_Pc/photos/Aa-ngMYE-GLDARLeAsW3FhHbe-p8c2_Cc9gzmdxmG-POF2RLNPY0wyREGSaanP1c3p5_sAZm2mBcZQIR7rAaEaqsw2AnuKSgFq6gCox67tZq0b-GyXNWogkI1peXsQaEhdss6h5RS6Gd7hr784m_i00MuyOzAuP5-RFJ8mkf2C1xIjIZs0PuwGlIPDBzI5UFNpewDSY05COqjLd4ehjx6aJ5GyMKJVsMr401HNZuEzL0ecScPaWSlhOZhLHY7QwohlloGvPsCxW-N2dXIT_seK0Mp2Z_hgtRptUaLkoKxeDr-PQ44UWTGQ5S5GvoClhrxSA4R7P86qwi8n-Cj549KEVp9m_M1GqJIhwSGc63yMuwvhR6JWHAx7RyBuWafPJ3L1N_svFmjR3Ak1BA4UrFtGJhdx3Jprw",
+            "widthPx": 867,
+            "heightPx": 1156,
+            "authorAttributions": [
+              {
+                "displayName": "(Cafe Gulab) Saroj Bar and Restaurant",
+                "uri": "https://maps.google.com/maps/contrib/111889777641213320463",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjUPYTxkm9kSAvqqrrqeC8Hsw5F8k81oI94y6CX5F3BeDdTubco=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIHM0ogKEICAgIDG0L2gHw\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIHM0ogKEICAgIDG0L2gHw!2e10!4m2!3m1!1s0x3be7c893865fc185:0xf7fc7acfb5caf1ab"
+          },
+          {
+            "name": "places/ChIJhcFfhpPI5zsRq_HKtc96_Pc/photos/Aa-ngMZdN_LNnHE6Xik6u6CSFVjwxeXS6B8bYuAAAuxTZ5qCanyuBGVQQgk5mQ_en8-j9HBhA8rBpaHPgUO81aWOJhRBktSVg4yjvs7wuTN_Qf-YMl1iLmO3wnAXKOKUpG6Dd6rwgYIkuI8tBC9r_2oQxIkYoCVc74RkGypttPesVDm2DO-SGmqkQxSpcdOXXgCSEcL0L_MFcfpqdxHqZhSDrNAZuB0934TLT10wBHqaZOUtVYafLarzcjs2Pv-l2P_RiudzYuZemM3ulWHdtDK5fQ6-jMJIeLEueVkuZO2RA5_fV2xYAGDBiU44eZYFtlirQ5pYgA0cHA4WQQZjhSp-wOzlRWpEK5VnrHAOdzMcKS8MeRUixleTXFp4AhLSaR4k7bUmAuj7TYYFBOT1NL6y0tcV3uBk9nk",
+            "widthPx": 1280,
+            "heightPx": 941,
+            "authorAttributions": [
+              {
+                "displayName": "(Cafe Gulab) Saroj Bar and Restaurant",
+                "uri": "https://maps.google.com/maps/contrib/111889777641213320463",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjUPYTxkm9kSAvqqrrqeC8Hsw5F8k81oI94y6CX5F3BeDdTubco=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIHM0ogKEICAgIDGuKTs0gE\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIHM0ogKEICAgIDGuKTs0gE!2e10!4m2!3m1!1s0x3be7c893865fc185:0xf7fc7acfb5caf1ab"
+          },
+          {
+            "name": "places/ChIJhcFfhpPI5zsRq_HKtc96_Pc/photos/Aa-ngMbRj_4_ZUVoxc9kKUHx1uDihYdZ1Juc8E2vOMOwErCG2SyGuwURoAPmOGB8T3mIFvcQvfh_KRZwGEcYFgLYnkee2zTvItog_iaApw6IPTXRGZi1tQIdNa26lcCdg1n5wg6qufCuvbVQZJv5AjRQBekZcrCtSq7jWRifbGwFkEoXsJCmxMnTvpxrWo8ns4qo0FYKVYuCflfbpmBejYc4x586fUZBO0vWHrUNVpb-daBkVTh0L3ZSB74eqIJdLkouCrwmjmYowgccoH6c4NdK-7_hn4Uv7WjJMyLxRsFfQCljiMK8m-TOQNI5pgshwujFWrfVELbOIPdUhYW5H1CvillXUWHj_vDb65-ALcWJgyWnuRrvfHtU0uEPLKT881YJ-7Xn5QXr-cOmTq9VbcAAw1VMIw",
+            "widthPx": 1920,
+            "heightPx": 1080,
+            "authorAttributions": [
+              {
+                "displayName": "S Sayyed",
+                "uri": "https://maps.google.com/maps/contrib/107276775803270911443",
+                "photoUri": "https://lh3.googleusercontent.com/a/ACg8ocL0gjt6SwHt4YWip8vWDt29mx-KnfD7ibTdyDRZ6PWqxY3IVQ=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIHM0ogKEICAgIChnsTIIg\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIHM0ogKEICAgIChnsTIIg!2e10!4m2!3m1!1s0x3be7c893865fc185:0xf7fc7acfb5caf1ab"
+          },
+          {
+            "name": "places/ChIJhcFfhpPI5zsRq_HKtc96_Pc/photos/Aa-ngMZqt-MaQPcxjWt419WGCyG-MbFq879M8gNjrhOsn62BO8wNeB1vnBWB5_UVtFOQOE75le607MGrnjAUDQZQNprx7iWy9nayBG5SCNZUIm8Loxn_WR_3RAfLjpXGbxUsXm7u7EwViN_6QQNYDFtWMHRBFZxG6-lcji5gER5Dpk9KWYpP2vtvlPjvrjEkf8hri_0o85Hpzy3Iy2nOgS22VNcShvB4eWq4cMvx3rm5G6DTJ37sitM_C-ttH8ZFfzDYqufZzpKWJK38ivTgzBnKvI4y9vVdailIdYpa5HFtztc0AgARfEjHYE43iY1BaRU-Opt640Usww1J7s5uEAbeGQlm3D_hxJcuHE_vGmQOYAJmKCbRmKHlDl5jM_M9i9pfRMXDOiYnT9fkbRBoLp3qAsPZXWjHOoE",
+            "widthPx": 867,
+            "heightPx": 1156,
+            "authorAttributions": [
+              {
+                "displayName": "Majid Khan",
+                "uri": "https://maps.google.com/maps/contrib/101000665320998937447",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjWZFOX08WcUlI7v0XL3Z3m1GbrA55f8XZo_951gDyeq-TRtYGKI=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIHM0ogKEICAgIDytMP76gE\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIHM0ogKEICAgIDytMP76gE!2e10!4m2!3m1!1s0x3be7c893865fc185:0xf7fc7acfb5caf1ab"
+          },
+          {
+            "name": "places/ChIJhcFfhpPI5zsRq_HKtc96_Pc/photos/Aa-ngMZ1W7GA000j0uN0E9Ad3wfiO6CrSJharmRQ2lM_AKzlOY9_0NpJFetSalEGEvhHi1Q06ocuQBx2pL8xXd7JXVozhi1yffZEfo7rk73MO23tSrDyw25zH0xHDfssF_zlhpm-uXiMDTIKLxtH_0wvp2JUvhWiqNkRxWyNfhmmxXof2Mu-tkQ3N6b5gQQPcnGd8TPL6sjMn7FLNInWzaRgUqkI3f5Q_bShg6rKNF_DwCIV1t6FaWOKdDCyYBhHtBk0r-W9hq76GBYyIsXc3FAbcBTIQEfOydEkxyww_RnfnvW_XTROimYhL9PMt_o6Im-wostRwTi74YjupNRo8SvzG2_kb8oHsuhMNu2TAQYz6bcX9KWOqx0RemBHgI0VoAXnkEanpPbcRNSfxXRtshm8JFwjMwE",
+            "widthPx": 579,
+            "heightPx": 844,
+            "authorAttributions": [
+              {
+                "displayName": "(Cafe Gulab) Saroj Bar and Restaurant",
+                "uri": "https://maps.google.com/maps/contrib/111889777641213320463",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjUPYTxkm9kSAvqqrrqeC8Hsw5F8k81oI94y6CX5F3BeDdTubco=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIHM0ogKEICAgIDG2PCiUw\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIHM0ogKEICAgIDG2PCiUw!2e10!4m2!3m1!1s0x3be7c893865fc185:0xf7fc7acfb5caf1ab"
+          },
+          {
+            "name": "places/ChIJhcFfhpPI5zsRq_HKtc96_Pc/photos/Aa-ngMYH-mTUm05RqpLdx9eanj-oMw7KB6zz76C-2C-0G0gxnAV_SOQUn8hUrSpvo0I-OWHH8xSCnxBr3dWSZTJZpTW_Hwn0NDd0wx2xAX7BoRykQ3KlKVJ6XAuskGTXHxK8EvGfAeDK8b8uxRnKfhS987L6gh7gVQ_mMIZxthmJP7XHtyY44qi1SQvg37_s0c2_Ds7UNMKqMN8044gR33lLRuCXC7ESaQatzrgadt2nGDdIt-cfRnPPsh_SLCRCwwMnt7cCVb8V8l3UgGBJO6cgVS0gkHs0hjM5ayu5gXIeV8xiAIIMFglEwoS02ho2PRX6YsCn_XhAubnM03BIWaquMUdm2DgJwUVdqpsJFoKIPrWP39i6PljVONe78_1uifJopZVNtlrR8vMWnrscuQAaqKaYdwjI4lQ",
+            "widthPx": 1156,
+            "heightPx": 867,
+            "authorAttributions": [
+              {
+                "displayName": "Majid Khan",
+                "uri": "https://maps.google.com/maps/contrib/101000665320998937447",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjWZFOX08WcUlI7v0XL3Z3m1GbrA55f8XZo_951gDyeq-TRtYGKI=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIHM0ogKEICAgIDytMODuQE\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIHM0ogKEICAgIDytMODuQE!2e10!4m2!3m1!1s0x3be7c893865fc185:0xf7fc7acfb5caf1ab"
+          },
+          {
+            "name": "places/ChIJhcFfhpPI5zsRq_HKtc96_Pc/photos/Aa-ngMaqslKTCK0ZmdVmJd8M3dOwLm1UAa-U21WTRPLk8a-5O-XbvAPX1y3BsFGqQgQ8lc6lLz5B1LgkDNyznTvc6JmVaTMAfzB-QVm7XtjuOJ4HkhayuTYyli68aURUhYQU1qXvMLmUUOc8498tNY_NN985zEHG5WM8yMJ2K-8p79s0I6ffNFWonb4VknHExp0NgprW0_gv3-oyAh7h2P5CX6DFtOMQZayQxMQPuMkjoCFSNy36ckJJknIhqa_efmL3BMsZep_KgOO7F0EWGE59qRL3mYsAfAfh2GtuaUEqnDce--qtGwODo8ndzX1Or7teWmxzE0F88rLzWyne-oE5rFOCRg9UZz6ssvSSkpUYwypDQwepg7Ehm25dc_PGCHNRVoAwGuayA3oCzgeuIaBa0ABbRU8",
+            "widthPx": 1280,
+            "heightPx": 960,
+            "authorAttributions": [
+              {
+                "displayName": "(Cafe Gulab) Saroj Bar and Restaurant",
+                "uri": "https://maps.google.com/maps/contrib/111889777641213320463",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjUPYTxkm9kSAvqqrrqeC8Hsw5F8k81oI94y6CX5F3BeDdTubco=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIHM0ogKEICAgICGr7aGOg\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIHM0ogKEICAgICGr7aGOg!2e10!4m2!3m1!1s0x3be7c893865fc185:0xf7fc7acfb5caf1ab"
+          },
+          {
+            "name": "places/ChIJhcFfhpPI5zsRq_HKtc96_Pc/photos/Aa-ngMZyk74CqBRxWIaC0l-Gi6mc151j-2nTZXQFdpudsnEWiHirDZ_t7jTNTFaifG7V_T8RppVXopL2GeXE3c16anrlHX5d-OyXC22_CpRroAIjjTdoQk7yy6wtb2OTKPQFq4f2Jobd4SM44bm0pD-l5lXiCbhlq6IVXZvKz2zhgltNH7zY4VhLSzYpA0c_By0MIMqb1A0MufHfiNZjMfl1cYAeoOhec7v6rMEJzUc5URPQLyVdMvAS6lUC3aStKf7BQn8jMpejS_v0nQOTzGD8iijPITMLMHnAhre7SCckYsAV44ucN6FRXNy7kYhdJXt_WzUDEZY5uRwdX7W94Ig5yz6hSOu91r--MeymRAQj3r6z6PegDM42uEeAYC2i-5mqslw0tdKLaUVMZ7Xz2WzLsYqyiLjhZ8Y",
+            "widthPx": 1080,
+            "heightPx": 1920,
+            "authorAttributions": [
+              {
+                "displayName": "Varun Nikam",
+                "uri": "https://maps.google.com/maps/contrib/107744069780969611721",
+                "photoUri": "https://lh3.googleusercontent.com/a-/ALV-UjVh7kSZCnXOawWe2janPtpAt4xQ5l2QijJnw7fNW_pNDcYptAvrVw=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIHM0ogKEICAgIDk_PHd9QE\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIHM0ogKEICAgIDk_PHd9QE!2e10!4m2!3m1!1s0x3be7c893865fc185:0xf7fc7acfb5caf1ab"
+          },
+          {
+            "name": "places/ChIJhcFfhpPI5zsRq_HKtc96_Pc/photos/Aa-ngMbrkEGUB37ICoFftP7HHjQMUYvc_mILfmA8aGOSN47oZC3Vi-FVYasiP3EbHzfp9aeH4QqTDM0Yb6nBV0lVYK06G6Ruw8kDxyLQ01EkxLv5OfPji4fuqlSab50LEvfn1XF4KdCvdu6HehGwYRs_Dllu4qWa6S6GCnfFBEqgq0OS2EOODp1rRIYMGLcfn8IkpnZfexNvyG7hBzCLpZxf9DER8WNwN53u9FrtlPb2M-4Ef72bEuC-SCs_rxD723Pw0o9CHbKYmom-TeBNHNdmGH75ONJXW0ggM9fSp8jHakDqVdp8UXHob8Kz6BU1pa60vnfEQ0qSgvyxQHmfyUVEwAy_Q6DQ8D8nxuBulZqw7jqLE3_09JQ8QJ7s5Q_5xV2t5V0D4vFpbKFGcoUjLXNFjJqRaPcHpcg",
+            "widthPx": 1920,
+            "heightPx": 1080,
+            "authorAttributions": [
+              {
+                "displayName": "S Sayyed",
+                "uri": "https://maps.google.com/maps/contrib/107276775803270911443",
+                "photoUri": "https://lh3.googleusercontent.com/a/ACg8ocL0gjt6SwHt4YWip8vWDt29mx-KnfD7ibTdyDRZ6PWqxY3IVQ=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIHM0ogKEICAgIChnsTIogE\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIHM0ogKEICAgIChnsTIogE!2e10!4m2!3m1!1s0x3be7c893865fc185:0xf7fc7acfb5caf1ab"
+          },
+          {
+            "name": "places/ChIJhcFfhpPI5zsRq_HKtc96_Pc/photos/Aa-ngMb7WLR-gqQE_HBMJ6rRDoPYnv613sTL2FM6L7e4gXHRCDTuNJQynXXlquwu8fECkTbRRb16Vr4buaSml1Abbzf3eKjNX59ml869QUzV_YD1n9QWRdk75sKR7VBIVF8LNurUpF7bZI7X6p51uumcdAsLOaCwnQ5C1U5FQyM9jkNFScMgPs7wHM6_DPnihigRUFH-HezmprPj2VOg8PUC1ouHaF1Mp5y6yM8b1BRokdY3jRLx7o7K3bBWyFhxOWRMRqf7tM6vQSiI8EiEoeLqL7d4Si-RWFKsDmfWDBS9sLWlZAX0CQUFMyuIi_lTka6a6SOhn8X-kzt83ycqGwmZX_Hh7hDRrcks0MUmkdGfOqdI5GiVmQNOTT3rjfepdx3QdC4kUL-PXzM2y3_1C5nfU2tcyavFHwo",
+            "widthPx": 902,
+            "heightPx": 1600,
+            "authorAttributions": [
+              {
+                "displayName": "MILAN SRA",
+                "uri": "https://maps.google.com/maps/contrib/113637046926128623257",
+                "photoUri": "https://lh3.googleusercontent.com/a/ACg8ocKQJ7N-8zMXGBt13CE8-pOd5MbXfWO7-jTeFVRtuUTjst_jWQ=s100-p-k-no-mo"
+              }
+            ],
+            "flagContentUri": "https://www.google.com/local/content/rap/report?postId=!1e10!2sCIHM0ogKEICAgIDGperUggE\u0026t=27\u0026cb_client=maps_api_places.places_api\u0026hl=en-US",
+            "googleMapsUri": "https://www.google.com/maps/place//data=!3m4!1e2!3m2!1sCIHM0ogKEICAgIDGperUggE!2e10!4m2!3m1!1s0x3be7c893865fc185:0xf7fc7acfb5caf1ab"
+          }
+        ]
+      }
+    ]
+  }
+}
