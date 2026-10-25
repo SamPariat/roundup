@@ -4,8 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/SamPariat/roundup/services/user-service/internal/adapters/authz"
 	"github.com/SamPariat/roundup/services/user-service/internal/domain"
+	"github.com/SamPariat/roundup/services/user-service/internal/policy"
+	"github.com/SamPariat/roundup/shared/authz"
 	"github.com/SamPariat/roundup/shared/domainerr"
 	"github.com/SamPariat/roundup/shared/pagination"
 	"github.com/stretchr/testify/assert"
@@ -96,12 +97,12 @@ func (f *fakeSquadRepo) ChangeRole(ctx context.Context, squadID, userID string, 
 
 const testSquadID = "squad-1"
 
-// policy returns the real authorizer, so these tests run against the
-// embedded policy instead of a copy of it.
-func policy(t *testing.T) *authz.CasbinAuthorizer {
+// rules returns an authorizer over the real policy, so these tests run
+// against the shipped rules instead of a copy of them.
+func rules(t *testing.T) *authz.Enforcer[domain.Role, domain.Action] {
 	t.Helper()
 
-	a, err := authz.NewCasbinAuthorizer()
+	a, err := authz.New[domain.Role, domain.Action](policy.CSV)
 	require.NoError(t, err)
 
 	return a
@@ -119,7 +120,7 @@ func notMember(_ context.Context, squadID, _ string) (*domain.SquadMember, error
 }
 
 func TestCreateSquadRejectsBlankName(t *testing.T) {
-	uc := NewSquadUseCase(&fakeSquadRepo{}, &fakeUserRepo{}, policy(t))
+	uc := NewSquadUseCase(&fakeSquadRepo{}, &fakeUserRepo{}, rules(t))
 
 	_, err := uc.Create(t.Context(), domain.CreateSquadCommand{CreatorID: "u1", Name: "   "})
 
@@ -137,7 +138,7 @@ func TestCreateSquadTrimsName(t *testing.T) {
 		},
 	}
 
-	_, err := NewSquadUseCase(squads, &fakeUserRepo{}, policy(t)).Create(t.Context(), domain.CreateSquadCommand{CreatorID: "u1", Name: "  Friday crew "})
+	_, err := NewSquadUseCase(squads, &fakeUserRepo{}, rules(t)).Create(t.Context(), domain.CreateSquadCommand{CreatorID: "u1", Name: "  Friday crew "})
 	require.NoError(t, err)
 
 	assert.Equal(t, "Friday crew", got.Name)
@@ -155,7 +156,7 @@ func TestGetSquadForNonMember(t *testing.T) {
 		},
 	}
 
-	_, err := NewSquadUseCase(squads, &fakeUserRepo{}, policy(t)).Get(t.Context(), testSquadID, "stranger")
+	_, err := NewSquadUseCase(squads, &fakeUserRepo{}, rules(t)).Get(t.Context(), testSquadID, "stranger")
 
 	assert.ErrorIs(t, err, domain.ErrSquadNotFound)
 }
@@ -173,7 +174,7 @@ func TestGetSquadDescribesTheCaller(t *testing.T) {
 		},
 	}
 
-	got, err := NewSquadUseCase(squads, &fakeUserRepo{}, policy(t)).Get(t.Context(), testSquadID, "rohan")
+	got, err := NewSquadUseCase(squads, &fakeUserRepo{}, rules(t)).Get(t.Context(), testSquadID, "rohan")
 	require.NoError(t, err)
 
 	assert.Equal(t, "rohan", got.Me.UserID)
@@ -188,7 +189,7 @@ func TestGetSquadWhenCallerMissingFromMembers(t *testing.T) {
 		},
 	}
 
-	_, err := NewSquadUseCase(squads, &fakeUserRepo{}, policy(t)).Get(t.Context(), testSquadID, "left-just-now")
+	_, err := NewSquadUseCase(squads, &fakeUserRepo{}, rules(t)).Get(t.Context(), testSquadID, "left-just-now")
 
 	assert.ErrorIs(t, err, domain.ErrSquadNotFound, "someone who left between the two reads is no longer a member")
 }
@@ -223,7 +224,7 @@ func TestUpdateSquad(t *testing.T) {
 				},
 			}
 
-			_, err := NewSquadUseCase(squads, &fakeUserRepo{}, policy(t)).Update(t.Context(), domain.UpdateSquadCommand{
+			_, err := NewSquadUseCase(squads, &fakeUserRepo{}, rules(t)).Update(t.Context(), domain.UpdateSquadCommand{
 				SquadID: testSquadID, ActorID: "u1", Name: tt.newName, AvatarURL: name("https://img/new.png"),
 			})
 			if tt.wantErr != nil {
@@ -277,7 +278,7 @@ func TestAddMember(t *testing.T) {
 				},
 			}
 
-			_, err := NewSquadUseCase(squads, &fakeUserRepo{getByPhoneFn: tt.getByPhone}, policy(t)).AddMember(t.Context(), domain.AddMemberCommand{
+			_, err := NewSquadUseCase(squads, &fakeUserRepo{getByPhoneFn: tt.getByPhone}, rules(t)).AddMember(t.Context(), domain.AddMemberCommand{
 				SquadID: testSquadID,
 				ActorID: "actor",
 				Phone:   tt.phone,
@@ -323,7 +324,7 @@ func TestRemoveMemberChecksPermission(t *testing.T) {
 				},
 			}
 
-			_, err := NewSquadUseCase(squads, &fakeUserRepo{}, policy(t)).RemoveMember(t.Context(), domain.RemoveMemberCommand{
+			_, err := NewSquadUseCase(squads, &fakeUserRepo{}, rules(t)).RemoveMember(t.Context(), domain.RemoveMemberCommand{
 				SquadID: testSquadID,
 				ActorID: "actor",
 				UserID:  tt.target,
@@ -368,7 +369,7 @@ func TestChangeRole(t *testing.T) {
 				},
 			}
 
-			err := NewSquadUseCase(squads, &fakeUserRepo{}, policy(t)).ChangeRole(t.Context(), domain.ChangeRoleCommand{
+			err := NewSquadUseCase(squads, &fakeUserRepo{}, rules(t)).ChangeRole(t.Context(), domain.ChangeRoleCommand{
 				SquadID: testSquadID,
 				ActorID: "actor",
 				UserID:  "other",

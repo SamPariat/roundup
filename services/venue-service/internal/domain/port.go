@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/SamPariat/roundup/shared/pagination"
+	"github.com/SamPariat/roundup/shared/userclient"
 )
 
 // PlaceProvider abstracts the external place-search API (Google Maps, Foursquare, etc.).
@@ -71,28 +72,13 @@ type VenueRepository interface {
 }
 
 // SquadMember is a squad member as user-service describes them.
-type SquadMember struct {
-	// UserID is the member's user ID.
-	UserID string
-
-	// Name is "" until the member completes profile setup.
-	Name string
-
-	// AvatarURL is "" when no avatar is set.
-	AvatarURL string
-}
+type SquadMember = userclient.SquadMember
 
 // Squad is one of the caller's squads as user-service describes it.
-type Squad struct {
-	// ID is the squad's UUID.
-	ID string
-
-	// Name is the squad's display name.
-	Name string
-}
+type Squad = userclient.Squad
 
 // SquadDirectory answers who belongs to which squad. Squads live in
-// user-service; implemented by a client for it.
+// user-service; implemented by userclient.UserServiceClient.
 type SquadDirectory interface {
 	// Members returns squadID's members if userID is one of them,
 	// ErrSquadNotFound if they are not (or the squad does not exist), and

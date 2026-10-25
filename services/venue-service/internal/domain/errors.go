@@ -1,6 +1,10 @@
 package domain
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/SamPariat/roundup/shared/userclient"
+)
 
 // Sentinel errors are used as stable identities for errors.Is comparisons.
 // Callers should match against these values, never against error strings.
@@ -34,9 +38,9 @@ var (
 
 	// ErrSquadNotFound is returned when the squad does not exist or the caller
 	// is not a member. user-service treats the two the same, and so do we.
-	ErrSquadNotFound = errors.New("squad not found")
+	ErrSquadNotFound = userclient.ErrSquadNotFound
 
 	// ErrUserServiceUnavailable is returned when user-service cannot answer a
 	// membership check.
-	ErrUserServiceUnavailable = errors.New("user service unavailable")
+	ErrUserServiceUnavailable = userclient.ErrUserServiceUnavailable
 )

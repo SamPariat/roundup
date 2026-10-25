@@ -280,7 +280,7 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 - [x] `DeviceTokenUseCase.Remove(userID, token)`
 - [ ] `DeviceTokenUseCase.ListForUsers(userIDs)` — batch for notification service
 - [x] `SquadUseCase` — create, get, edit, add/remove member, change role, list my squads (with member previews)
-- [x] Squad permissions from a Casbin policy (`internal/adapters/authz/policy.csv`); see `services/user-service/docs/PERMISSIONS.md`
+- [x] Squad permissions from a Casbin policy (`internal/policy/policy.csv`, loaded into `shared/authz`); see `services/user-service/docs/PERMISSIONS.md`
 - [x] `UserUseCase.Lookup(phones)` — find which contacts are on Roundup
 - [ ] `FriendUseCase` — connect, list friends
 

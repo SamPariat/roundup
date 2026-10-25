@@ -28,11 +28,13 @@ roundup/
 │       └── flags.proto
 │
 ├── shared/                               # module github.com/SamPariat/roundup/shared
+│   ├── authz/                            # Casbin model + Enforcer; each service supplies its policy.csv
 │   ├── env/                              # .env.<APP_ENV> loading + typed getters
 │   ├── logger/                           # zap logger factory
 │   ├── middleware/                       # RequestID, Logging, UserID (Fiber)
 │   ├── postgres/                         # pool setup + Postgres error helpers
 │   ├── response/                         # JSON response envelope
+│   ├── userclient/                       # user-service client: squad members (with role) and squads
 │   └── kafka/                            # topic name constants
 │
 ├── infra/
