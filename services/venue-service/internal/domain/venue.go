@@ -93,6 +93,44 @@ type VenueDetail struct {
 	EditorialSummary string
 }
 
+// VenueSnapshot is a venue's display fields, copied from the provider when a
+// venue is saved or visited so lists render without a provider call.
+type VenueSnapshot struct {
+	// Name is the display name of the venue.
+	Name string
+
+	// Address is the formatted street address.
+	Address string
+
+	// AverageRating is the provider's aggregate rating, normalized to 1–5.
+	AverageRating float32
+
+	// RatingCount is how many ratings AverageRating is based on; 0 when unrated.
+	RatingCount int
+
+	// PriceLevel is provider-normalized to 0–4 (0 = free, 4 = very expensive).
+	PriceLevel int
+
+	// Photo is the venue's first photo; an empty Reference means it had none.
+	Photo PhotoRef
+}
+
+// Snapshot copies v's display fields, keeping only its first photo.
+func (v Venue) Snapshot() VenueSnapshot {
+	snapshot := VenueSnapshot{
+		Name:          v.Name,
+		Address:       v.Address,
+		AverageRating: v.AverageRating,
+		RatingCount:   v.RatingCount,
+		PriceLevel:    v.PriceLevel,
+	}
+	if len(v.PhotoRefs) > 0 {
+		snapshot.Photo = v.PhotoRefs[0]
+	}
+
+	return snapshot
+}
+
 // Photo is a venue photo's bytes, streamed from the provider.
 type Photo struct {
 	// ContentType is the image's MIME type, e.g. "image/jpeg".

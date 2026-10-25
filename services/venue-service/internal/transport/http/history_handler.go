@@ -35,7 +35,6 @@ func (h *HistoryHandler) Record(c fiber.Ctx) error {
 		UserID:          middleware.UserIDFrom(c),
 		EventID:         req.EventID,
 		PlaceID:         req.PlaceID,
-		Name:            req.Name,
 		VisitedAt:       req.VisitedAt,
 		AvgSpendInPaise: req.AvgSpendInPaise,
 	})
@@ -59,11 +58,11 @@ func (h *HistoryHandler) List(c fiber.Ctx) error {
 // historyErrorStatus maps domain sentinel errors to HTTP status codes for visit history.
 func historyErrorStatus(err error) int {
 	switch {
-	case errors.Is(err, domain.ErrSquadNotFound):
+	case errors.Is(err, domain.ErrSquadNotFound), errors.Is(err, domain.ErrVenueNotFound):
 		return fiber.StatusNotFound
 	case errors.Is(err, domain.ErrVisitAlreadyRecorded):
 		return fiber.StatusConflict
-	case errors.Is(err, domain.ErrUserServiceUnavailable):
+	case errors.Is(err, domain.ErrUserServiceUnavailable), errors.Is(err, domain.ErrProviderUnavailable):
 		return fiber.StatusServiceUnavailable
 	default:
 		return fiber.StatusInternalServerError

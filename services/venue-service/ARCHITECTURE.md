@@ -28,20 +28,23 @@ The venue-service wraps the Google Places API but must allow swapping the provid
 ┌──────────────────────────────────────────────┘
 │  APPLICATION LAYER  internal/application/
 │  VenueUseCase     — depends on PlaceProvider + VenueCache (ports)
-│  FavoriteUseCase  — depends on VenueRepository (port)
-│  HistoryUseCase   — depends on VenueRepository (port)
+│  FavoriteUseCase  — depends on VenueRepository + SquadDirectory (ports), VenueLookup
+│  HistoryUseCase   — depends on VenueRepository + SquadDirectory (ports), VenueLookup
 └──────────────────────────┬───────────────────
                            │ imports
                            ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │  DOMAIN  internal/domain/   — imports only the standard library  │
-│  Structs: Venue, VenueDetail, SavedVenue, VisitSummary,          │
+│  Structs: Venue, VenueDetail, VenueSnapshot, FavoriteGroup,      │
+│           SquadFavorite, SquadSaved, VisitSummary,               │
 │           SearchParams, *Command types                           │
 │  Ports (interfaces owned here, not in adapters):                 │
 │    PlaceProvider   — SearchNearby, GetDetail                     │
 │    VenueCache      — GetNearby/Set, GetDetail/Set, Invalidate    │
-│    VenueRepository — AddFavorite, RemoveFavorite, ListFavorites, │
-│                      IsFavorite, RecordVisit, GetVisitHistory    │
+│    VenueRepository — AddFavorite, RemoveFavorite,                │
+│                      ListSquadFavorites,                         │
+│                      SavedInSquads, RecordVisit, GetVisitHistory │
+│    SquadDirectory  — Members, Squads                             │
 │  Errors: sentinel vars, wrapped with shared/domainerr            │
 └──────────────────────────────────────────────────────────────────┘
 All dependency arrows point inward. Domain has no outward arrows.
@@ -58,15 +61,15 @@ services/venue-service/
 │
 ├── internal/
 │   ├── domain/
-│   │   ├── venue.go                     # Venue, VenueDetail, PhotoRef, Review, SearchParams
-│   │   ├── favorite.go                  # SavedVenue, AddFavoriteCommand, RemoveFavoriteCommand
+│   │   ├── venue.go                     # Venue, VenueDetail, VenueSnapshot, PhotoRef, Review, SearchParams
+│   │   ├── favorite.go                  # FavoriteGroup, SquadFavorite, SquadSaved, commands
 │   │   ├── visit.go                     # RecordVisitCommand, VisitSummary
 │   │   ├── errors.go                    # sentinel errors (context added with shared/domainerr)
-│   │   └── port.go                      # PlaceProvider, VenueCache, VenueRepository interfaces
+│   │   └── port.go                      # PlaceProvider, VenueCache, VenueRepository, SquadDirectory interfaces
 │   │
 │   ├── application/
 │   │   ├── venue_usecase.go             # Search (cache-first), GetDetail (cache-first)
-│   │   ├── favorite_usecase.go          # Add, Remove, List, IsSaved
+│   │   ├── favorite_usecase.go          # Add, Remove, List (grouped per venue), SavedIn
 │   │   └── history_usecase.go           # Record, List
 │   │
 │   ├── adapters/
@@ -135,12 +138,18 @@ type VenueCache interface {
 
 // VenueRepository — swap Postgres for any DB by writing a new adapter
 type VenueRepository interface {
-    AddFavorite(ctx context.Context, cmd AddFavoriteCommand) error
+    AddFavorite(ctx context.Context, cmd AddFavoriteCommand, snapshot VenueSnapshot) error
     RemoveFavorite(ctx context.Context, cmd RemoveFavoriteCommand) error
-    ListFavorites(ctx context.Context, squadID string) ([]SavedVenue, error)
-    IsFavorite(ctx context.Context, squadID, userID, placeID string) (bool, error)
-    RecordVisit(ctx context.Context, cmd RecordVisitCommand) error
+    ListSquadFavorites(ctx context.Context, squadID string, memberIDs []string) ([]FavoriteGroup, error)
+    SavedInSquads(ctx context.Context, userID, placeID string, squadIDs []string) ([]string, error)
+    RecordVisit(ctx context.Context, cmd RecordVisitCommand, snapshot VenueSnapshot) error
     GetVisitHistory(ctx context.Context, squadID string) ([]VisitSummary, error)
+}
+
+// SquadDirectory — squads live in user-service
+type SquadDirectory interface {
+    Members(ctx context.Context, squadID, userID string) ([]SquadMember, error)
+    Squads(ctx context.Context, userID string) ([]Squad, error)
 }
 ```
 
@@ -157,6 +166,7 @@ type Venue struct {
     Latitude      float64
     Longitude     float64
     AverageRating float32
+    RatingCount   int
     PriceLevel    int        // 0-4, provider-normalised
     Types         []string
     IsOpen        *bool      // nil = unknown
@@ -183,32 +193,55 @@ type SearchParams struct {
 
 ### `internal/domain/favorite.go`
 ```go
-type SavedVenue struct {
-    ID      int64
-    SquadID string
-    UserID  string
-    PlaceID string
-    Name    string     // denormalised for display
-    SavedAt time.Time
+// VenueSnapshot is copied from GetDetail (cached) on save and on visit,
+// so lists render without a provider call.
+type VenueSnapshot struct {
+    Name, Address string
+    AverageRating float32
+    RatingCount   int
+    PriceLevel    int
+    Photo         PhotoRef // first photo; empty Reference = none
 }
 
-type AddFavoriteCommand    struct { SquadID, UserID, PlaceID, Name string }
+// FavoriteGroup is one venue as the database groups it (ListSquadFavorites):
+// ARRAY_AGG picks the latest save's fields and lists the savers, and
+// user_id = ANY(memberIDs) drops people who left the squad.
+type FavoriteGroup struct {
+    PlaceID     string
+    VenueSnapshot
+    SavedBy     []string // user IDs, most recent first
+    LastSavedAt time.Time
+}
+
+// SquadFavorite is a FavoriteGroup with the user IDs swapped for member
+// names and avatars from user-service (they can't be JOINed: separate DB).
+type SquadFavorite struct {
+    PlaceID     string
+    VenueSnapshot           // from the most recent save
+    SavedBy     []SquadMember
+    SavedByMe   bool
+    LastSavedAt time.Time
+}
+
+type AddFavoriteCommand    struct { SquadID, UserID, PlaceID string }
 type RemoveFavoriteCommand struct { SquadID, UserID, PlaceID string }
 ```
 
 ### `internal/domain/visit.go`
 ```go
 type RecordVisitCommand struct {
-    SquadID, EventID, PlaceID, Name string
-    VisitedAt                       time.Time
-    AvgSpendInPaise                 int64
+    SquadID, UserID, EventID, PlaceID string
+    VisitedAt                         time.Time
+    AvgSpendInPaise                   int64 // 0 = unknown, stored as NULL
 }
 
 type VisitSummary struct {
-    PlaceID       string
-    Name          string
-    VisitCount    int64
-    LastVisitedAt time.Time
+    PlaceID         string
+    Name, Address   string   // from the latest visit
+    Photo           PhotoRef
+    VisitCount      int64
+    LastVisitedAt   time.Time
+    AvgSpendInPaise int64    // average of known spends; 0 = none known
 }
 ```
 
@@ -221,6 +254,7 @@ type VisitSummary struct {
 | `GoogleMapsAdapter` | `adapters/places/google_maps_adapter.go` | `domain.PlaceProvider` |
 | `RedisCacheAdapter` | `adapters/cache/redis_cache_adapter.go` | `domain.VenueCache` |
 | `PostgresVenueRepository` | `adapters/persistence/postgres_venue_repository.go` | `domain.VenueRepository` |
+| `UserServiceClient` | `adapters/users/user_service_client.go` | `domain.SquadDirectory` |
 
 To swap Google Maps: write `adapters/places/foursquare_adapter.go` implementing `PlaceProvider`, change one line in `main.go`. Domain and application layers are untouched.
 
@@ -244,8 +278,8 @@ squadDirectory := users.NewUserServiceClient(cfg.UserServiceURL)
 
 // 4. Use-cases (depend on ports, not concrete adapters)
 venueUC    := application.NewVenueUseCase(placeProvider, venueCache)
-favoriteUC := application.NewFavoriteUseCase(venueRepo, squadDirectory)
-historyUC  := application.NewHistoryUseCase(venueRepo, squadDirectory)
+favoriteUC := application.NewFavoriteUseCase(venueRepo, squadDirectory, venueUC) // venueUC is the cached VenueLookup
+historyUC  := application.NewHistoryUseCase(venueRepo, squadDirectory, venueUC)
 
 // 5. Driving adapters
 app := fiber.New()
@@ -268,9 +302,8 @@ All routes are versioned under `/api/v1`.
 |---|---|---|---|---|
 | GET | /api/v1/venues | VenueHandler.Search | VenueUseCase.Search | 200 |
 | GET | /api/v1/venues/photos/:ref | VenueHandler.Photo | VenueUseCase.Photo | 200 (image; public at the gateway) |
-| GET | /api/v1/venues/:placeID | VenueHandler.GetDetail | VenueUseCase.GetDetail | 200 |
+| GET | /api/v1/venues/:placeID | VenueHandler.GetDetail | VenueUseCase.GetDetail + FavoriteUseCase.SavedIn | 200 |
 | GET | /api/v1/squads/:squadID/favorites | FavoriteHandler.List | FavoriteUseCase.List | 200 |
-| GET | /api/v1/squads/:squadID/favorites/:placeID/check | FavoriteHandler.IsSaved | FavoriteUseCase.IsSaved | 200 |
 | POST | /api/v1/squads/:squadID/favorites | FavoriteHandler.Add | FavoriteUseCase.Add | 201 |
 | DELETE | /api/v1/squads/:squadID/favorites/:placeID | FavoriteHandler.Remove | FavoriteUseCase.Remove | 204 |
 | GET | /api/v1/squads/:squadID/history | HistoryHandler.List | HistoryUseCase.List | 200 |
@@ -278,7 +311,7 @@ All routes are versioned under `/api/v1`.
 
 Search takes query params `lat`, `lng`, `radius`, `query`, `type`.
 
-All `/squads/:squadID/*` routes require a UUID `X-User-ID` header (`shared/middleware.UserID()`); without it they return 401. Handlers read the caller with `middleware.UserIDFrom(c)` — the user ID is never taken from the body or query string.
+All `/squads/:squadID/*` routes, and `GET /venues/:placeID` (for `savedIn`), require a UUID `X-User-ID` header (`shared/middleware.UserID()`); without it they return 401. Handlers read the caller with `middleware.UserIDFrom(c)` — the user ID is never taken from the body or query string.
 
 ---
 
@@ -287,10 +320,10 @@ All `/squads/:squadID/*` routes require a UUID `X-User-ID` header (`shared/middl
 | Domain sentinel | HTTP status |
 |---|---|
 | request body / query fails to bind, `ErrInvalidSearch` | 400 |
-| missing or invalid `X-User-ID` on squad routes (middleware) | 401 |
-| `ErrVenueNotFound`, `ErrNotSaved` | 404 |
+| missing or invalid `X-User-ID` on squad routes and venue details (middleware) | 401 |
+| `ErrVenueNotFound`, `ErrNotSaved`, `ErrSquadNotFound`, `ErrPhotoNotFound` | 404 |
 | `ErrAlreadySaved`, `ErrVisitAlreadyRecorded` | 409 |
-| `ErrProviderUnavailable` | 503 |
+| `ErrProviderUnavailable`, `ErrUserServiceUnavailable` | 503 |
 | anything else | 500 |
 
 ---
@@ -310,6 +343,9 @@ CREATE TABLE saved_venues (
 );
 
 -- venue_visits — see db/migrations/0002_create_venue_visits.sql for the full definition
+
+-- 0003 adds the snapshot columns to both tables (all NOT NULL with defaults):
+-- address, rating, rating_count, price_level, photo_ref, photo_width, photo_height
 ```
 
 ---
@@ -344,14 +380,14 @@ Library errors are translated into domain sentinels at the adapter boundary. The
 ## Middleware Chain
 
 ```
-request ──► RequestID ──► Logging ──► [UserID — squad routes only] ──► route handler ──► response
+request ──► RequestID ──► Logging ──► [UserID — squad routes, venue details] ──► route handler ──► response
 ```
 
 | Middleware | Source | Responsibility |
 |---|---|---|
 | `RequestID` | `shared/middleware` | Reads or generates `X-Request-Id`, stores it in locals, echoes it on the response |
 | `Logging` | `shared/middleware` | Logs method, path, status, latency, and request ID |
-| `UserID` | `shared/middleware` | Squad routes only: requires a UUID `X-User-ID` header (401 otherwise) and stores it for `UserIDFrom` |
+| `UserID` | `shared/middleware` | Squad routes and venue details: requires a UUID `X-User-ID` header (401 otherwise) and stores it for `UserIDFrom` |
 
 **Token validation is not in this chain.** It happens in the API gateway, which sets `X-User-ID` from the verified access token. The service trusts that header, so it must only be reachable through the gateway.
 
@@ -410,7 +446,9 @@ Unit tests live alongside source (`venue_usecase_test.go` next to `venue_usecase
 
 ## Squad Membership Check
 
-Squads live in user-service. Before any favorites or history operation, `FavoriteUseCase` and `HistoryUseCase` call `domain.SquadDirectory.EnsureMember(squadID, userID)`. It is implemented by `adapters/users.UserServiceClient`, which calls user-service's `GET /api/v1/squads/{squadID}` directly (with `X-User-ID` and `X-Request-ID`), using `USER_SERVICE_URL` and a 3s timeout.
+Squads live in user-service. Before any favorites or history operation, `FavoriteUseCase` and `HistoryUseCase` call `domain.SquadDirectory.Members(squadID, userID)`. One call both checks membership and returns the names and avatars shown next to each favorite. It is implemented by `adapters/users.UserServiceClient`, which calls user-service's `GET /api/v1/squads/{squadID}` directly (with `X-User-ID` and `X-Request-ID`), using `USER_SERVICE_URL` and a 3s timeout.
+
+`SquadDirectory.Squads(userID)` calls `GET /api/v1/squads` the same way. Venue details use it for `savedIn`, then check every squad in one query (`squad_id = ANY($3)`).
 
 | user-service answers | Result | HTTP status here |
 |---|---|---|

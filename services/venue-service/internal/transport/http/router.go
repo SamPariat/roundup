@@ -22,7 +22,8 @@ func RegisterRoutes(app *fiber.App, h *Handlers) {
 	venues := v1.Group("/venues")
 	venues.Get("/", h.Venue.Search)
 	venues.Get("/photos/:ref", h.Venue.Photo)
-	venues.Get("/:placeID", h.Venue.GetDetail)
+	// Details include the caller's squads, so they need X-User-ID.
+	venues.Get("/:placeID", middleware.UserID(), h.Venue.GetDetail)
 
 	// Squad routes act on behalf of the caller, so they require X-User-ID
 	// (set by the gateway from the verified access token).
@@ -30,7 +31,6 @@ func RegisterRoutes(app *fiber.App, h *Handlers) {
 
 	favorites := squads.Group("/favorites")
 	favorites.Get("/", h.Favorite.List)
-	favorites.Get("/:placeID/check", h.Favorite.IsSaved)
 	favorites.Post("/", h.Favorite.Add)
 	favorites.Delete("/:placeID", h.Favorite.Remove)
 

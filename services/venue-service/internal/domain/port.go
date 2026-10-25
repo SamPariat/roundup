@@ -38,32 +38,60 @@ type VenueCache interface {
 
 // VenueRepository abstracts the persistence layer (Postgres, etc.).
 type VenueRepository interface {
-	// AddFavorite returns ErrAlreadySaved if the user already saved this venue in the squad.
-	AddFavorite(ctx context.Context, cmd AddFavoriteCommand) error
+	// AddFavorite stores the favorite with snapshot as its display fields. Returns
+	// ErrAlreadySaved if the user already saved this venue in the squad.
+	AddFavorite(ctx context.Context, cmd AddFavoriteCommand, snapshot VenueSnapshot) error
 
 	// RemoveFavorite returns ErrNotSaved if the user has not saved this venue in the squad.
 	RemoveFavorite(ctx context.Context, cmd RemoveFavoriteCommand) error
 
-	// ListFavorites returns every member's favorites in the squad, newest first.
-	ListFavorites(ctx context.Context, squadID string) ([]SavedVenue, error)
+	// ListSquadFavorites returns one group per venue saved in the squad, most
+	// recently saved first, counting only saves by memberIDs.
+	ListSquadFavorites(ctx context.Context, squadID string, memberIDs []string) ([]FavoriteGroup, error)
 
-	// IsFavorite reports whether the user has saved this venue in the squad.
-	IsFavorite(ctx context.Context, squadID, userID, placeID string) (bool, error)
+	// SavedInSquads returns the IDs of the squads, among squadIDs, in which
+	// the user saved this venue.
+	SavedInSquads(ctx context.Context, userID, placeID string, squadIDs []string) ([]string, error)
 
-	// RecordVisit stores one visit. Returns ErrVisitAlreadyRecorded if the squad
-	// already recorded this venue for this event.
-	RecordVisit(ctx context.Context, cmd RecordVisitCommand) error
+	// RecordVisit stores one visit with snapshot as its display fields. Returns
+	// ErrVisitAlreadyRecorded if the squad already recorded this venue for this event.
+	RecordVisit(ctx context.Context, cmd RecordVisitCommand, snapshot VenueSnapshot) error
 
 	// GetVisitHistory returns one summary per venue the squad has visited,
 	// most recently visited first.
 	GetVisitHistory(ctx context.Context, squadID string) ([]VisitSummary, error)
 }
 
-// SquadDirectory answers whether a user belongs to a squad. Squads live in
+// SquadMember is a squad member as user-service describes them.
+type SquadMember struct {
+	// UserID is the member's user ID.
+	UserID string
+
+	// Name is "" until the member completes profile setup.
+	Name string
+
+	// AvatarURL is "" when no avatar is set.
+	AvatarURL string
+}
+
+// Squad is one of the caller's squads as user-service describes it.
+type Squad struct {
+	// ID is the squad's UUID.
+	ID string
+
+	// Name is the squad's display name.
+	Name string
+}
+
+// SquadDirectory answers who belongs to which squad. Squads live in
 // user-service; implemented by a client for it.
 type SquadDirectory interface {
-	// EnsureMember returns nil if userID is a member of squadID,
+	// Members returns squadID's members if userID is one of them,
 	// ErrSquadNotFound if they are not (or the squad does not exist), and
 	// ErrUserServiceUnavailable if user-service cannot answer.
-	EnsureMember(ctx context.Context, squadID, userID string) error
+	Members(ctx context.Context, squadID, userID string) ([]SquadMember, error)
+
+	// Squads returns every squad userID belongs to, and
+	// ErrUserServiceUnavailable if user-service cannot answer.
+	Squads(ctx context.Context, userID string) ([]Squad, error)
 }

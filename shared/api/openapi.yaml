@@ -659,11 +659,14 @@ paths:
       tags: [Venues]
       operationId: getVenue
       summary: Get venue details
+      description: |
+        Includes `savedIn`: for each of the caller's squads, whether they saved
+        this venue there. 503 when user-service cannot list the squads.
       parameters:
         - $ref: '#/components/parameters/PlaceID'
       responses:
         '200':
-          description: The venue with phone, website, hours and reviews.
+          description: The venue with phone, website, hours, reviews and savedIn.
           headers:
             X-Request-ID:
               $ref: '#/components/headers/X-Request-ID'
@@ -747,8 +750,10 @@ paths:
     get:
       tags: [Favorites]
       operationId: listFavorites
-      summary: List my saved venues for a squad
-      description: Newest first.
+      summary: List the squad's saved venues
+      description: |
+        One entry per venue, most recently saved first, with the current
+        members who saved it.
       responses:
         '200':
           description: Saved venues.
@@ -779,6 +784,10 @@ paths:
       tags: [Favorites]
       operationId: addFavorite
       summary: Save a venue for a squad
+      description: |
+        The server looks up the venue and stores its name, address, rating,
+        price level and first photo, so lists render without a Google call.
+        404 when the squad or the venue does not exist.
       requestBody:
         required: true
         content:
@@ -819,42 +828,6 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
-        '502':
-          $ref: '#/components/responses/BadGateway'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /api/v1/squads/{squadID}/favorites/{placeID}/check:
-    x-service: venue-service
-    parameters:
-      - $ref: '#/components/parameters/SquadID'
-      - $ref: '#/components/parameters/PlaceID'
-    get:
-      tags: [Favorites]
-      operationId: isFavorite
-      summary: Check whether I saved a venue
-      responses:
-        '200':
-          description: Whether the venue is saved.
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/X-Request-ID'
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessEnvelope'
-                  - type: object
-                    required: [data]
-                    properties:
-                      data:
-                        $ref: '#/components/schemas/IsFavoriteResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/SquadNotFound'
         '502':
           $ref: '#/components/responses/BadGateway'
         '503':
@@ -903,7 +876,10 @@ paths:
       tags: [History]
       operationId: recordVisit
       summary: Record a visit
-      description: A visit is unique per squad, event and venue.
+      description: |
+        A visit is unique per squad, event and venue. The server looks up the
+        venue and stores its display fields. 404 when the squad or the venue
+        does not exist.
       requestBody:
         required: true
         content:
@@ -1504,7 +1480,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/Venue'
         - type: object
-          required: [phoneNumber, website, openingHours, reviews, editorialSummary]
+          required: [phoneNumber, website, openingHours, reviews, editorialSummary, savedIn]
           properties:
             phoneNumber:
               type: string
@@ -1522,6 +1498,23 @@ components:
                 $ref: '#/components/schemas/Review'
             editorialSummary:
               type: string
+            savedIn:
+              type: array
+              description: One entry per squad the caller is in.
+              items:
+                $ref: '#/components/schemas/SavedIn'
+    SavedIn:
+      type: object
+      required: [squadID, squadName, saved]
+      properties:
+        squadID:
+          type: string
+          format: uuid
+        squadName:
+          type: string
+        saved:
+          type: boolean
+          description: Whether the caller saved this venue in the squad.
     SearchResponse:
       type: object
       required: [venues]
@@ -1535,27 +1528,55 @@ components:
 
     AddFavoriteRequest:
       type: object
-      required: [placeID, name]
+      required: [placeID]
       properties:
         placeID:
           type: string
-        name:
-          type: string
-    SavedVenue:
+    Member:
       type: object
-      required: [id, placeID, name, userID, savedAt]
+      required: [userID, name, avatarURL]
       properties:
-        id:
-          type: integer
-          format: int64
-        placeID:
-          type: string
-        name:
-          type: string
         userID:
           type: string
           format: uuid
-        savedAt:
+        name:
+          type: string
+          description: Empty until the member completes profile setup.
+        avatarURL:
+          type: string
+    Favorite:
+      type: object
+      required: [placeID, name, address, averageRating, ratingCount, priceLevel, photo, savedBy, savedByMe, lastSavedAt]
+      properties:
+        placeID:
+          type: string
+        name:
+          type: string
+        address:
+          type: string
+        averageRating:
+          type: number
+          format: float
+          description: 1–5, or 0 when unrated.
+        ratingCount:
+          type: integer
+        priceLevel:
+          type: integer
+          minimum: 0
+          maximum: 4
+        photo:
+          allOf:
+            - $ref: '#/components/schemas/Photo'
+          nullable: true
+          description: Null when the venue has no photo.
+        savedBy:
+          type: array
+          description: Current members who saved it, most recent first.
+          items:
+            $ref: '#/components/schemas/Member'
+        savedByMe:
+          type: boolean
+        lastSavedAt:
           type: string
           format: date-time
     FavoritesResponse:
@@ -1565,25 +1586,17 @@ components:
         favorites:
           type: array
           items:
-            $ref: '#/components/schemas/SavedVenue'
-    IsFavoriteResponse:
-      type: object
-      required: [isFavorite]
-      properties:
-        isFavorite:
-          type: boolean
+            $ref: '#/components/schemas/Favorite'
 
     # ─── History ───────────────────────────────────────────────────────────
 
     RecordVisitRequest:
       type: object
-      required: [eventID, placeID, name, visitedAt]
+      required: [eventID, placeID, visitedAt]
       properties:
         eventID:
           type: string
         placeID:
-          type: string
-        name:
           type: string
         visitedAt:
           type: string
@@ -1594,18 +1607,31 @@ components:
           description: Average spend per person in paise. 0 or omitted means unknown.
     VisitSummary:
       type: object
-      required: [placeID, name, visitCount, lastVisitedAt]
+      required: [placeID, name, address, photo, visitCount, lastVisitedAt, avgSpendInPaise]
       properties:
         placeID:
           type: string
         name:
           type: string
+          description: As of the latest visit.
+        address:
+          type: string
+        photo:
+          allOf:
+            - $ref: '#/components/schemas/Photo'
+          nullable: true
+          description: Null when the venue has no photo.
         visitCount:
           type: integer
           format: int64
         lastVisitedAt:
           type: string
           format: date-time
+        avgSpendInPaise:
+          type: integer
+          format: int64
+          nullable: true
+          description: Average spend per person across visits with a known spend; null when none.
     VisitHistoryResponse:
       type: object
       required: [history]

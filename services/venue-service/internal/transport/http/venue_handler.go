@@ -8,18 +8,21 @@ import (
 	"github.com/SamPariat/roundup/services/venue-service/internal/application"
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 	"github.com/SamPariat/roundup/services/venue-service/internal/transport/http/dtos"
+	"github.com/SamPariat/roundup/shared/middleware"
 	"github.com/SamPariat/roundup/shared/response"
 	"github.com/gofiber/fiber/v3"
 )
 
 // VenueHandler handles HTTP requests for venue search and detail lookups.
+// favorites answers which of the caller's squads saved a venue.
 type VenueHandler struct {
-	uc *application.VenueUseCase
+	uc        *application.VenueUseCase
+	favorites *application.FavoriteUseCase
 }
 
-// NewVenueHandler constructs a VenueHandler with the given use case.
-func NewVenueHandler(uc *application.VenueUseCase) *VenueHandler {
-	return &VenueHandler{uc: uc}
+// NewVenueHandler constructs a VenueHandler with the given use cases.
+func NewVenueHandler(uc *application.VenueUseCase, favorites *application.FavoriteUseCase) *VenueHandler {
+	return &VenueHandler{uc: uc, favorites: favorites}
 }
 
 // Search handles GET /api/v1/venues: nearby venues matching the query params.
@@ -43,14 +46,22 @@ func (h *VenueHandler) Search(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.VenuesToSearchResponse(venues)))
 }
 
-// GetDetail handles GET /api/v1/venues/:placeID: full details for one venue.
+// GetDetail handles GET /api/v1/venues/:placeID: full details for one venue,
+// plus which of the caller's squads they saved it in.
 func (h *VenueHandler) GetDetail(c fiber.Ctx) error {
-	detail, err := h.uc.GetDetail(c.Context(), c.Params("placeID"))
+	placeID := c.Params("placeID")
+
+	detail, err := h.uc.GetDetail(c.Context(), placeID)
 	if err != nil {
 		return response.Error(c, venueErrorStatus(err), err)
 	}
 
-	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.VenueDetailToResponse(*detail)))
+	savedIn, err := h.favorites.SavedIn(c.Context(), middleware.UserIDFrom(c), placeID)
+	if err != nil {
+		return response.Error(c, venueErrorStatus(err), err)
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.VenueDetailToResponse(*detail, savedIn)))
 }
 
 // photoMaxAge is how long clients and CDNs may cache a venue photo.
@@ -83,7 +94,7 @@ func venueErrorStatus(err error) int {
 		return fiber.StatusBadRequest
 	case errors.Is(err, domain.ErrVenueNotFound), errors.Is(err, domain.ErrPhotoNotFound):
 		return fiber.StatusNotFound
-	case errors.Is(err, domain.ErrProviderUnavailable):
+	case errors.Is(err, domain.ErrProviderUnavailable), errors.Is(err, domain.ErrUserServiceUnavailable):
 		return fiber.StatusServiceUnavailable
 	default:
 		return fiber.StatusInternalServerError

@@ -34,7 +34,6 @@ func (h *FavoriteHandler) Add(c fiber.Ctx) error {
 		SquadID: c.Params("squadID"),
 		UserID:  middleware.UserIDFrom(c),
 		PlaceID: req.PlaceID,
-		Name:    req.Name,
 	})
 	if err != nil {
 		return response.Error(c, favoriteErrorStatus(err), err)
@@ -67,24 +66,14 @@ func (h *FavoriteHandler) List(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.FavoritesToResponse(favorites)))
 }
 
-// IsSaved handles GET /api/v1/squads/:squadID/favorites/:placeID/check.
-func (h *FavoriteHandler) IsSaved(c fiber.Ctx) error {
-	isFavorite, err := h.uc.IsSaved(c.Context(), c.Params("squadID"), middleware.UserIDFrom(c), c.Params("placeID"))
-	if err != nil {
-		return response.Error(c, favoriteErrorStatus(err), err)
-	}
-
-	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.IsFavoriteResponse{IsFavorite: isFavorite}))
-}
-
 // favoriteErrorStatus maps domain sentinel errors to HTTP status codes for favorites.
 func favoriteErrorStatus(err error) int {
 	switch {
-	case errors.Is(err, domain.ErrNotSaved), errors.Is(err, domain.ErrSquadNotFound):
+	case errors.Is(err, domain.ErrNotSaved), errors.Is(err, domain.ErrSquadNotFound), errors.Is(err, domain.ErrVenueNotFound):
 		return fiber.StatusNotFound
 	case errors.Is(err, domain.ErrAlreadySaved):
 		return fiber.StatusConflict
-	case errors.Is(err, domain.ErrUserServiceUnavailable):
+	case errors.Is(err, domain.ErrUserServiceUnavailable), errors.Is(err, domain.ErrProviderUnavailable):
 		return fiber.StatusServiceUnavailable
 	default:
 		return fiber.StatusInternalServerError

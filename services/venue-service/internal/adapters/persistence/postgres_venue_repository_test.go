@@ -22,7 +22,16 @@ const (
 	otherSquad = "22222222-2222-2222-2222-222222222222"
 	alice      = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 	bob        = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+	dev        = "dddddddd-dddd-dddd-dddd-dddddddddddd"
 )
+
+// day returns 20:00 UTC on the given day of October 2026.
+func day(d int) time.Time {
+	return time.Date(2026, 10, d, 20, 0, 0, 0, time.UTC)
+}
+
+// members is the current member list most tests pass to ListSquadFavorites.
+var members = []string{alice, bob}
 
 func newRepo(t *testing.T) (*PostgresVenueRepository, *pgxpool.Pool) {
 	t.Helper()
@@ -31,35 +40,59 @@ func newRepo(t *testing.T) (*PostgresVenueRepository, *pgxpool.Pool) {
 	return NewPostgresVenueRepository(pool), pool
 }
 
+// snapshotOf returns a fully populated snapshot for placeID, so round trips
+// show every column is stored and read back.
+func snapshotOf(placeID string) domain.VenueSnapshot {
+	return domain.VenueSnapshot{
+		Name:          "Venue " + placeID,
+		Address:       "12 Church St, Bengaluru",
+		AverageRating: 4.5,
+		RatingCount:   1240,
+		PriceLevel:    2,
+		Photo:         domain.PhotoRef{Reference: "ref-" + placeID, Width: 4032, Height: 3024},
+	}
+}
+
 func addFavorite(t *testing.T, repo *PostgresVenueRepository, squadID, userID, placeID string) {
 	t.Helper()
 	require.NoError(t, repo.AddFavorite(t.Context(), domain.AddFavoriteCommand{
-		SquadID: squadID, UserID: userID, PlaceID: placeID, Name: "Venue " + placeID,
-	}))
+		SquadID: squadID, UserID: userID, PlaceID: placeID,
+	}, snapshotOf(placeID)))
 }
 
 // --- favorites ---
 
-func TestAddFavoriteThenIsFavorite(t *testing.T) {
-	ctx := t.Context()
+func TestAddFavoriteStoresSnapshot(t *testing.T) {
 	repo, _ := newRepo(t)
-
 	addFavorite(t, repo, squad, alice, "place-1")
 
-	fav, err := repo.IsFavorite(ctx, squad, alice, "place-1")
+	favs, err := repo.ListSquadFavorites(t.Context(), squad, members)
 	require.NoError(t, err)
-	assert.True(t, fav)
 
-	fav, err = repo.IsFavorite(ctx, squad, bob, "place-1")
+	require.Len(t, favs, 1)
+	assert.Equal(t, snapshotOf("place-1"), favs[0].VenueSnapshot)
+}
+
+func TestSavedInSquadsIsPerUserAndLimitedToGivenSquads(t *testing.T) {
+	ctx := t.Context()
+	repo, _ := newRepo(t)
+	addFavorite(t, repo, squad, alice, "place-1")
+	addFavorite(t, repo, otherSquad, bob, "place-1")
+
+	got, err := repo.SavedInSquads(ctx, alice, "place-1", []string{squad, otherSquad})
 	require.NoError(t, err)
-	assert.False(t, fav, "favorites are per user")
+	assert.Equal(t, []string{squad}, got, "favorites are per user")
+
+	got, err = repo.SavedInSquads(ctx, alice, "place-1", []string{otherSquad})
+	require.NoError(t, err)
+	assert.Empty(t, got, "squads outside the list are not reported")
 }
 
 func TestAddFavoriteTwiceReturnsErrAlreadySaved(t *testing.T) {
 	repo, _ := newRepo(t)
 	addFavorite(t, repo, squad, alice, "place-1")
 
-	err := repo.AddFavorite(t.Context(), domain.AddFavoriteCommand{SquadID: squad, UserID: alice, PlaceID: "place-1", Name: "again"})
+	err := repo.AddFavorite(t.Context(), domain.AddFavoriteCommand{SquadID: squad, UserID: alice, PlaceID: "place-1"}, snapshotOf("again"))
 
 	assert.ErrorIs(t, err, domain.ErrAlreadySaved)
 }
@@ -82,31 +115,62 @@ func TestRemoveFavoriteOnlyByOwner(t *testing.T) {
 
 	require.NoError(t, repo.RemoveFavorite(ctx, domain.RemoveFavoriteCommand{SquadID: squad, UserID: alice, PlaceID: "place-1"}))
 
-	fav, err := repo.IsFavorite(ctx, squad, alice, "place-1")
+	favs, err := repo.ListSquadFavorites(ctx, squad, members)
 	require.NoError(t, err)
-	assert.False(t, fav)
+	assert.Empty(t, favs)
 }
 
-func TestListFavoritesIsSquadScopedNewestFirst(t *testing.T) {
-	repo, _ := newRepo(t)
-	addFavorite(t, repo, squad, alice, "place-1")
-	time.Sleep(10 * time.Millisecond) // saved_at defaults to NOW(); keep the order deterministic
-	addFavorite(t, repo, squad, bob, "place-2")
-	addFavorite(t, repo, otherSquad, alice, "place-3")
+// saveAt saves placeID for userID in squad with a fixed saved_at, so the
+// grouping tests don't depend on NOW().
+func saveAt(t *testing.T, pool *pgxpool.Pool, userID, placeID, name string, at time.Time) {
+	t.Helper()
 
-	favs, err := repo.ListFavorites(t.Context(), squad)
+	_, err := pool.Exec(t.Context(),
+		"INSERT INTO saved_venues (squad_id, user_id, place_id, name, saved_at) VALUES ($1, $2, $3, $4, $5)",
+		squad, userID, placeID, name, at)
 	require.NoError(t, err)
-
-	require.Len(t, favs, 2)
-	assert.Equal(t, "place-2", favs[0].PlaceID)
-	assert.Equal(t, bob, favs[0].UserID)
-	assert.Equal(t, "place-1", favs[1].PlaceID)
 }
 
-func TestListFavoritesEmptySquad(t *testing.T) {
+func TestListSquadFavoritesGroupsPerVenueNewestFirst(t *testing.T) {
+	repo, pool := newRepo(t)
+
+	saveAt(t, pool, alice, "toit", "Toit", day(15))
+	saveAt(t, pool, bob, "toit", "Toit Brewpub", day(20))
+	saveAt(t, pool, alice, "byg", "Byg Brewski", day(18))
+	addFavorite(t, repo, otherSquad, alice, "elsewhere")
+
+	favs, err := repo.ListSquadFavorites(t.Context(), squad, members)
+	require.NoError(t, err)
+
+	require.Len(t, favs, 2, "one row per venue, only this squad's")
+	assert.Equal(t, "toit", favs[0].PlaceID, "most recently saved first")
+	assert.Equal(t, "Toit Brewpub", favs[0].Name, "display fields come from the latest save")
+	assert.Equal(t, []string{bob, alice}, favs[0].SavedBy, "savers most recent first")
+	assert.True(t, day(20).Equal(favs[0].LastSavedAt))
+	assert.Equal(t, "byg", favs[1].PlaceID)
+	assert.Equal(t, []string{alice}, favs[1].SavedBy)
+}
+
+func TestListSquadFavoritesSkipsFormerMembers(t *testing.T) {
+	repo, pool := newRepo(t)
+
+	saveAt(t, pool, dev, "toit", "Toit (old name)", day(25))
+	saveAt(t, pool, alice, "toit", "Toit", day(15))
+	saveAt(t, pool, dev, "arbor", "Arbor", day(5))
+
+	favs, err := repo.ListSquadFavorites(t.Context(), squad, members)
+	require.NoError(t, err)
+
+	require.Len(t, favs, 1, "a venue saved only by someone who left is not listed")
+	assert.Equal(t, []string{alice}, favs[0].SavedBy)
+	assert.Equal(t, "Toit", favs[0].Name, "a former member's save doesn't decide the display fields")
+	assert.True(t, day(15).Equal(favs[0].LastSavedAt))
+}
+
+func TestListSquadFavoritesEmptySquad(t *testing.T) {
 	repo, _ := newRepo(t)
 
-	favs, err := repo.ListFavorites(t.Context(), squad)
+	favs, err := repo.ListSquadFavorites(t.Context(), squad, members)
 
 	require.NoError(t, err)
 	assert.Empty(t, favs)
@@ -117,13 +181,12 @@ func TestListFavoritesEmptySquad(t *testing.T) {
 func recordVisit(t *testing.T, repo *PostgresVenueRepository, eventID, placeID string, at time.Time, spend int64) {
 	t.Helper()
 	require.NoError(t, repo.RecordVisit(t.Context(), domain.RecordVisitCommand{
-		SquadID: squad, EventID: eventID, PlaceID: placeID, Name: "Venue " + placeID, VisitedAt: at, AvgSpendInPaise: spend,
-	}))
+		SquadID: squad, EventID: eventID, PlaceID: placeID, VisitedAt: at, AvgSpendInPaise: spend,
+	}, snapshotOf(placeID)))
 }
 
 func TestVisitHistoryAggregatesPerVenueMostRecentFirst(t *testing.T) {
 	repo, _ := newRepo(t)
-	day := func(d int) time.Time { return time.Date(2026, 10, d, 20, 0, 0, 0, time.UTC) }
 
 	recordVisit(t, repo, "event-1", "toit", day(1), 150000)
 	recordVisit(t, repo, "event-2", "toit", day(5), 0)
@@ -138,6 +201,38 @@ func TestVisitHistoryAggregatesPerVenueMostRecentFirst(t *testing.T) {
 	assert.Equal(t, "toit", history[1].PlaceID)
 	assert.Equal(t, int64(2), history[1].VisitCount)
 	assert.True(t, day(5).Equal(history[1].LastVisitedAt), "last visit is the latest of the two")
+	assert.Equal(t, int64(150000), history[1].AvgSpendInPaise, "visits with an unknown spend are left out of the average")
+	assert.Equal(t, "12 Church St, Bengaluru", history[1].Address)
+	assert.Equal(t, snapshotOf("toit").Photo, history[1].Photo)
+}
+
+func TestVisitHistoryAvgSpendIsZeroWhenNoneKnown(t *testing.T) {
+	repo, _ := newRepo(t)
+	recordVisit(t, repo, "event-1", "toit", time.Now(), 0)
+
+	history, err := repo.GetVisitHistory(t.Context(), squad)
+	require.NoError(t, err)
+
+	require.Len(t, history, 1)
+	assert.Zero(t, history[0].AvgSpendInPaise)
+}
+
+func TestVisitHistoryUsesLatestSnapshot(t *testing.T) {
+	repo, _ := newRepo(t)
+
+	renamed := snapshotOf("toit")
+	renamed.Name = "Toit Brewpub"
+
+	recordVisit(t, repo, "event-1", "toit", day(1), 0)
+	require.NoError(t, repo.RecordVisit(t.Context(), domain.RecordVisitCommand{
+		SquadID: squad, EventID: "event-2", PlaceID: "toit", VisitedAt: day(5),
+	}, renamed))
+
+	history, err := repo.GetVisitHistory(t.Context(), squad)
+	require.NoError(t, err)
+
+	require.Len(t, history, 1, "a renamed venue is still one row")
+	assert.Equal(t, "Toit Brewpub", history[0].Name)
 }
 
 func TestRecordVisitTwiceForSameEventReturnsErrVisitAlreadyRecorded(t *testing.T) {
@@ -146,8 +241,8 @@ func TestRecordVisitTwiceForSameEventReturnsErrVisitAlreadyRecorded(t *testing.T
 	recordVisit(t, repo, "event-1", "toit", at, 0)
 
 	err := repo.RecordVisit(t.Context(), domain.RecordVisitCommand{
-		SquadID: squad, EventID: "event-1", PlaceID: "toit", Name: "Toit", VisitedAt: at,
-	})
+		SquadID: squad, EventID: "event-1", PlaceID: "toit", VisitedAt: at,
+	}, snapshotOf("toit"))
 
 	assert.ErrorIs(t, err, domain.ErrVisitAlreadyRecorded)
 }

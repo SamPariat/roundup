@@ -117,7 +117,7 @@ func TestRoutesToUpstreams(t *testing.T) {
 		{"VenuePhotoIsPublic", http.MethodGet, "/api/v1/venues/photos/ref-123?maxWidth=400", "", false, func(f *fixture) *upstream { return f.venue }, ""},
 		{"VenueSearchKeepsQuery", http.MethodGet, "/api/v1/venues/?lat=12.97&lng=77.59&radius=2000", "", true, func(f *fixture) *upstream { return f.venue }, userID},
 		{"SquadFavorites", http.MethodPost, "/api/v1/squads/s1/favorites/", `{"placeID":"p1"}`, true, func(f *fixture) *upstream { return f.venue }, userID},
-		{"SquadFavoriteCheck", http.MethodGet, "/api/v1/squads/s1/favorites/p1/check", "", true, func(f *fixture) *upstream { return f.venue }, userID},
+		{"SquadFavoriteRemove", http.MethodDelete, "/api/v1/squads/s1/favorites/p1", "", true, func(f *fixture) *upstream { return f.venue }, userID},
 		{"SquadHistory", http.MethodGet, "/api/v1/squads/s1/history", "", true, func(f *fixture) *upstream { return f.venue }, userID},
 		{"CreateSquad", http.MethodPost, "/api/v1/squads", `{"name":"Friday crew"}`, true, func(f *fixture) *upstream { return f.user }, userID},
 		{"ListSquads", http.MethodGet, "/api/v1/squads/", "", true, func(f *fixture) *upstream { return f.user }, userID},
