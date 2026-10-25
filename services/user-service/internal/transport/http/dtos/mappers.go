@@ -1,6 +1,9 @@
 package dtos
 
-import "github.com/SamPariat/roundup/services/user-service/internal/domain"
+import (
+	"github.com/SamPariat/roundup/services/user-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/pagination"
+)
 
 // UserToResponse maps a domain.User to a UserResponse.
 func UserToResponse(u *domain.User) UserResponse {
@@ -63,7 +66,7 @@ func SquadsToResponse(squads []domain.SquadSummary, next string) SquadsResponse 
 		})
 	}
 
-	return SquadsResponse{Squads: out, NextCursor: optional(next)}
+	return SquadsResponse{Squads: out, NextCursor: pagination.NextCursor(next)}
 }
 
 // SquadMemberToResponse maps a domain.SquadMember to a SquadMemberResponse.
@@ -107,13 +110,4 @@ func SquadDetailToResponse(d *domain.SquadDetail) SquadDetailResponse {
 			CanEditSquad:     d.Permissions.CanEditSquad,
 		},
 	}
-}
-
-// optional returns nil for "", so an absent cursor is JSON null.
-func optional(s string) *string {
-	if s == "" {
-		return nil
-	}
-
-	return &s
 }

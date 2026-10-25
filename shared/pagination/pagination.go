@@ -81,6 +81,16 @@ func Decode(cursor string, key any) error {
 	return nil
 }
 
+// NextCursor returns next for a response's nextCursor field, or nil on the
+// last page (next == ""), so it serialises as JSON null.
+func NextCursor(next string) *string {
+	if next == "" {
+		return nil
+	}
+
+	return &next
+}
+
 // Trim cuts rows, fetched with Limit+1, to one page and reports whether more
 // rows follow. Repositories fetch one extra row so they know without a count.
 func Trim[T any](rows []T, limit int) (page []T, more bool) {

@@ -3,6 +3,8 @@ package dtos
 import (
 	"net/url"
 
+	"github.com/SamPariat/roundup/shared/pagination"
+
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 )
 
@@ -80,7 +82,7 @@ func FavoritesToResponse(favorites []domain.SquadFavorite, next string) Favorite
 		})
 	}
 
-	return FavoritesResponse{Favorites: responses, NextCursor: optional(next)}
+	return FavoritesResponse{Favorites: responses, NextCursor: pagination.NextCursor(next)}
 }
 
 // VisitHistoryToResponse maps one page of domain.VisitSummary to a
@@ -104,7 +106,7 @@ func VisitHistoryToResponse(summaries []domain.VisitSummary, next string) VisitH
 		})
 	}
 
-	return VisitHistoryResponse{History: responses, NextCursor: optional(next)}
+	return VisitHistoryResponse{History: responses, NextCursor: pagination.NextCursor(next)}
 }
 
 // SearchResultToResponse maps one page of search results to a SearchResponse.
@@ -114,7 +116,7 @@ func SearchResultToResponse(result *domain.SearchResult) SearchResponse {
 		responses = append(responses, VenueToResponse(v))
 	}
 
-	return SearchResponse{Venues: responses, NextCursor: optional(result.NextPageToken)}
+	return SearchResponse{Venues: responses, NextCursor: pagination.NextCursor(result.NextPageToken)}
 }
 
 // photoToResponse maps a domain.PhotoRef to a PhotoResponse.
@@ -145,13 +147,4 @@ func savedInToResponse(savedIn []domain.SquadSaved) []SavedInResponse {
 	}
 
 	return responses
-}
-
-// optional returns nil for "", so an absent cursor is JSON null.
-func optional(s string) *string {
-	if s == "" {
-		return nil
-	}
-
-	return &s
 }

@@ -71,3 +71,8 @@ func TestTrim(t *testing.T) {
 	assert.Equal(t, []int{1, 2}, page)
 	assert.False(t, more)
 }
+
+func TestNextCursor(t *testing.T) {
+	assert.Nil(t, NextCursor(""), "last page is null")
+	assert.Equal(t, "abc", *NextCursor("abc"))
+}
