@@ -39,41 +39,41 @@
 - [x] Install goose (`make install`)
 - [x] Install sqlc (`make install`)
 - [x] Install golangci-lint
-- [ ] Install Node.js 22 LTS (Expo app); Android Studio + Xcode only for local native builds
+- [ ] Install Node.js 26 LTS (Expo app); Android Studio + Xcode only for local native builds
 - [ ] Install protoc (gRPC compiler)
 - [ ] Install buf CLI (protobuf linting)
 
 ### Monorepo setup
 
-- [ ] Initialise git repository
-- [ ] Create root `docker-compose.yml`
+- [x] Initialise git repository
+- [x] Create root `docker-compose.yml`
 - [x] Add `.gitignore`
 - [x] Add `.editorconfig` for consistent formatting
 - [x] Create `services/` directory for all microservices
-- [x] Create `proto/` directory for shared gRPC definitions
+- [ ] Create `proto/` directory for shared gRPC definitions
 - [x] Create `scripts/` for dev helper scripts
 - [x] Write `scripts/start-all.sh` to boot all services locally
 
 ### Docker Compose — local services
 
-- [ ] Add PostgreSQL container (one per service, separate ports)
-- [ ] Add Redis container (shared, single instance)
+- [x] Add PostgreSQL container (one per service, separate ports)
+- [x] Add Redis container (shared, single instance)
 - [ ] Add Kafka container (Bitnami image)
 - [ ] Add Zookeeper container (Kafka dependency)
 - [ ] Add Kafka UI container (Provectus) for local debugging
 - [ ] Add Redis Commander container for local Redis browsing
 - [ ] Add pgAdmin container for DB browsing
-- [ ] Set up Docker networking so all services can communicate
+- [x] Set up Docker networking so all services can communicate
 - [ ] Write `docker-compose.override.yml` for local-only overrides
 - [ ] Add health checks to all containers
 
 ### CI/CD
 
-- [ ] Create GitHub Actions workflow directory `.github/workflows/`
-- [ ] Write `ci.yml` — runs on every PR
-- [ ] Add lint step (golangci-lint)
-- [ ] Add test step for each service
-- [ ] Add build step for each service
+- [x] Create GitHub Actions workflow directory `.github/workflows/`
+- [x] Write `ci.yml` — runs on every PR
+- [x] Add lint step (golangci-lint)
+- [x] Add test step for each service
+- [x] Add build step for each service (Docker image per service; `ci-ok` is the required check)
 - [ ] Write `deploy.yml` — runs on merge to main
 - [ ] Add Docker image build per service
 - [ ] Push images to Google Artifact Registry
@@ -178,6 +178,7 @@ Access tokens are Ed25519 JWTs: the gateway verifies them locally with auth-serv
 - [x] Rate limit `/api/v1/auth/*` by IP: 20 requests per 15 minutes, in memory per gateway instance (protects OTP sending)
 - [ ] Rate limit by user ID for authenticated routes
 - [x] Return `429 Too Many Requests` with `Retry-After` header
+- [x] Public `GET /api/v1/venues/photos/:ref` (image tags can't send a token), rate limited by IP: 600 per 15 minutes
 
 ### Load balancing
 
@@ -242,67 +243,72 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 
 ### Project setup
 
-- [ ] `go mod init github.com/SamPariat/roundup/services/user-service` and add to `go.work`
-- [ ] Copy the `services/venue-service` layout
-- [ ] Add `gofiber/fiber/v3`, `jackc/pgx/v5`, `stretchr/testify`
-- [ ] Create `internal/config/` — `PORT=3002`, `POSTGRES_DSN`, `LOG_LEVEL`
-- [ ] Add `sqlc.yaml`
-- [ ] Add `postgres-user` (port 5434) to `docker-compose.yml`
-- [ ] Add `user-*` targets to the `Makefile`
-- [ ] Write `.env.beta.example` and `.env.prod.example`
-- [ ] Write `Dockerfile`
+- [x] `go mod init github.com/SamPariat/roundup/services/user-service` and add to `go.work`
+- [x] Copy the `services/venue-service` layout
+- [x] Add `gofiber/fiber/v3`, `jackc/pgx/v5`, `stretchr/testify`
+- [x] Create `internal/config/` — `PORT=3002`, `POSTGRES_DSN`, `LOG_LEVEL`
+- [x] Add `sqlc.yaml`
+- [x] Add `postgres-user` (port 5434) to `docker-compose.yml`
+- [x] Add `user-*` targets to the `Makefile`
+- [x] Write `.env.beta.example` and `.env.prod.example`
+- [x] Write `Dockerfile`
 
 ### Database schema (goose migrations)
 
-- [ ] `0001_create_users.sql` — id, phone, email, name, avatar_url, deleted_at, created_at, updated_at
-- [ ] `0002_create_device_tokens.sql` — id, user_id, token, platform, created_at
+- [x] `0001_create_users.sql` — id, phone, email, name, avatar_url, deleted_at, created_at, updated_at
+- [x] `0002_create_device_tokens.sql` — id, user_id, token, platform, created_at
 - [x] `0003_create_squads.sql` — id, name, avatar_url, created_by, created_at
 - [x] `0004_create_squad_members.sql` — squad_id, user_id, role, joined_at
 - [ ] `0005_create_user_face_profiles.sql` — user_id, cloudinary_id, embeddings (jsonb), updated_at
 - [ ] `0006_create_friend_connections.sql` — user_id_a, user_id_b, created_at (unique pair)
-- [ ] Add indexes: users(phone), squad_members(squad_id, user_id)
+- [x] Add indexes: users(phone), squad_members(squad_id, user_id)
 
 ### Domain & repositories
 
-- [ ] `domain/user.go`, `domain/device_token.go`, `domain/squad.go`, `domain/errors.go`
-- [ ] `domain/port.go` — `UserRepository`, `DeviceTokenRepository`, `SquadRepository`
-- [ ] sqlc queries in `db/queries/*.sql`
-- [ ] Postgres repository adapters in `internal/adapters/persistence/`
+- [x] `domain/user.go`, `domain/device_token.go`, `domain/squad.go`, `domain/errors.go`
+- [x] `domain/port.go` — `UserRepository`, `DeviceTokenRepository`, `SquadRepository`
+- [x] sqlc queries in `db/queries/*.sql`
+- [x] Postgres repository adapters in `internal/adapters/persistence/`
 
 ### Use cases
 
-- [ ] `UserUseCase.CreateOrGet(phone)` — idempotent by phone
-- [ ] `UserUseCase.Get(id)` — excludes soft-deleted
-- [ ] `UserUseCase.UpdateProfile(id, name, avatarURL)`
-- [ ] `UserUseCase.Delete(id)` — sets deleted_at
-- [ ] `DeviceTokenUseCase.Register(userID, token, platform)` — upsert by token
-- [ ] `DeviceTokenUseCase.Remove(userID, token)`
+- [x] `UserUseCase.CreateOrGet(phone)` — idempotent by phone
+- [x] `UserUseCase.Get(id)` — excludes soft-deleted
+- [x] `UserUseCase.UpdateProfile(id, name, avatarURL)`
+- [x] `UserUseCase.Delete(id)` — sets deleted_at
+- [x] `DeviceTokenUseCase.Register(userID, token, platform)` — upsert by token
+- [x] `DeviceTokenUseCase.Remove(userID, token)`
 - [ ] `DeviceTokenUseCase.ListForUsers(userIDs)` — batch for notification service
-- [x] `SquadUseCase` — create, add/remove member, list members, list my squads
+- [x] `SquadUseCase` — create, get, edit, add/remove member, change role, list my squads (with member previews)
+- [x] Squad permissions from a Casbin policy (`internal/adapters/authz/policy.csv`); see `services/user-service/docs/PERMISSIONS.md`
+- [x] `UserUseCase.Lookup(phones)` — find which contacts are on Roundup
 - [ ] `FriendUseCase` — connect, list friends
 
 ### Controllers (REST)
 
-- [ ] `POST /api/v1/users` — create or return user by phone (called by Auth Service)
-- [ ] `GET /api/v1/users/me` — get own profile
-- [ ] `PATCH /api/v1/users/me` — update name, avatar
-- [ ] `DELETE /api/v1/users/me` — soft delete account
+- [x] `POST /api/v1/users` — create or return user by phone (called by Auth Service)
+- [x] `GET /api/v1/users/me` — get own profile
+- [x] `PATCH /api/v1/users/me` — update name, avatar
+- [x] `DELETE /api/v1/users/me` — soft delete account
 - [ ] `GET /api/v1/users/:id` — get user by ID (internal use)
-- [ ] `POST /api/v1/users/me/device-tokens` — register FCM token
-- [ ] `DELETE /api/v1/users/me/device-tokens/:token` — deregister token
+- [x] `POST /api/v1/users/me/device-tokens` — register FCM token
+- [x] `DELETE /api/v1/users/me/device-tokens/:token` — deregister token
 - [x] `POST /api/v1/squads` — create squad
 - [x] `GET /api/v1/squads` — get my squads
-- [x] `GET /api/v1/squads/:id` — get squad with members
+- [x] `GET /api/v1/squads/:id` — get squad with members, my role, `isMe` and `permissions`
+- [x] `PATCH /api/v1/squads/:id` — rename or change picture (needs `squad:edit`)
 - [x] `POST /api/v1/squads/:id/members` — add member
-- [x] `DELETE /api/v1/squads/:id/members/:userId` — remove member
+- [x] `PATCH /api/v1/squads/:id/members/:userId` — make admin or demote
+- [x] `DELETE /api/v1/squads/:id/members/:userId` — remove member, or leave with your own ID
+- [x] `POST /api/v1/users/lookup` — which of these phone numbers are Roundup users
 - [ ] `POST /api/v1/users/me/face-profile` — upload reference photo
 - [ ] `GET /api/v1/users/me/friends` — get friend list
 
 ### Tests
 
-- [ ] Unit test `CreateOrGet` — duplicate calls return the same user
-- [ ] Unit test device token upsert — token moves to the new user
-- [ ] Integration test repository against local Postgres
+- [x] Unit test `CreateOrGet` — duplicate calls return the same user
+- [x] Test device token upsert — token moves to the new user (repository test)
+- [x] Integration test repository against local Postgres
 - [ ] E2E test `PATCH /api/v1/users/me` → updates name
 
 ---
@@ -461,62 +467,63 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 
 ### Project setup
 
-- [ ] `go mod init github.com/SamPariat/roundup/services/venue-service`
-- [ ] Add `gofiber/fiber/v3`
-- [ ] Add `googlemaps/google-maps-services-go`
-- [ ] Add `redis/go-redis`
-- [ ] Write `Dockerfile`
+- [x] `go mod init github.com/SamPariat/roundup/services/venue-service`
+- [x] Add `gofiber/fiber/v3`
+- [x] Add `googlemaps.github.io/maps`
+- [x] Add `redis/go-redis/v9`
+- [x] Write `Dockerfile`
 
 ### Google Places integration
 
-- [ ] Create `internal/places/client.go` — wraps Google Maps SDK
-- [ ] Implement `NearbySearch(lat, lng, radius, type, keyword)` → `[]Place`
-- [ ] Implement `GetPlaceDetails(placeId, fields)` → `PlaceDetail`
-- [ ] Implement `GetPlacePhotos(placeId)` → `[]PhotoRef`
-- [ ] Map Google Place response to internal `Venue` struct
-- [ ] Add field mask to only fetch needed fields (cost control)
+- [x] `internal/adapters/places/google_maps_adapter.go` — implements `domain.PlaceProvider`
+- [x] Nearby search (lat, lng, radius, keyword, type) → `[]Venue`
+- [x] Place details → `VenueDetail` (phone, website, hours, reviews, summary)
+- [x] Photos streamed through `GET /api/v1/venues/photos/:ref`, so the API key never reaches clients (`Cache-Control: public, max-age=86400`)
+- [x] Map Google responses to domain `Venue`, including `ratingCount` from `user_ratings_total`
+- [x] Field mask on details to fetch only needed fields (cost control)
+- [ ] Paging (`nextPageToken`): kept in the stash "venue-display full version (backup)"
+- [ ] Structured opening hours / open-status labels / distance: kept in the same stash
 
 ### Redis cache layer
 
-- [ ] Create `internal/cache/venue_cache.go`
-- [ ] Cache key: `venues:nearby:{lat}:{lng}:{type}:{keyword}` — 24hr TTL
-- [ ] Cache key: `venue:detail:{placeId}` — 1hr TTL
-- [ ] Implement `GetCached(key)` → `([]Venue, bool)`
-- [ ] Implement `SetCached(key, venues, ttl)` → `error`
-- [ ] On cache miss — fetch from Places API, then cache
+- [x] `internal/adapters/cache/redis_cache_adapter.go` — implements `domain.VenueCache`, best-effort (errors logged, never returned)
+- [x] Search key `venue:search:{lat}:{lng}:{radius}:{query}:{type}` and detail key `venue:detail:{placeID}`, both 10 min TTL (`cache.DefaultTTL`)
+- [x] On a cache miss, fetch from Google, then cache
 
-### Database schema (venue history)
+### Database schema
 
-- [ ] `0001_create_saved_venues.sql` — id, squad_id, user_id, place_id, name, saved_at
-- [ ] `0002_create_venue_visits.sql` — id, squad_id, event_id, place_id, visited_at, avg_spend_paise
+- [x] `0001_create_saved_venues.sql` — id, squad_id, user_id, place_id, name, saved_at
+- [x] `0002_create_venue_visits.sql` — id, squad_id, event_id, place_id, name, visited_at, avg_spend_in_paise
+- [x] `0003_add_venue_snapshots.sql` — address, rating, rating_count, price_level, photo on both tables, so lists render without a Google call
 
-### Service layer
+### Use cases
 
-- [ ] Create `VenueService`
-- [ ] Implement `Search(lat, lng, query, filters)` — cache-first
-- [ ] Implement `GetDetail(placeId)` — cache-first
-- [ ] Implement `SaveFavourite(squadId, userId, placeId)`
-- [ ] Implement `GetFavourites(squadId)`
-- [ ] Implement `RecordVisit(squadId, eventId, placeId, avgSpend)`
-- [ ] Implement `GetVisitHistory(squadId)` — sorted by visit count
+- [x] `VenueUseCase.Search` and `GetDetail` — cache-first
+- [x] `FavoriteUseCase.Add` — stores a venue snapshot from the cached details; the client sends only `placeID`
+- [x] `FavoriteUseCase.List` — one entry per venue with `savedBy` names and `savedByMe`; Postgres groups and skips former members
+- [x] `FavoriteUseCase.SavedIn` — which of my squads saved this venue (one user-service call, one query)
+- [x] `HistoryUseCase.Record` and `List` — per venue, most recently visited first, with average known spend
+- [x] Squad membership checked through user-service (`SquadDirectory.Members`) before every squad operation
 
 ### Controllers (REST)
 
-- [ ] `GET /api/v1/venues/search?lat=&lng=&q=&type=` — nearby search
-- [ ] `GET /api/v1/venues/:placeId` — place details
-- [ ] `POST /api/v1/venues/favourites` — save favourite
-- [ ] `GET /api/v1/venues/favourites?squadId=` — get favourites
-- [ ] `GET /api/v1/venues/history?squadId=` — visit history
+- [x] `GET /api/v1/venues?lat=&lng=&radius=&query=&type=` — nearby search
+- [x] `GET /api/v1/venues/:placeID` — place details plus `savedIn`
+- [x] `GET /api/v1/venues/photos/:ref` — photo bytes (public at the gateway)
+- [x] `GET` / `POST /api/v1/squads/:squadID/favorites`, `DELETE /api/v1/squads/:squadID/favorites/:placeID`
+- [x] `GET` / `POST /api/v1/squads/:squadID/history`
 
-### Kafka consumer
+### Recording visits automatically
 
-- [ ] Listen `event.confirmed` → call `RecordVisit`
+- [ ] Record a visit when an event is confirmed (needs event-service; called directly, not through Kafka)
 
 ### Tests
 
-- [ ] Unit test cache hit — Places API not called
-- [ ] Unit test cache miss — Places API called, result cached
-- [ ] Integration test search with real Places API (dev key)
+- [x] Unit test cache hit — Places API not called
+- [x] Unit test cache miss — Places API called, result cached
+- [x] Repository tests against Postgres (snapshots, grouping, former members, average spend)
+- [x] User-service client tests (membership, squads, timeouts, path escaping)
+- [ ] Integration test search with the real Places API (dev key)
 
 ---
 
@@ -1040,7 +1047,7 @@ One TypeScript codebase for web, Android and iOS. The web build ships first.
 - [x] Document all REST endpoints in OpenAPI 3.0 YAML
 - [x] Host Swagger UI for dev environment
 - [ ] Write contract tests between gateway and each service (Pact)
-- [ ] Version all APIs (`/api/v1/`)
+- [x] Version all APIs (`/api/v1/`)
 
 ### Security
 
