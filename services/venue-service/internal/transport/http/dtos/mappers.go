@@ -3,6 +3,8 @@ package dtos
 import (
 	"net/url"
 
+	"github.com/SamPariat/roundup/shared/pagination"
+
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 )
 
@@ -56,8 +58,9 @@ func VenueDetailToResponse(d domain.VenueDetail, savedIn []domain.SquadSaved) Ve
 	}
 }
 
-// FavoritesToResponse maps a slice of domain.SquadFavorite to a FavoritesResponse.
-func FavoritesToResponse(favorites []domain.SquadFavorite) FavoritesResponse {
+// FavoritesToResponse maps one page of domain.SquadFavorite to a
+// FavoritesResponse; next is the next page's cursor, "" on the last page.
+func FavoritesToResponse(favorites []domain.SquadFavorite, next string) FavoritesResponse {
 	responses := make([]FavoriteResponse, 0, len(favorites))
 	for _, f := range favorites {
 		savedBy := make([]MemberResponse, 0, len(f.SavedBy))
@@ -79,11 +82,12 @@ func FavoritesToResponse(favorites []domain.SquadFavorite) FavoritesResponse {
 		})
 	}
 
-	return FavoritesResponse{Favorites: responses}
+	return FavoritesResponse{Favorites: responses, NextCursor: pagination.NextCursor(next)}
 }
 
-// VisitHistoryToResponse maps a slice of domain.VisitSummary to a VisitHistoryResponse.
-func VisitHistoryToResponse(summaries []domain.VisitSummary) VisitHistoryResponse {
+// VisitHistoryToResponse maps one page of domain.VisitSummary to a
+// VisitHistoryResponse; next is the next page's cursor, "" on the last page.
+func VisitHistoryToResponse(summaries []domain.VisitSummary, next string) VisitHistoryResponse {
 	responses := make([]VisitSummaryResponse, 0, len(summaries))
 	for _, s := range summaries {
 		var avgSpend *int64
@@ -102,17 +106,17 @@ func VisitHistoryToResponse(summaries []domain.VisitSummary) VisitHistoryRespons
 		})
 	}
 
-	return VisitHistoryResponse{History: responses}
+	return VisitHistoryResponse{History: responses, NextCursor: pagination.NextCursor(next)}
 }
 
-// VenuesToSearchResponse maps a slice of domain.Venue to a SearchResponse.
-func VenuesToSearchResponse(venues []domain.Venue) SearchResponse {
-	responses := make([]VenueResponse, 0, len(venues))
-	for _, v := range venues {
+// SearchResultToResponse maps one page of search results to a SearchResponse.
+func SearchResultToResponse(result *domain.SearchResult) SearchResponse {
+	responses := make([]VenueResponse, 0, len(result.Venues))
+	for _, v := range result.Venues {
 		responses = append(responses, VenueToResponse(v))
 	}
 
-	return SearchResponse{Venues: responses}
+	return SearchResponse{Venues: responses, NextCursor: pagination.NextCursor(result.NextPageToken)}
 }
 
 // photoToResponse maps a domain.PhotoRef to a PhotoResponse.

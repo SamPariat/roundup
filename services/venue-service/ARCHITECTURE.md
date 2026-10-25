@@ -123,15 +123,15 @@ import "context"
 
 // PlaceProvider — swap Google Maps for any provider by writing a new adapter
 type PlaceProvider interface {
-    SearchNearby(ctx context.Context, params SearchParams) ([]Venue, error)
+    SearchNearby(ctx context.Context, params SearchParams) (*SearchResult, error) // one page; Venues + NextPageToken
     GetDetail(ctx context.Context, placeID string) (*VenueDetail, error)
     Photo(ctx context.Context, reference string, maxWidth int) (*Photo, error)
 }
 
 // VenueCache — all cache operations are best-effort; callers ignore write errors
 type VenueCache interface {
-    GetNearby(ctx context.Context, key string) ([]Venue, error)
-    SetNearby(ctx context.Context, key string, venues []Venue) error
+    GetNearby(ctx context.Context, key string) (*SearchResult, error)
+    SetNearby(ctx context.Context, key string, result *SearchResult) error
     GetDetail(ctx context.Context, placeID string) (*VenueDetail, error)
     SetDetail(ctx context.Context, placeID string, detail *VenueDetail) error
 }
@@ -140,10 +140,10 @@ type VenueCache interface {
 type VenueRepository interface {
     AddFavorite(ctx context.Context, cmd AddFavoriteCommand, snapshot VenueSnapshot) error
     RemoveFavorite(ctx context.Context, cmd RemoveFavoriteCommand) error
-    ListSquadFavorites(ctx context.Context, squadID string, memberIDs []string) ([]FavoriteGroup, error)
+    ListSquadFavorites(ctx context.Context, squadID string, memberIDs []string, page pagination.Page) ([]FavoriteGroup, string, error)
     SavedInSquads(ctx context.Context, userID, placeID string, squadIDs []string) ([]string, error)
     RecordVisit(ctx context.Context, cmd RecordVisitCommand, snapshot VenueSnapshot) error
-    GetVisitHistory(ctx context.Context, squadID string) ([]VisitSummary, error)
+    GetVisitHistory(ctx context.Context, squadID string, page pagination.Page) ([]VisitSummary, string, error)
 }
 
 // SquadDirectory — squads live in user-service
@@ -309,7 +309,12 @@ All routes are versioned under `/api/v1`.
 | GET | /api/v1/squads/:squadID/history | HistoryHandler.List | HistoryUseCase.List | 200 |
 | POST | /api/v1/squads/:squadID/history | HistoryHandler.Record | HistoryUseCase.Record | 201 |
 
-Search takes query params `lat`, `lng`, `radius`, `query`, `type`.
+Search takes query params `lat`, `lng`, `radius`, `query`, `type` and `cursor`.
+
+**Paging** (see the root README):
+- **Favorites and history:** take `limit` (default 25, max 100) and `cursor`, and return `nextCursor`. The keyset is `(last_saved_at, place_id)` / `(last_visited_at, place_id)`. It is applied in an outer query, because it compares grouped values.
+- **Search:** pages with Google's own `next_page_token` as the cursor. Google needs about 2s before a token works, so the adapter retries `INVALID_REQUEST` once after `pageTokenWait`. A token Google still rejects is `ErrInvalidSearch` (400).
+- **`savedIn`:** `UserServiceClient.Squads` follows user-service's `nextCursor` with `limit=100`, so it covers every squad.
 
 All `/squads/:squadID/*` routes, and `GET /venues/:placeID` (for `savedIn`), require a UUID `X-User-ID` header (`shared/middleware.UserID()`); without it they return 401. Handlers read the caller with `middleware.UserIDFrom(c)` — the user ID is never taken from the body or query string.
 
@@ -399,7 +404,7 @@ The `RedisCacheAdapter` implements `domain.VenueCache`. All cache operations are
 
 | Data | Key | TTL |
 |---|---|---|
-| Nearby search | `venue:search:{lat}:{lng}:{radius}:{query}:{type}` | 10 min |
+| Nearby search (one page) | `venue:search:v2:{lat}:{lng}:{radius}:{query}:{type}:{pageToken}` | 10 min |
 | Venue detail | `venue:detail:{placeID}` | 10 min |
 
 Every key is namespaced under `venue:` so entries never collide with other users of the same Redis. The TTL is `cache.DefaultTTL`, passed to `NewRedisCacheAdapter` in `main.go` and applied to every write.

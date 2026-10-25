@@ -19,17 +19,18 @@ import (
 var validSearch = domain.SearchParams{Latitude: 12.97, Longitude: 77.59, RadiusInMeters: 2000}
 
 type fakeVenueCache struct {
-	getNearbyFn func(ctx context.Context, key string) ([]domain.Venue, error)
+	getNearbyFn func(ctx context.Context, key string) (*domain.SearchResult, error)
 	getDetailFn func(ctx context.Context, placeID string) (*domain.VenueDetail, error)
+	setKeys     []string
 }
 
 type fakePlaceProvider struct {
-	searchNearbyFn func(ctx context.Context, params domain.SearchParams) ([]domain.Venue, error)
+	searchNearbyFn func(ctx context.Context, params domain.SearchParams) (*domain.SearchResult, error)
 	getDetailFn    func(ctx context.Context, placeID string) (*domain.VenueDetail, error)
 	photoFn        func(ctx context.Context, reference string, maxWidth int) (*domain.Photo, error)
 }
 
-func (f *fakeVenueCache) GetNearby(ctx context.Context, key string) ([]domain.Venue, error) {
+func (f *fakeVenueCache) GetNearby(ctx context.Context, key string) (*domain.SearchResult, error) {
 	if f.getNearbyFn != nil {
 		return f.getNearbyFn(ctx, key)
 	}
@@ -37,7 +38,9 @@ func (f *fakeVenueCache) GetNearby(ctx context.Context, key string) ([]domain.Ve
 	return nil, nil
 }
 
-func (f *fakeVenueCache) SetNearby(_ context.Context, _ string, _ []domain.Venue) error {
+func (f *fakeVenueCache) SetNearby(_ context.Context, key string, _ *domain.SearchResult) error {
+	f.setKeys = append(f.setKeys, key)
+
 	return nil
 }
 
@@ -53,7 +56,7 @@ func (f *fakeVenueCache) SetDetail(_ context.Context, _ string, _ *domain.VenueD
 	return nil
 }
 
-func (f *fakePlaceProvider) SearchNearby(ctx context.Context, params domain.SearchParams) ([]domain.Venue, error) {
+func (f *fakePlaceProvider) SearchNearby(ctx context.Context, params domain.SearchParams) (*domain.SearchResult, error) {
 	if f.searchNearbyFn != nil {
 		return f.searchNearbyFn(ctx, params)
 	}
@@ -78,13 +81,13 @@ func (f *fakePlaceProvider) Photo(ctx context.Context, reference string, maxWidt
 }
 
 func TestSearchCacheHit(t *testing.T) {
-	cached := []domain.Venue{{PlaceID: "abc", Name: "The Rooftop"}}
+	cached := &domain.SearchResult{Venues: []domain.Venue{{PlaceID: "abc", Name: "The Rooftop"}}, NextPageToken: "tok"}
 
 	uc := NewVenueUseCase(
 		// provider should never be called on a cache hit
 		&fakePlaceProvider{},
 		&fakeVenueCache{
-			getNearbyFn: func(_ context.Context, _ string) ([]domain.Venue, error) {
+			getNearbyFn: func(_ context.Context, _ string) (*domain.SearchResult, error) {
 				return cached, nil
 			},
 		},
@@ -96,19 +99,19 @@ func TestSearchCacheHit(t *testing.T) {
 }
 
 func TestSearchCacheMissCallsProvider(t *testing.T) {
-	providerVenues := []domain.Venue{{PlaceID: "xyz", Name: "Bar Boulud"}}
+	providerVenues := &domain.SearchResult{Venues: []domain.Venue{{PlaceID: "xyz", Name: "Bar Boulud"}}}
 	providerCalled := false
 
 	uc := NewVenueUseCase(
 		&fakePlaceProvider{
-			searchNearbyFn: func(_ context.Context, _ domain.SearchParams) ([]domain.Venue, error) {
+			searchNearbyFn: func(_ context.Context, _ domain.SearchParams) (*domain.SearchResult, error) {
 				providerCalled = true
 
 				return providerVenues, nil
 			},
 		},
 		&fakeVenueCache{
-			getNearbyFn: func(_ context.Context, _ string) ([]domain.Venue, error) {
+			getNearbyFn: func(_ context.Context, _ string) (*domain.SearchResult, error) {
 				return nil, nil // cache miss
 			},
 		},
@@ -125,12 +128,12 @@ func TestSearchProviderErrorReturnsError(t *testing.T) {
 
 	uc := NewVenueUseCase(
 		&fakePlaceProvider{
-			searchNearbyFn: func(_ context.Context, _ domain.SearchParams) ([]domain.Venue, error) {
+			searchNearbyFn: func(_ context.Context, _ domain.SearchParams) (*domain.SearchResult, error) {
 				return nil, providerErr
 			},
 		},
 		&fakeVenueCache{
-			getNearbyFn: func(_ context.Context, _ string) ([]domain.Venue, error) {
+			getNearbyFn: func(_ context.Context, _ string) (*domain.SearchResult, error) {
 				return nil, nil
 			},
 		},
@@ -145,14 +148,14 @@ func TestSearchInvalidParamsSkipsCacheAndProvider(t *testing.T) {
 
 	uc := NewVenueUseCase(
 		&fakePlaceProvider{
-			searchNearbyFn: func(_ context.Context, _ domain.SearchParams) ([]domain.Venue, error) {
+			searchNearbyFn: func(_ context.Context, _ domain.SearchParams) (*domain.SearchResult, error) {
 				called = true
 
 				return nil, nil
 			},
 		},
 		&fakeVenueCache{
-			getNearbyFn: func(_ context.Context, _ string) ([]domain.Venue, error) {
+			getNearbyFn: func(_ context.Context, _ string) (*domain.SearchResult, error) {
 				called = true
 
 				return nil, nil
@@ -163,6 +166,26 @@ func TestSearchInvalidParamsSkipsCacheAndProvider(t *testing.T) {
 	_, err := uc.Search(t.Context(), domain.SearchParams{})
 	require.ErrorIs(t, err, domain.ErrInvalidSearch)
 	assert.False(t, called, "cache and provider must not be called for invalid params")
+}
+
+func TestSearchCachesEachPageSeparately(t *testing.T) {
+	cache := &fakeVenueCache{}
+	uc := NewVenueUseCase(&fakePlaceProvider{
+		searchNearbyFn: func(_ context.Context, _ domain.SearchParams) (*domain.SearchResult, error) {
+			return &domain.SearchResult{}, nil
+		},
+	}, cache)
+
+	second := validSearch
+	second.PageToken = "page-2"
+
+	_, err := uc.Search(t.Context(), validSearch)
+	require.NoError(t, err)
+	_, err = uc.Search(t.Context(), second)
+	require.NoError(t, err)
+
+	require.Len(t, cache.setKeys, 2)
+	assert.NotEqual(t, cache.setKeys[0], cache.setKeys[1], "page 2 must not be served from page 1's cache entry")
 }
 
 // --- GetDetail tests ---

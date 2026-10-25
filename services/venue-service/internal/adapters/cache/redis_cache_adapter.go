@@ -33,9 +33,9 @@ func NewRedisCacheAdapter(client *redis.Client, ttl time.Duration, log *zap.Logg
 	return &RedisCacheAdapter{client: client, ttl: ttl, log: log}
 }
 
-// GetNearby returns cached nearby venues for the given key.
+// GetNearby returns the cached search page for the given key.
 // Returns nil, nil on a cache miss — the caller should fall through to the provider.
-func (r *RedisCacheAdapter) GetNearby(ctx context.Context, key string) ([]domain.Venue, error) {
+func (r *RedisCacheAdapter) GetNearby(ctx context.Context, key string) (*domain.SearchResult, error) {
 	val, err := r.client.Get(ctx, key).Result()
 	if errors.Is(err, redis.Nil) {
 		return nil, nil
@@ -47,19 +47,19 @@ func (r *RedisCacheAdapter) GetNearby(ctx context.Context, key string) ([]domain
 		return nil, err
 	}
 
-	var venues []domain.Venue
-	if err := json.Unmarshal([]byte(val), &venues); err != nil {
+	var result domain.SearchResult
+	if err := json.Unmarshal([]byte(val), &result); err != nil {
 		r.log.Warn("failed to unmarshal nearby venues", zap.String("key", key), zap.Error(err))
 
 		return nil, err
 	}
 
-	return venues, nil
+	return &result, nil
 }
 
-// SetNearby serialises venues to JSON and stores them under the key with the configured TTL.
-func (r *RedisCacheAdapter) SetNearby(ctx context.Context, key string, venues []domain.Venue) error {
-	val, err := json.Marshal(venues)
+// SetNearby serialises a search page to JSON and stores it under the key with the configured TTL.
+func (r *RedisCacheAdapter) SetNearby(ctx context.Context, key string, result *domain.SearchResult) error {
+	val, err := json.Marshal(result)
 	if err != nil {
 		r.log.Warn("failed to marshal nearby venues", zap.String("key", key), zap.Error(err))
 

@@ -263,6 +263,26 @@ Every route is described in one OpenAPI 3 document, [`shared/api/openapi.yaml`](
 
 Each service's `TestRoutesAreDocumented` compares its router with the spec, so adding, removing or renaming a route fails CI until `openapi.yaml` is updated to match.
 
+### Pagination
+
+Every list whose size has no limit is paged with a cursor:
+
+- `GET /squads`
+- `GET /squads/:id/favorites`
+- `GET /squads/:id/history`
+- `GET /venues` (search)
+
+```
+GET /api/v1/squads?limit=25                 → { "squads": [...25], "nextCursor": "eyJj..." }
+GET /api/v1/squads?limit=25&cursor=eyJj...  → { "squads": [...7],  "nextCursor": null }
+```
+
+- **`limit`:** 1–100, default 25. Outside that range is a 400. Search has no `limit`, because Google fixes its page at 20.
+- **`cursor`:** opaque. Send the previous page's `nextCursor` back exactly as received, and stop when it is `null`. A cursor the API did not issue is a 400.
+- **Why a cursor, not page numbers:** pages continue from the last row's sort key (keyset paging), not from an offset. Rows added while someone scrolls don't shift later pages, so nothing is skipped or shown twice.
+- **Bounded lists are not paged:** squad members (at most 50) and contact lookup (at most 500 numbers per request).
+- **For service code:** the helper is [`shared/pagination`](shared/pagination/pagination.go). Repositories fetch `limit + 1` rows to know whether another page exists.
+
 > **Later:** AI features — deferred, will be revisited.
 
 ---

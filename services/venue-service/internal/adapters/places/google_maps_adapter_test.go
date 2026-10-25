@@ -2,7 +2,10 @@ package places
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 	"github.com/stretchr/testify/assert"
@@ -116,4 +119,70 @@ func TestMapPlaceDetailsCarriesRatingCount(t *testing.T) {
 func TestMapPhotoError(t *testing.T) {
 	require.ErrorIs(t, mapPhotoError(errors.New("maps: status code 400"), "ref"), domain.ErrPhotoNotFound)
 	assert.ErrorIs(t, mapPhotoError(errors.New("maps: OVER_QUERY_LIMIT"), "ref"), domain.ErrProviderUnavailable)
+}
+
+// fakeGoogle serves Nearby Search with one canned body per call, in order.
+func fakeGoogle(t *testing.T, bodies ...string) (*GoogleMapsAdapter, *int) {
+	t.Helper()
+
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/maps/api/place/nearbysearch/json", r.URL.Path)
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(bodies[min(calls, len(bodies)-1)]))
+		calls++
+	}))
+	t.Cleanup(srv.Close)
+
+	client, err := maps.NewClient(maps.WithAPIKey("test-key"), maps.WithBaseURL(srv.URL))
+	require.NoError(t, err)
+
+	return &GoogleMapsAdapter{client: client, pageTokenWait: time.Millisecond}, &calls
+}
+
+const (
+	invalidRequest = `{"status":"INVALID_REQUEST","results":[]}`
+	onePage        = `{"status":"OK","next_page_token":"tok-3","results":[
+		{"place_id":"p1","name":"Toit","geometry":{"location":{"lat":12.97,"lng":77.59}}}]}`
+)
+
+func TestSearchNearbyReturnsNextPageToken(t *testing.T) {
+	adapter, _ := fakeGoogle(t, onePage)
+
+	got, err := adapter.SearchNearby(t.Context(), domain.SearchParams{Latitude: 12.97, Longitude: 77.59, RadiusInMeters: 500})
+
+	require.NoError(t, err)
+	require.Len(t, got.Venues, 1)
+	assert.Equal(t, "p1", got.Venues[0].PlaceID)
+	assert.Equal(t, "tok-3", got.NextPageToken)
+}
+
+func TestSearchNearbyRetriesATokenNotYetActive(t *testing.T) {
+	adapter, calls := fakeGoogle(t, invalidRequest, onePage)
+
+	got, err := adapter.SearchNearby(t.Context(), domain.SearchParams{PageToken: "tok-2"})
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, *calls, "one retry after the token wait")
+	assert.Equal(t, "tok-3", got.NextPageToken)
+}
+
+func TestSearchNearbyRejectsABadToken(t *testing.T) {
+	adapter, calls := fakeGoogle(t, invalidRequest)
+
+	_, err := adapter.SearchNearby(t.Context(), domain.SearchParams{PageToken: "made-up"})
+
+	require.ErrorIs(t, err, domain.ErrInvalidSearch, "a cursor Google never issued is the client's mistake: 400")
+	assert.Equal(t, 2, *calls)
+}
+
+func TestSearchNearbyDoesNotRetryWithoutToken(t *testing.T) {
+	adapter, calls := fakeGoogle(t, invalidRequest)
+
+	_, err := adapter.SearchNearby(t.Context(), domain.SearchParams{Latitude: 12.97, Longitude: 77.59, RadiusInMeters: 500})
+
+	require.Error(t, err)
+	require.NotErrorIs(t, err, domain.ErrInvalidSearch)
+	assert.Equal(t, 1, *calls, "INVALID_REQUEST on a first page is not a token problem")
 }

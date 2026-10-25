@@ -7,6 +7,7 @@ import (
 	"github.com/SamPariat/roundup/services/user-service/internal/adapters/authz"
 	"github.com/SamPariat/roundup/services/user-service/internal/domain"
 	"github.com/SamPariat/roundup/shared/domainerr"
+	"github.com/SamPariat/roundup/shared/pagination"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -41,8 +42,8 @@ func (f *fakeSquadRepo) GetForMember(ctx context.Context, squadID, userID string
 	return nil, nil
 }
 
-func (f *fakeSquadRepo) ListForUser(_ context.Context, _ string) ([]domain.SquadSummary, error) {
-	return nil, nil
+func (f *fakeSquadRepo) ListForUser(_ context.Context, _ string, _ pagination.Page) ([]domain.SquadSummary, string, error) {
+	return nil, "", nil
 }
 
 func (f *fakeSquadRepo) Update(ctx context.Context, cmd domain.UpdateSquadCommand) (*domain.Squad, error) {

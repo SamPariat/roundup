@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 	"github.com/SamPariat/roundup/shared/api"
 	"github.com/SamPariat/roundup/shared/domainerr"
 	sharedmw "github.com/SamPariat/roundup/shared/middleware"
+	"github.com/SamPariat/roundup/shared/pagination"
 	"github.com/SamPariat/roundup/shared/response"
 )
 
@@ -49,6 +51,8 @@ type squadList struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
 	} `json:"squads"`
+
+	NextCursor *string `json:"nextCursor"`
 }
 
 // Members calls GET /api/v1/squads/{squadID}. That route answers 404 to
@@ -74,25 +78,35 @@ func (c *UserServiceClient) Members(ctx context.Context, squadID, userID string)
 	return members, nil
 }
 
-// Squads calls GET /api/v1/squads, which lists the caller's squads.
+// Squads calls GET /api/v1/squads, which lists the caller's squads, and
+// follows nextCursor with the largest page size until the last page, so the
+// result holds every squad.
 func (c *UserServiceClient) Squads(ctx context.Context, userID string) ([]domain.Squad, error) {
-	var body squadList
+	squads := []domain.Squad{}
+	query := url.Values{"limit": {strconv.Itoa(pagination.MaxLimit)}}
 
-	status, err := c.get(ctx, api.SquadsPath, userID, &body)
-	if err != nil {
-		return nil, err
+	for {
+		var body squadList
+
+		status, err := c.get(ctx, api.SquadsPath+"?"+query.Encode(), userID, &body)
+		if err != nil {
+			return nil, err
+		}
+
+		if status != http.StatusOK {
+			return nil, unavailable(fmt.Sprintf("unexpected status %d", status))
+		}
+
+		for _, s := range body.Squads {
+			squads = append(squads, domain.Squad{ID: s.ID, Name: s.Name})
+		}
+
+		if body.NextCursor == nil {
+			return squads, nil
+		}
+
+		query.Set("cursor", *body.NextCursor)
 	}
-
-	if status != http.StatusOK {
-		return nil, unavailable(fmt.Sprintf("unexpected status %d", status))
-	}
-
-	squads := make([]domain.Squad, 0, len(body.Squads))
-	for _, s := range body.Squads {
-		squads = append(squads, domain.Squad{ID: s.ID, Name: s.Name})
-	}
-
-	return squads, nil
 }
 
 // get sends a GET to path as userID and decodes a 200 body's data into out.

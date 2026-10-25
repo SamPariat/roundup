@@ -41,9 +41,11 @@ type Querier interface {
 	ListMemberPreviews(ctx context.Context, arg ListMemberPreviewsParams) ([]ListMemberPreviewsRow, error)
 	// Lists a squad's active members with their profile, earliest joiner first.
 	ListSquadMembers(ctx context.Context, squadID uuid.UUID) ([]ListSquadMembersRow, error)
-	// Lists the squads a user belongs to, newest first, with their role and the
-	// member count.
-	ListSquadsForUser(ctx context.Context, userID uuid.UUID) ([]ListSquadsForUserRow, error)
+	// Lists one page of the squads a user belongs to, newest first, with their
+	// role and the member count. A NULL cursor starts at the newest; otherwise
+	// the page starts after the (created_at, id) the cursor names. id breaks ties
+	// so no squad is skipped or repeated between pages.
+	ListSquadsForUser(ctx context.Context, arg ListSquadsForUserParams) ([]ListSquadsForUserRow, error)
 	// Returns the active users with any of these phone numbers, for contact lookup.
 	ListUsersByPhones(ctx context.Context, phones []string) ([]User, error)
 	// Serialises membership changes to one squad for the rest of the transaction.

@@ -11,9 +11,17 @@ import (
 	"googlemaps.github.io/maps"
 )
 
+// pageTokenWait is how long Google needs before a next_page_token works;
+// asking sooner fails with INVALID_REQUEST.
+const pageTokenWait = 2 * time.Second
+
 // GoogleMapsAdapter implements domain.PlaceProvider using the Google Maps Places API.
 type GoogleMapsAdapter struct {
 	client *maps.Client
+
+	// pageTokenWait is the retry delay for a page token that is not active
+	// yet; tests shorten it.
+	pageTokenWait time.Duration
 }
 
 // NewGoogleMapsAdapter creates a GoogleMapsAdapter. It returns an error only if
@@ -24,21 +32,37 @@ func NewGoogleMapsAdapter(apiKey string) (*GoogleMapsAdapter, error) {
 		return nil, err
 	}
 
-	return &GoogleMapsAdapter{client: client}, nil
+	return &GoogleMapsAdapter{client: client, pageTokenWait: pageTokenWait}, nil
 }
 
-// SearchNearby queries the Google Maps Places API for venues near the location in params.
-// An area with no matches returns an empty slice: the library treats ZERO_RESULTS
-// as success. Returns domain.ErrProviderUnavailable on auth, rate-limit or server errors.
-func (a *GoogleMapsAdapter) SearchNearby(ctx context.Context, params domain.SearchParams) ([]domain.Venue, error) {
+// SearchNearby queries the Google Maps Places API for one page (up to 20) of
+// venues near the location in params. An area with no matches returns an
+// empty page: the library treats ZERO_RESULTS as success. A page token Google
+// has not activated yet is retried once after pageTokenWait. Returns
+// domain.ErrProviderUnavailable on auth, rate-limit or server errors.
+func (a *GoogleMapsAdapter) SearchNearby(ctx context.Context, params domain.SearchParams) (*domain.SearchResult, error) {
 	req := &maps.NearbySearchRequest{
-		Location: &maps.LatLng{Lat: params.Latitude, Lng: params.Longitude},
-		Radius:   uint(params.RadiusInMeters),
-		Keyword:  params.Query,
-		Type:     maps.PlaceType(params.Type),
+		Location:  &maps.LatLng{Lat: params.Latitude, Lng: params.Longitude},
+		Radius:    uint(params.RadiusInMeters),
+		Keyword:   params.Query,
+		Type:      maps.PlaceType(params.Type),
+		PageToken: params.PageToken,
 	}
 
 	res, err := a.client.NearbySearch(ctx, req)
+	if isInvalidPageToken(err, params.PageToken) {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(a.pageTokenWait):
+		}
+
+		res, err = a.client.NearbySearch(ctx, req)
+		if isInvalidPageToken(err, params.PageToken) {
+			return nil, domainerr.New(domain.ErrInvalidSearch, "cursor is invalid or expired")
+		}
+	}
+
 	if err != nil {
 		return nil, mapProviderError(err)
 	}
@@ -48,7 +72,7 @@ func (a *GoogleMapsAdapter) SearchNearby(ctx context.Context, params domain.Sear
 		venues = append(venues, mapPlaceResultToVenue(r))
 	}
 
-	return venues, nil
+	return &domain.SearchResult{Venues: venues, NextPageToken: res.NextPageToken}, nil
 }
 
 // Photo streams a venue photo from the Google Maps Places API, so the API key
@@ -215,4 +239,10 @@ func mapProviderError(err error) error {
 	}
 
 	return fmt.Errorf("places provider: %w", err)
+}
+
+// isInvalidPageToken reports whether err is Google rejecting the page token:
+// either not active yet (worth one retry) or not a token it issued.
+func isInvalidPageToken(err error, pageToken string) bool {
+	return err != nil && pageToken != "" && strings.Contains(err.Error(), "INVALID_REQUEST")
 }

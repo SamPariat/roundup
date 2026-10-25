@@ -1,6 +1,9 @@
 package dtos
 
-import "github.com/SamPariat/roundup/services/user-service/internal/domain"
+import (
+	"github.com/SamPariat/roundup/services/user-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/pagination"
+)
 
 // UserToResponse maps a domain.User to a UserResponse.
 func UserToResponse(u *domain.User) UserResponse {
@@ -45,8 +48,9 @@ func SquadToResponse(s *domain.Squad) SquadResponse {
 	}
 }
 
-// SquadsToResponse maps the caller's squads to a SquadsResponse.
-func SquadsToResponse(squads []domain.SquadSummary) SquadsResponse {
+// SquadsToResponse maps one page of the caller's squads to a SquadsResponse;
+// next is the next page's cursor, "" on the last page.
+func SquadsToResponse(squads []domain.SquadSummary, next string) SquadsResponse {
 	out := make([]SquadSummaryResponse, 0, len(squads))
 	for _, s := range squads {
 		preview := make([]SquadMemberResponse, 0, len(s.MemberPreview))
@@ -62,7 +66,7 @@ func SquadsToResponse(squads []domain.SquadSummary) SquadsResponse {
 		})
 	}
 
-	return SquadsResponse{Squads: out}
+	return SquadsResponse{Squads: out, NextCursor: pagination.NextCursor(next)}
 }
 
 // SquadMemberToResponse maps a domain.SquadMember to a SquadMemberResponse.

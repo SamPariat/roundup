@@ -161,3 +161,33 @@ func TestMembersForwardsRequestID(t *testing.T) {
 
 	assert.Equal(t, "fav-req-1", got)
 }
+
+func TestSquadsFollowsEveryPage(t *testing.T) {
+	pages := map[string]string{
+		"":   `{"success":true,"data":{"squads":[{"id":"s-1","name":"A"},{"id":"s-2","name":"B"}],"nextCursor":"c2"}}`,
+		"c2": `{"success":true,"data":{"squads":[{"id":"s-3","name":"C"}],"nextCursor":"c3"}}`,
+		"c3": `{"success":true,"data":{"squads":[{"id":"s-4","name":"D"}],"nextCursor":null}}`,
+	}
+
+	var limits []string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		limits = append(limits, r.URL.Query().Get("limit"))
+
+		body, ok := pages[r.URL.Query().Get("cursor")]
+		if !ok {
+			w.WriteHeader(http.StatusBadRequest)
+
+			return
+		}
+
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(srv.Close)
+
+	got, err := NewUserServiceClient(srv.URL).Squads(t.Context(), userID)
+
+	require.NoError(t, err)
+	assert.Equal(t, []domain.Squad{{ID: "s-1", Name: "A"}, {ID: "s-2", Name: "B"}, {ID: "s-3", Name: "C"}, {ID: "s-4", Name: "D"}}, got)
+	assert.Equal(t, []string{"100", "100", "100"}, limits, "asks for the largest page to keep calls few")
+}

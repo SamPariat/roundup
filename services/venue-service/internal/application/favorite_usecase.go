@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/pagination"
 )
 
 // FavoriteUseCase handles the favorites feature for a squad. Every
@@ -49,12 +50,13 @@ func (u *FavoriteUseCase) Remove(ctx context.Context, cmd domain.RemoveFavoriteC
 	return u.favorites.RemoveFavorite(ctx, cmd)
 }
 
-// List returns the squad's favorites, one entry per venue with the members
-// who saved it. Returns domain.ErrSquadNotFound if userID is not in the squad.
-func (u *FavoriteUseCase) List(ctx context.Context, squadID, userID string) ([]domain.SquadFavorite, error) {
+// List returns one page of the squad's favorites, one entry per venue with
+// the members who saved it, and the next page's cursor ("" on the last page).
+// Returns domain.ErrSquadNotFound if userID is not in the squad.
+func (u *FavoriteUseCase) List(ctx context.Context, squadID, userID string, page pagination.Page) ([]domain.SquadFavorite, string, error) {
 	members, err := u.squads.Members(ctx, squadID, userID)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	memberIDs := make([]string, 0, len(members))
@@ -62,12 +64,12 @@ func (u *FavoriteUseCase) List(ctx context.Context, squadID, userID string) ([]d
 		memberIDs = append(memberIDs, m.UserID)
 	}
 
-	groups, err := u.favorites.ListSquadFavorites(ctx, squadID, memberIDs)
+	groups, next, err := u.favorites.ListSquadFavorites(ctx, squadID, memberIDs, page)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	return withMembers(groups, members, userID), nil
+	return withMembers(groups, members, userID), next, nil
 }
 
 // SavedIn reports, for each of the caller's squads, whether they saved

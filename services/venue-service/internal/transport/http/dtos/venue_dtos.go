@@ -18,6 +18,10 @@ type SearchRequest struct {
 
 	// Type is an optional Google place type, e.g. "bar" or "restaurant".
 	Type string `query:"type"`
+
+	// Cursor is the previous page's nextCursor; omit for the first page.
+	// Google fixes the page size at 20, so search takes no limit.
+	Cursor string `query:"cursor"`
 }
 
 // PhotoRequest carries the query parameters for a venue photo.
@@ -129,6 +133,9 @@ type SavedInResponse struct {
 
 // SearchResponse is the body of the search endpoint.
 type SearchResponse struct {
-	// Venues holds the matches; empty, never null, when there are none.
+	// Venues holds this page's matches; empty, never null, when there are none.
 	Venues []VenueResponse `json:"venues"`
+
+	// NextCursor fetches the next page as ?cursor=; null on the last page.
+	NextCursor *string `json:"nextCursor"`
 }

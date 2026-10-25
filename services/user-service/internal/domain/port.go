@@ -1,6 +1,10 @@
 package domain
 
-import "context"
+import (
+	"context"
+
+	"github.com/SamPariat/roundup/shared/pagination"
+)
 
 // UserRepository abstracts persistence of user profiles. All lookups ignore
 // soft-deleted users. Implemented by adapters/persistence.
@@ -56,9 +60,11 @@ type SquadRepository interface {
 	// ErrSquadNotFound otherwise.
 	GetForMember(ctx context.Context, squadID, userID string) (*Squad, error)
 
-	// ListForUser returns the squads userID belongs to, newest first, each
-	// with its first MemberPreviewSize members.
-	ListForUser(ctx context.Context, userID string) ([]SquadSummary, error)
+	// ListForUser returns one page of the squads userID belongs to, newest
+	// first, each with its first MemberPreviewSize members, and the cursor of
+	// the next page ("" on the last). Returns pagination.ErrInvalid for a
+	// cursor it did not issue.
+	ListForUser(ctx context.Context, userID string, page pagination.Page) ([]SquadSummary, string, error)
 
 	// Update applies cmd's non-nil fields to the squad and returns it.
 	// Returns ErrSquadNotFound if the squad does not exist.

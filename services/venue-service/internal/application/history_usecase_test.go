@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/pagination"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -55,12 +56,12 @@ func TestGetVisitHistoryReturnsSummaries(t *testing.T) {
 	}
 
 	uc := NewHistoryUseCase(&fakeVenueRepo{
-		getVisitHistoryFn: func(_ context.Context, _ string) ([]domain.VisitSummary, error) {
-			return summaries, nil
+		getVisitHistoryFn: func(_ context.Context, _ string, _ pagination.Page) ([]domain.VisitSummary, string, error) {
+			return summaries, "", nil
 		},
 	}, fakeSquadDirectory{}, fakeVenueLookup{})
 
-	got, err := uc.List(t.Context(), "squad-1", "user-1")
+	got, _, err := uc.List(t.Context(), "squad-1", "user-1", firstPage)
 	require.NoError(t, err)
 	assert.Equal(t, summaries, got)
 }
@@ -69,11 +70,11 @@ func TestGetVisitHistoryPropagatesError(t *testing.T) {
 	repoErr := errors.New("db read failed")
 
 	uc := NewHistoryUseCase(&fakeVenueRepo{
-		getVisitHistoryFn: func(_ context.Context, _ string) ([]domain.VisitSummary, error) {
-			return nil, repoErr
+		getVisitHistoryFn: func(_ context.Context, _ string, _ pagination.Page) ([]domain.VisitSummary, string, error) {
+			return nil, "", repoErr
 		},
 	}, fakeSquadDirectory{}, fakeVenueLookup{})
 
-	_, err := uc.List(t.Context(), "squad-1", "user-1")
+	_, _, err := uc.List(t.Context(), "squad-1", "user-1", firstPage)
 	assert.ErrorIs(t, err, repoErr)
 }

@@ -48,4 +48,7 @@ type VisitHistoryResponse struct {
 	// History holds one entry per venue, most recently visited first.
 	// Empty, never null, when there are none.
 	History []VisitSummaryResponse `json:"history"`
+
+	// NextCursor fetches the next page as ?cursor=; null on the last page.
+	NextCursor *string `json:"nextCursor"`
 }

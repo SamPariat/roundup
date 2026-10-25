@@ -6,6 +6,7 @@ import (
 
 	"github.com/SamPariat/roundup/services/user-service/internal/domain"
 	"github.com/SamPariat/roundup/shared/domainerr"
+	"github.com/SamPariat/roundup/shared/pagination"
 	"github.com/SamPariat/roundup/shared/phone"
 )
 
@@ -37,9 +38,10 @@ func (u *SquadUseCase) Create(ctx context.Context, cmd domain.CreateSquadCommand
 	return u.squads.Create(ctx, cmd)
 }
 
-// List returns the squads userID belongs to, newest first.
-func (u *SquadUseCase) List(ctx context.Context, userID string) ([]domain.SquadSummary, error) {
-	return u.squads.ListForUser(ctx, userID)
+// List returns one page of the squads userID belongs to, newest first, and
+// the next page's cursor ("" on the last page).
+func (u *SquadUseCase) List(ctx context.Context, userID string, page pagination.Page) ([]domain.SquadSummary, string, error) {
+	return u.squads.ListForUser(ctx, userID, page)
 }
 
 // Get returns the squad with its members, the caller's own membership and

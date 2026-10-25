@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/pagination"
 )
 
 // HistoryUseCase handles the visit history feature for a squad. Every method
@@ -38,12 +39,13 @@ func (u *HistoryUseCase) Record(ctx context.Context, cmd domain.RecordVisitComma
 	return u.visits.RecordVisit(ctx, cmd, detail.Snapshot())
 }
 
-// List returns aggregated visit summaries for all venues visited by the squad.
-// Returns domain.ErrSquadNotFound if userID is not in the squad.
-func (u *HistoryUseCase) List(ctx context.Context, squadID, userID string) ([]domain.VisitSummary, error) {
+// List returns one page of visit summaries per venue the squad visited and
+// the next page's cursor ("" on the last page). Returns
+// domain.ErrSquadNotFound if userID is not in the squad.
+func (u *HistoryUseCase) List(ctx context.Context, squadID, userID string, page pagination.Page) ([]domain.VisitSummary, string, error) {
 	if _, err := u.squads.Members(ctx, squadID, userID); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	return u.visits.GetVisitHistory(ctx, squadID)
+	return u.visits.GetVisitHistory(ctx, squadID, page)
 }
