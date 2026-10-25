@@ -32,6 +32,18 @@ func TestIsNoRows(t *testing.T) {
 	assert.False(t, IsNoRows(nil))
 }
 
+func TestNoRowsAs(t *testing.T) {
+	notFound := errors.New("squad not found")
+
+	err := NoRowsAs(fmt.Errorf("get squad: %w", pgx.ErrNoRows), notFound, "s1")
+	require.ErrorIs(t, err, notFound, "no rows becomes the sentinel")
+	assert.Equal(t, "squad not found: s1", err.Error())
+
+	other := errors.New("connection reset")
+	assert.Equal(t, other, NoRowsAs(other, notFound, "s1"), "any other error passes through unchanged")
+	assert.NoError(t, NoRowsAs(nil, notFound, "s1"))
+}
+
 func TestConnectRejectsInvalidDSN(t *testing.T) {
 	_, err := Connect(t.Context(), "not a dsn ::")
 

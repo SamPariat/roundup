@@ -27,16 +27,12 @@ func NewFavoriteUseCase(favorites domain.VenueRepository, squads domain.SquadDir
 // is not in the squad, domain.ErrVenueNotFound for an unknown place and
 // domain.ErrAlreadySaved if the venue is already in their favorites.
 func (u *FavoriteUseCase) Add(ctx context.Context, cmd domain.AddFavoriteCommand) error {
-	if _, err := u.squads.Members(ctx, cmd.SquadID, cmd.UserID); err != nil {
-		return err
-	}
-
-	detail, err := u.venues.GetDetail(ctx, cmd.PlaceID)
+	snapshot, err := memberSnapshot(ctx, u.squads, u.venues, cmd.SquadID, cmd.UserID, cmd.PlaceID)
 	if err != nil {
 		return err
 	}
 
-	return u.favorites.AddFavorite(ctx, cmd, detail.Snapshot())
+	return u.favorites.AddFavorite(ctx, cmd, snapshot)
 }
 
 // Remove removes a saved venue from the user's favorites within their squad.

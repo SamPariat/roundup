@@ -1,7 +1,6 @@
 package http
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
@@ -42,7 +41,7 @@ func (h *VenueHandler) Search(c fiber.Ctx) error {
 		PageToken:      req.Cursor,
 	})
 	if err != nil {
-		return response.Error(c, venueErrorStatus(err), err)
+		return response.Error(c, errorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.SearchResultToResponse(result)))
@@ -55,12 +54,12 @@ func (h *VenueHandler) GetDetail(c fiber.Ctx) error {
 
 	detail, err := h.uc.GetDetail(c.Context(), placeID)
 	if err != nil {
-		return response.Error(c, venueErrorStatus(err), err)
+		return response.Error(c, errorStatus(err), err)
 	}
 
 	savedIn, err := h.favorites.SavedIn(c.Context(), middleware.UserIDFrom(c), placeID)
 	if err != nil {
-		return response.Error(c, venueErrorStatus(err), err)
+		return response.Error(c, errorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.VenueDetailToResponse(*detail, savedIn)))
@@ -80,25 +79,11 @@ func (h *VenueHandler) Photo(c fiber.Ctx) error {
 
 	photo, err := h.uc.Photo(c.Context(), c.Params("ref"), req.MaxWidth)
 	if err != nil {
-		return response.Error(c, venueErrorStatus(err), err)
+		return response.Error(c, errorStatus(err), err)
 	}
 
 	c.Set(fiber.HeaderContentType, photo.ContentType)
 	c.Set(fiber.HeaderCacheControl, fmt.Sprintf("public, max-age=%d", int(photoMaxAge.Seconds())))
 
 	return c.SendStream(photo.Body)
-}
-
-// venueErrorStatus maps domain sentinel errors to HTTP status codes for venues.
-func venueErrorStatus(err error) int {
-	switch {
-	case errors.Is(err, domain.ErrInvalidSearch):
-		return fiber.StatusBadRequest
-	case errors.Is(err, domain.ErrVenueNotFound), errors.Is(err, domain.ErrPhotoNotFound):
-		return fiber.StatusNotFound
-	case errors.Is(err, domain.ErrProviderUnavailable), errors.Is(err, domain.ErrUserServiceUnavailable):
-		return fiber.StatusServiceUnavailable
-	default:
-		return fiber.StatusInternalServerError
-	}
 }

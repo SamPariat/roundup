@@ -39,11 +39,7 @@ func (r *PostgresOTPRepository) Create(ctx context.Context, phone string, codeHa
 func (r *PostgresOTPRepository) Latest(ctx context.Context, phone string) (*domain.OTPCode, error) {
 	row, err := r.queries.GetLatestOTPCode(ctx, phone)
 	if err != nil {
-		if postgres.IsNoRows(err) {
-			return nil, domainerr.New(domain.ErrInvalidCode, "no code requested")
-		}
-
-		return nil, err
+		return nil, postgres.NoRowsAs(err, domain.ErrInvalidCode, "no code requested")
 	}
 
 	return &domain.OTPCode{

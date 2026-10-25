@@ -1,8 +1,6 @@
 package http
 
 import (
-	"errors"
-
 	"github.com/SamPariat/roundup/services/user-service/internal/application"
 	"github.com/SamPariat/roundup/services/user-service/internal/domain"
 	"github.com/SamPariat/roundup/services/user-service/internal/transport/http/dtos"
@@ -32,7 +30,7 @@ func (h *UserHandler) Create(c fiber.Ctx) error {
 
 	user, created, err := h.uc.CreateOrGet(c.Context(), req.Phone)
 	if err != nil {
-		return response.Error(c, userErrorStatus(err), err)
+		return response.Error(c, errorStatus(err), err)
 	}
 
 	status := fiber.StatusOK
@@ -47,7 +45,7 @@ func (h *UserHandler) Create(c fiber.Ctx) error {
 func (h *UserHandler) GetMe(c fiber.Ctx) error {
 	user, err := h.uc.Get(c.Context(), middleware.UserIDFrom(c))
 	if err != nil {
-		return response.Error(c, userErrorStatus(err), err)
+		return response.Error(c, errorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.UserToResponse(user)))
@@ -66,7 +64,7 @@ func (h *UserHandler) UpdateMe(c fiber.Ctx) error {
 		AvatarURL: req.AvatarURL,
 	})
 	if err != nil {
-		return response.Error(c, userErrorStatus(err), err)
+		return response.Error(c, errorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.UserToResponse(user)))
@@ -75,7 +73,7 @@ func (h *UserHandler) UpdateMe(c fiber.Ctx) error {
 // DeleteMe handles DELETE /api/v1/users/me.
 func (h *UserHandler) DeleteMe(c fiber.Ctx) error {
 	if err := h.uc.Delete(c.Context(), middleware.UserIDFrom(c)); err != nil {
-		return response.Error(c, userErrorStatus(err), err)
+		return response.Error(c, errorStatus(err), err)
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
@@ -91,23 +89,8 @@ func (h *UserHandler) Lookup(c fiber.Ctx) error {
 
 	users, err := h.uc.Lookup(c.Context(), middleware.UserIDFrom(c), req.Phones)
 	if err != nil {
-		return response.Error(c, userErrorStatus(err), err)
+		return response.Error(c, errorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.UsersToLookupResponse(users)))
-}
-
-// userErrorStatus maps domain sentinel errors to HTTP status codes for users.
-func userErrorStatus(err error) int {
-	switch {
-	case errors.Is(err, domain.ErrInvalidPhone), errors.Is(err, domain.ErrInvalidName),
-		errors.Is(err, domain.ErrTooManyPhones):
-		return fiber.StatusBadRequest
-	case errors.Is(err, domain.ErrUserNotFound):
-		return fiber.StatusNotFound
-	case errors.Is(err, domain.ErrPhoneTaken):
-		return fiber.StatusConflict
-	default:
-		return fiber.StatusInternalServerError
-	}
 }

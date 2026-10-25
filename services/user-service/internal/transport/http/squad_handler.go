@@ -1,8 +1,6 @@
 package http
 
 import (
-	"errors"
-
 	"github.com/SamPariat/roundup/services/user-service/internal/application"
 	"github.com/SamPariat/roundup/services/user-service/internal/domain"
 	"github.com/SamPariat/roundup/services/user-service/internal/transport/http/dtos"
@@ -36,7 +34,7 @@ func (h *SquadHandler) Create(c fiber.Ctx) error {
 		AvatarURL: req.AvatarURL,
 	})
 	if err != nil {
-		return response.Error(c, squadErrorStatus(err), err)
+		return response.Error(c, errorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(response.OK(dtos.SquadToResponse(squad)))
@@ -51,7 +49,7 @@ func (h *SquadHandler) List(c fiber.Ctx) error {
 
 	squads, next, err := h.uc.List(c.Context(), middleware.UserIDFrom(c), page)
 	if err != nil {
-		return response.Error(c, squadErrorStatus(err), err)
+		return response.Error(c, errorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.SquadsToResponse(squads, next)))
@@ -62,7 +60,7 @@ func (h *SquadHandler) List(c fiber.Ctx) error {
 func (h *SquadHandler) Get(c fiber.Ctx) error {
 	squad, err := h.uc.Get(c.Context(), c.Params("squadID"), middleware.UserIDFrom(c))
 	if err != nil {
-		return response.Error(c, squadErrorStatus(err), err)
+		return response.Error(c, errorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.SquadDetailToResponse(squad)))
@@ -83,7 +81,7 @@ func (h *SquadHandler) Update(c fiber.Ctx) error {
 		AvatarURL: req.AvatarURL,
 	})
 	if err != nil {
-		return response.Error(c, squadErrorStatus(err), err)
+		return response.Error(c, errorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.SquadToResponse(squad)))
@@ -102,7 +100,7 @@ func (h *SquadHandler) AddMember(c fiber.Ctx) error {
 		Phone:   req.Phone,
 	})
 	if err != nil {
-		return response.Error(c, squadErrorStatus(err), err)
+		return response.Error(c, errorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(response.OK(dtos.SquadMemberToResponse(member)))
@@ -122,7 +120,7 @@ func (h *SquadHandler) ChangeRole(c fiber.Ctx) error {
 		Role:    domain.Role(req.Role),
 	})
 	if err != nil {
-		return response.Error(c, squadErrorStatus(err), err)
+		return response.Error(c, errorStatus(err), err)
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
@@ -137,27 +135,8 @@ func (h *SquadHandler) RemoveMember(c fiber.Ctx) error {
 		UserID:  c.Params("userID"),
 	})
 	if err != nil {
-		return response.Error(c, squadErrorStatus(err), err)
+		return response.Error(c, errorStatus(err), err)
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
-}
-
-// squadErrorStatus maps domain sentinel errors to HTTP status codes for squads.
-func squadErrorStatus(err error) int {
-	switch {
-	case errors.Is(err, domain.ErrInvalidSquadName), errors.Is(err, domain.ErrInvalidPhone),
-		errors.Is(err, domain.ErrInvalidRole), errors.Is(err, pagination.ErrInvalid):
-		return fiber.StatusBadRequest
-	case errors.Is(err, domain.ErrForbidden):
-		return fiber.StatusForbidden
-	case errors.Is(err, domain.ErrSquadNotFound), errors.Is(err, domain.ErrMemberNotFound),
-		errors.Is(err, domain.ErrUserNotFound):
-		return fiber.StatusNotFound
-	case errors.Is(err, domain.ErrAlreadyMember), errors.Is(err, domain.ErrSquadFull),
-		errors.Is(err, domain.ErrLastAdmin):
-		return fiber.StatusConflict
-	default:
-		return fiber.StatusInternalServerError
-	}
 }

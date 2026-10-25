@@ -1,8 +1,6 @@
 package http
 
 import (
-	"errors"
-
 	"github.com/SamPariat/roundup/services/venue-service/internal/application"
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 	"github.com/SamPariat/roundup/services/venue-service/internal/transport/http/dtos"
@@ -40,7 +38,7 @@ func (h *HistoryHandler) Record(c fiber.Ctx) error {
 		AvgSpendInPaise: req.AvgSpendInPaise,
 	})
 	if err != nil {
-		return response.Error(c, historyErrorStatus(err), err)
+		return response.Error(c, errorStatus(err), err)
 	}
 
 	return c.SendStatus(fiber.StatusCreated)
@@ -55,24 +53,8 @@ func (h *HistoryHandler) List(c fiber.Ctx) error {
 
 	summaries, next, err := h.uc.List(c.Context(), c.Params("squadID"), middleware.UserIDFrom(c), page)
 	if err != nil {
-		return response.Error(c, historyErrorStatus(err), err)
+		return response.Error(c, errorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.VisitHistoryToResponse(summaries, next)))
-}
-
-// historyErrorStatus maps domain sentinel errors to HTTP status codes for visit history.
-func historyErrorStatus(err error) int {
-	switch {
-	case errors.Is(err, pagination.ErrInvalid):
-		return fiber.StatusBadRequest
-	case errors.Is(err, domain.ErrSquadNotFound), errors.Is(err, domain.ErrVenueNotFound):
-		return fiber.StatusNotFound
-	case errors.Is(err, domain.ErrVisitAlreadyRecorded):
-		return fiber.StatusConflict
-	case errors.Is(err, domain.ErrUserServiceUnavailable), errors.Is(err, domain.ErrProviderUnavailable):
-		return fiber.StatusServiceUnavailable
-	default:
-		return fiber.StatusInternalServerError
-	}
 }

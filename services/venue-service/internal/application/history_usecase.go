@@ -27,16 +27,12 @@ func NewHistoryUseCase(visits domain.VenueRepository, squads domain.SquadDirecto
 // not in the squad, domain.ErrVenueNotFound for an unknown place and
 // domain.ErrVisitAlreadyRecorded if this event's visit is already recorded.
 func (u *HistoryUseCase) Record(ctx context.Context, cmd domain.RecordVisitCommand) error {
-	if _, err := u.squads.Members(ctx, cmd.SquadID, cmd.UserID); err != nil {
-		return err
-	}
-
-	detail, err := u.venues.GetDetail(ctx, cmd.PlaceID)
+	snapshot, err := memberSnapshot(ctx, u.squads, u.venues, cmd.SquadID, cmd.UserID, cmd.PlaceID)
 	if err != nil {
 		return err
 	}
 
-	return u.visits.RecordVisit(ctx, cmd, detail.Snapshot())
+	return u.visits.RecordVisit(ctx, cmd, snapshot)
 }
 
 // List returns one page of visit summaries per venue the squad visited and

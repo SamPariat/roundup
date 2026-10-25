@@ -58,11 +58,7 @@ func (r *PostgresSessionRepository) Create(ctx context.Context, userID string, t
 func (r *PostgresSessionRepository) FindRefreshToken(ctx context.Context, tokenHash []byte) (*domain.StoredRefreshToken, error) {
 	row, err := r.queries.GetRefreshToken(ctx, tokenHash)
 	if err != nil {
-		if postgres.IsNoRows(err) {
-			return nil, domainerr.New(domain.ErrInvalidRefreshToken, "unknown token")
-		}
-
-		return nil, err
+		return nil, postgres.NoRowsAs(err, domain.ErrInvalidRefreshToken, "unknown token")
 	}
 
 	return &domain.StoredRefreshToken{

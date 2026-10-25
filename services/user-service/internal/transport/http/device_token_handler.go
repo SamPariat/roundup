@@ -1,7 +1,6 @@
 package http
 
 import (
-	"errors"
 	"fmt"
 	"net/url"
 
@@ -36,7 +35,7 @@ func (h *DeviceTokenHandler) Register(c fiber.Ctx) error {
 		Platform: domain.Platform(req.Platform),
 	})
 	if err != nil {
-		return response.Error(c, deviceTokenErrorStatus(err), err)
+		return response.Error(c, errorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(response.OK(dtos.DeviceTokenToResponse(token)))
@@ -55,20 +54,8 @@ func (h *DeviceTokenHandler) Remove(c fiber.Ctx) error {
 		Token:  token,
 	})
 	if err != nil {
-		return response.Error(c, deviceTokenErrorStatus(err), err)
+		return response.Error(c, errorStatus(err), err)
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
-}
-
-// deviceTokenErrorStatus maps domain sentinel errors to HTTP status codes for device tokens.
-func deviceTokenErrorStatus(err error) int {
-	switch {
-	case errors.Is(err, domain.ErrInvalidToken), errors.Is(err, domain.ErrInvalidPlatform):
-		return fiber.StatusBadRequest
-	case errors.Is(err, domain.ErrDeviceTokenNotFound), errors.Is(err, domain.ErrUserNotFound):
-		return fiber.StatusNotFound
-	default:
-		return fiber.StatusInternalServerError
-	}
 }
