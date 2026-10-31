@@ -19,22 +19,22 @@
 </p>
 
 <p align="center">
-  <a href="#-getting-started">🚀 Getting started</a> ·
-  <a href="#-services">🧭 Services</a> ·
-  <a href="#-api-docs">📖 API docs</a> ·
-  <a href="ROUNDUP-TASKS.md">🗺️ Roadmap</a>
+  <a href="#getting-started">Getting started</a> ·
+  <a href="#services">Services</a> ·
+  <a href="#api-docs">API docs</a> ·
+  <a href="ROUNDUP-TASKS.md">Roadmap</a>
 </p>
 
 <p align="center"><img src="assets/brand/divider.svg" width="100%" alt=""></p>
 
-## ✨ What Roundup does
+## What Roundup does
 
 <table>
   <tr>
-    <td width="25%" valign="top"><h3>🗳️ Plan &amp; vote</h3>Suggest bars and restaurants from Google Places, then vote in the open. Most votes wins; a tie goes to the first suggestion.</td>
-    <td width="25%" valign="top"><h3>🙋 RSVP</h3>Going, maybe or not going, with a live headcount and the faces of who's in.</td>
-    <td width="25%" valign="top"><h3>🧾 Split the bill</h3>Scan the receipt, split it evenly and net every bill of the night into one debt per pair. <i>Coming next.</i></td>
-    <td width="25%" valign="top"><h3>📸 Remember the night</h3>Every night closes into the squad's history: where you went and how often. Photos come later.</td>
+    <td width="25%" valign="top"><h3>Plan &amp; vote</h3>Suggest bars and restaurants from Google Places, then vote in the open. Most votes wins; a tie goes to the first suggestion.</td>
+    <td width="25%" valign="top"><h3>RSVP</h3>Going, maybe or not going, with a live headcount and the faces of who's in.</td>
+    <td width="25%" valign="top"><h3>Split the bill</h3>Scan the receipt, split it evenly and net every bill of the night into one debt per pair. <i>Coming next.</i></td>
+    <td width="25%" valign="top"><h3>Remember the night</h3>Every night closes into the squad's history: where you went and how often. Photos come later.</td>
   </tr>
 </table>
 
@@ -42,19 +42,19 @@
 
 <p align="center"><img src="assets/brand/divider.svg" width="100%" alt=""></p>
 
-## 🏗️ Architecture
+## Architecture
 
 Go microservices behind one gateway, each with its own Postgres. Every route is described in a single OpenAPI document.
 
 ```mermaid
 flowchart LR
-    app(["📱 Expo app<br/>(planned)"]):::planned --> gw
-    gw["🚪 gateway<br/>:8080"]:::gateway
+    app(["Expo app<br/>(planned)"]):::planned --> gw
+    gw["gateway<br/>:8080"]:::gateway
 
-    gw --> auth["🔐 auth-service<br/>:3001"]:::live
-    gw --> user["👥 user-service<br/>:3002"]:::live
-    gw --> event["🗳️ event-service<br/>:3003"]:::live
-    gw --> venue["📍 venue-service<br/>:3006"]:::live
+    gw --> auth["auth-service<br/>:3001"]:::live
+    gw --> user["user-service<br/>:3002"]:::live
+    gw --> event["event-service<br/>:3003"]:::live
+    gw --> venue["venue-service<br/>:3006"]:::live
 
     auth --> authdb[("auth db")]:::db
     user --> userdb[("users db")]:::db
@@ -77,7 +77,7 @@ flowchart LR
 
 Services call each other directly over HTTP for reads they need right away (dotted lines); scheduled work such as voting deadlines will live in a scheduler-service that calls each service's internal endpoints.
 
-### 🗓️ An event's life
+### An event's life
 
 ```mermaid
 %%{init: {'themeVariables': {'noteBkgColor': '#f5c2e7', 'noteTextColor': '#1e1e2e', 'noteBorderColor': '#ea76cb'}}}%%
@@ -109,7 +109,7 @@ stateDiagram-v2
 
 <p align="center"><img src="assets/brand/divider.svg" width="100%" alt=""></p>
 
-## 🧱 Tech stack
+## Tech stack
 
 | | In use | Planned |
 | --- | --- | --- |
@@ -124,7 +124,7 @@ stateDiagram-v2
 | **Media** | | Cloudinary |
 | **Push** | | Firebase Cloud Messaging |
 
-## 📁 Repository structure
+## Repository structure
 
 ```
 roundup/
@@ -140,7 +140,7 @@ roundup/
 
 <p align="center"><img src="assets/brand/divider.svg" width="100%" alt=""></p>
 
-## 🧰 Prerequisites
+## Prerequisites
 
 | Tool           | Version | Install                                  |
 | -------------- | ------- | ---------------------------------------- |
@@ -152,7 +152,7 @@ roundup/
 | sqlc           | latest  | `make install`                           |
 | golangci-lint  | latest  | https://golangci-lint.run/usage/install  |
 
-## 🚀 Getting started
+## Getting started
 
 ### 1. Clone
 
@@ -188,7 +188,7 @@ Deployed containers don't use env files (they are excluded from images by `.dock
 
 ### 3. Fill in environment variables
 
-Open each `services/*/.env.beta` file and fill in the required values. See [Environment variables](#-environment-variables) below for what you need.
+Open each `services/*/.env.beta` file and fill in the required values. See [Environment variables](#environment-variables) below for what you need.
 
 ### 4. Start the databases
 
@@ -218,7 +218,7 @@ Either in Docker (all five, logs in Docker Desktop):
 make services-up
 ```
 
-Or natively, for active development; see [Running a service locally](#-running-a-service-locally-outside-docker).
+Or natively, for active development; see [Running a service locally](#running-a-service-locally-outside-docker).
 
 ### 7. Verify
 
@@ -227,12 +227,12 @@ curl http://localhost:8080/ready
 # {"success":true,"data":{"status":"ready"}}
 ```
 
-## 🔐 Environment variables
+## Environment variables
 
 All third-party services have free sandbox or test modes. No real money changes hands during development.
 
 <details>
-<summary><b>🔑 Auth: custom phone OTP + JWT</b></summary>
+<summary><b>Auth: custom phone OTP + JWT</b></summary>
 
 <br>
 
@@ -254,7 +254,7 @@ Only auth-service holds the private key; the gateway verifies tokens with the pu
 </details>
 
 <details>
-<summary><b>📍 Google Places API (New)</b></summary>
+<summary><b>Google Places API (New)</b></summary>
 
 <br>
 
@@ -273,7 +273,7 @@ Restart venue-service after changing the key; a running container keeps the old 
 </details>
 
 <details>
-<summary><b>🖼️ Cloudinary (media, planned)</b></summary>
+<summary><b>Cloudinary (media, planned)</b></summary>
 
 <br>
 
@@ -295,7 +295,7 @@ Free plan: 25 credits/month, enough for development and small-scale testing.
 
 <p align="center"><img src="assets/brand/divider.svg" width="100%" alt=""></p>
 
-## 🛠️ Daily workflow
+## Daily workflow
 
 ```bash
 # databases only (always needed)
@@ -319,7 +319,7 @@ docker compose --profile services down
 
 Services in Docker read the same `services/*/.env.<APP_ENV>` files as native runs (`make services-up APP_ENV=prod` for prod; beta by default); `docker-compose.yml` only swaps `localhost` addresses for container names. Docker and native runs use the same ports, so run `make services-down` before `make *-run`.
 
-### 💻 Running a service locally (outside Docker)
+### Running a service locally (outside Docker)
 
 <details>
 <summary>Faster for active development; click for how.</summary>
@@ -343,32 +343,31 @@ Or use the Makefile shortcuts: `make auth-run`, `make user-run`, `make event-run
 
 </details>
 
-## 🧭 Services
+## Services
 
-| | Service | Port | What it does |
+| Status | Service | Port | What it does |
 | --- | --- | --- | --- |
-| 🟢 | gateway | 8080 | Routes `/api/v1`, verifies access tokens, rate-limits sign-in |
-| 🟢 | auth-service | 3001 | Phone OTP sign-in, Ed25519 access and refresh tokens |
-| 🟢 | user-service | 3002 | Profiles, squads and members, device tokens |
-| 🟡 | event-service | 3003 | Events, RSVPs, place suggestions, open votes ([#36](https://github.com/SamPariat/roundup/pull/36)) |
-| 🟢 | venue-service | 3006 | Places API (New) search and details with a Redis cache; favorites and squad history |
-| ⚪ | scheduler-service | | Runs scheduled jobs, such as closing voting at its deadline |
-| ⚪ | billing-service | | Receipt scanning, bill splitting, debts |
-| ⚪ | notification-service | | Push notifications |
-| ⚪ | media-service | | Photos |
-| ⚪ | realtime-service | | WebSocket updates |
+| Live | gateway | 8080 | Routes `/api/v1`, verifies access tokens, rate-limits sign-in |
+| Live | auth-service | 3001 | Phone OTP sign-in, Ed25519 access and refresh tokens |
+| Live | user-service | 3002 | Profiles, squads and members, device tokens |
+| In review | event-service | 3003 | Events, RSVPs, place suggestions, open votes ([#36](https://github.com/SamPariat/roundup/pull/36)) |
+| Live | venue-service | 3006 | Places API (New) search and details with a Redis cache; favorites and squad history |
+| Planned | scheduler-service | | Runs scheduled jobs, such as closing voting at its deadline |
+| Planned | billing-service | | Receipt scanning, bill splitting, debts |
+| Planned | notification-service | | Push notifications |
+| Planned | media-service | | Photos |
+| Planned | realtime-service | | WebSocket updates |
 
-🟢 live · 🟡 in review · ⚪ planned
 
 Every HTTP route is versioned under `/api/v1` (e.g. `/api/v1/users/me`). Postgres runs one container per service (auth 5433, user 5434, event 5435, venue 5438) and Redis is on 6379.
 
-### 📖 API docs
+### API docs
 
 Every route is described in one OpenAPI 3 document, [`shared/api/openapi.yaml`](shared/api/openapi.yaml). With the services running (`make services-up`), Swagger UI is at **http://localhost:8080/docs**: use "Authorize" with an `accessToken` from `/auth/otp/verify` to try the protected routes. The gateway serves it only when `DOCS_ENABLED=true`, as in `.env.beta`; prod leaves it off.
 
 Each service's `TestRoutesAreDocumented` compares its router with the spec, so adding, removing or renaming a route fails CI until `openapi.yaml` is updated to match.
 
-### 📄 Pagination
+### Pagination
 
 Every list whose size has no limit is paged with a cursor:
 
@@ -391,7 +390,7 @@ GET /api/v1/squads?limit=25&cursor=eyJj...  → { "squads": [...7],  "nextCursor
 
 <p align="center"><img src="assets/brand/divider.svg" width="100%" alt=""></p>
 
-## 🗄️ Database migrations
+## Database migrations
 
 Each service owns its own database and migrations.
 
@@ -409,7 +408,7 @@ docker compose up -d postgres-user
 TEST_POSTGRES_DSN="postgres://user_user:user_pass@localhost:5434/users?sslmode=disable" make user-test
 ```
 
-## 🌿 Branching
+## Branching
 
 ```
 main   ← always deployable, protected: PRs only, and the ci-ok check must pass
@@ -445,7 +444,7 @@ Types: `feat` `fix` `chore` `refactor` `test` `docs` `perf` `ci`
 
 Scope: the service name (`auth` `gateway` `user` `event` `venue` `billing`), or `shared` / `infra`.
 
-## ➕ Adding a new service
+## Adding a new service
 
 1. Create the directory under `services/`
 2. `go mod init github.com/SamPariat/roundup/services/<name>` and copy the `services/venue-service` layout
@@ -457,7 +456,7 @@ Scope: the service name (`auth` `gateway` `user` `event` `venue` `billing`), or 
 8. Add the module to the `lint` and `test` matrices (and the service to the `docker` matrix) in `.github/workflows/ci.yml`
 9. Update the services table in this README
 
-## 👥 Team
+## Team
 
 | Person   | Services                                                  |
 | -------- | --------------------------------------------------------- |
@@ -466,7 +465,7 @@ Scope: the service name (`auth` `gateway` `user` `event` `venue` `billing`), or 
 | Person C | venue-service, notification-service, media-service        |
 | Person D | realtime-service, analytics-service, feature-flag-service |
 
-## 📚 Further reading
+## Further reading
 
 - [SCOPE.md](SCOPE.md): what Roundup does and doesn't do
 - [ROUNDUP-TASKS.md](ROUNDUP-TASKS.md): the roadmap, service by service
@@ -482,5 +481,5 @@ Scope: the service name (`auth` `gateway` `user` `event` `venue` `billing`), or 
     <img alt="" src="assets/brand/roundup-mark-latte.svg" width="40">
   </picture>
   <br>
-  <sub>Built with Go 🐹, Postgres 🐘 and good company.</sub>
+  <sub>Built with Go, Postgres and good company.</sub>
 </p>
