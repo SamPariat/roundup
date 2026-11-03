@@ -6,6 +6,7 @@ package config
 import (
 	"crypto/ed25519"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/SamPariat/roundup/shared/api"
@@ -43,6 +44,11 @@ type Config struct {
 	// Only allowed when Env is beta; Load panics if it is set in prod.
 	OTPDevCode string
 
+	// CookieSecure sets the Secure attribute of the web refresh cookie, from
+	// AUTH_COOKIE_SECURE. Defaults to true; set false only for plain-http local
+	// development, where browsers would drop a Secure cookie.
+	CookieSecure bool
+
 	// LogLevel controls zap verbosity: debug, info, warn, or error. Defaults to info.
 	LogLevel string
 }
@@ -68,6 +74,7 @@ func Load() *Config {
 		AccessTokenTTL:  env.Duration("ACCESS_TOKEN_TTL", "15m"),
 		RefreshTokenTTL: env.Duration("REFRESH_TOKEN_TTL", "720h"),
 		OTPDevCode:      env.Get("OTP_DEV_CODE", ""),
+		CookieSecure:    cookieSecure(),
 		LogLevel:        env.Get(env.KeyLogLevel, env.DefaultLogLevel),
 	}
 
@@ -77,4 +84,15 @@ func Load() *Config {
 	}
 
 	return cfg
+}
+
+// cookieSecure reads AUTH_COOKIE_SECURE as a boolean, true when unset.
+// Panics if it is set to anything strconv.ParseBool rejects.
+func cookieSecure() bool {
+	secure, err := strconv.ParseBool(env.Get("AUTH_COOKIE_SECURE", "true"))
+	if err != nil {
+		panic("AUTH_COOKIE_SECURE must be true or false")
+	}
+
+	return secure
 }

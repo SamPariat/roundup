@@ -36,6 +36,14 @@ func TestLoadDefaults(t *testing.T) {
 	assert.Equal(t, 15*time.Minute, cfg.AccessTokenTTL)
 	assert.Equal(t, 720*time.Hour, cfg.RefreshTokenTTL)
 	assert.NotNil(t, cfg.JWTPrivateKey)
+	assert.True(t, cfg.CookieSecure, "the web cookie is Secure unless turned off")
+}
+
+func TestLoadCookieSecureCanBeTurnedOff(t *testing.T) {
+	setRequired(t, "prod")
+	t.Setenv("AUTH_COOKIE_SECURE", "false")
+
+	assert.False(t, Load().CookieSecure)
 }
 
 func TestLoadAllowsDevCodeInBeta(t *testing.T) {
@@ -54,6 +62,7 @@ func TestLoadPanics(t *testing.T) {
 		{"BadPrivateKey", map[string]string{"JWT_PRIVATE_KEY": "not a key"}},
 		{"BadTTL", map[string]string{"ACCESS_TOKEN_TTL": "fifteen minutes"}},
 		{"NegativeTTL", map[string]string{"REFRESH_TOKEN_TTL": "-1h"}},
+		{"BadCookieSecure", map[string]string{"AUTH_COOKIE_SECURE": "sometimes"}},
 		{"MissingUserServiceURL", map[string]string{"USER_SERVICE_URL": ""}},
 	}
 
