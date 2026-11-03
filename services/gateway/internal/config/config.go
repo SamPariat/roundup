@@ -6,7 +6,6 @@ package config
 import (
 	"crypto/ed25519"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/SamPariat/roundup/shared/api"
@@ -77,15 +76,6 @@ func Load() *Config {
 		panic(fmt.Sprintf("JWT_PUBLIC_KEY: %v", err))
 	}
 
-	// Comma separated, with surrounding spaces and empty entries dropped.
-	var origins []string
-
-	for origin := range strings.SplitSeq(env.Get("CORS_ALLOWED_ORIGINS", ""), ",") {
-		if origin = strings.TrimSpace(origin); origin != "" {
-			origins = append(origins, origin)
-		}
-	}
-
 	return &Config{
 		Env:      appEnv,
 		Port:     env.Get(env.KeyPort, api.GatewayPort),
@@ -99,6 +89,6 @@ func Load() *Config {
 		JWTPublicKey:       publicKey,
 		UpstreamTimeout:    env.Duration("UPSTREAM_TIMEOUT", defaultUpstreamTimeout),
 		DocsEnabled:        env.Get("DOCS_ENABLED", "") == "true",
-		CORSAllowedOrigins: origins,
+		CORSAllowedOrigins: env.List("CORS_ALLOWED_ORIGINS"),
 	}
 }

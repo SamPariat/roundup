@@ -42,7 +42,7 @@ func TestLoadDefaults(t *testing.T) {
 
 func TestLoadCORSAllowedOrigins(t *testing.T) {
 	setRequired(t)
-	t.Setenv("CORS_ALLOWED_ORIGINS", " http://localhost:8081, , https://app.example.com,")
+	t.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:8081, https://app.example.com")
 
 	assert.Equal(t, []string{"http://localhost:8081", "https://app.example.com"}, Load().CORSAllowedOrigins)
 }

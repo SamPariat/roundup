@@ -2,7 +2,6 @@ package http
 
 import (
 	"errors"
-	"time"
 
 	"github.com/SamPariat/roundup/services/auth-service/internal/application"
 	"github.com/SamPariat/roundup/services/auth-service/internal/domain"
@@ -85,10 +84,7 @@ func (h *AuthHandler) Refresh(c fiber.Ctx) error {
 // cleared, even when the token was rejected, so a stale cookie cannot trap it.
 func (h *AuthHandler) Logout(c fiber.Ctx) error {
 	if isWebClient(c) {
-		// The same cookie, empty and already expired.
-		cleared := refreshCookie("", time.Unix(0, 0), h.cookieSecure)
-		cleared.MaxAge = clearCookieMaxAge
-		c.Cookie(cleared)
+		c.Cookie(clearedRefreshCookie(h.cookieSecure))
 	}
 
 	token, err := refreshTokenFrom(c)
@@ -114,6 +110,10 @@ func (h *AuthHandler) moveRefreshTokenToCookie(c fiber.Ctx, pair *dtos.TokenPair
 	pair.RefreshToken = ""
 }
 
+// errMissingRefreshToken is returned when a request carries no refresh token
+// in either the body or the cookie.
+var errMissingRefreshToken = errors.New("refresh token is required")
+
 // refreshTokenFrom reads the refresh token from the JSON body, falling back to
 // the web refresh cookie. The body is optional, so an empty one is not an error.
 func refreshTokenFrom(c fiber.Ctx) (string, error) {
@@ -133,7 +133,7 @@ func refreshTokenFrom(c fiber.Ctx) (string, error) {
 		return token, nil
 	}
 
-	return "", errors.New("refresh token is required")
+	return "", errMissingRefreshToken
 }
 
 // authErrorStatus maps domain sentinel errors to HTTP status codes for auth.
