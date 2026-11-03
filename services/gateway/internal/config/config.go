@@ -41,6 +41,12 @@ type Config struct {
 	// DocsEnabled serves Swagger UI at /docs. True only when DOCS_ENABLED is
 	// exactly "true" (set in .env.beta); anything else, or unset, is false.
 	DocsEnabled bool
+
+	// CORSAllowedOrigins are the web origins allowed to call the gateway from
+	// a browser, from CORS_ALLOWED_ORIGINS (comma separated, e.g.
+	// "http://localhost:8081"). Empty by default, which turns CORS off. Native
+	// apps send no Origin and are unaffected.
+	CORSAllowedOrigins []string
 }
 
 // Upstreams holds each service's base URL, e.g. "http://localhost:3002".
@@ -80,8 +86,9 @@ func Load() *Config {
 			Event: env.Require("EVENT_SERVICE_URL"),
 			Venue: env.Require("VENUE_SERVICE_URL"),
 		},
-		JWTPublicKey:    publicKey,
-		UpstreamTimeout: env.Duration("UPSTREAM_TIMEOUT", defaultUpstreamTimeout),
-		DocsEnabled:     env.Get("DOCS_ENABLED", "") == "true",
+		JWTPublicKey:       publicKey,
+		UpstreamTimeout:    env.Duration("UPSTREAM_TIMEOUT", defaultUpstreamTimeout),
+		DocsEnabled:        env.Get("DOCS_ENABLED", "") == "true",
+		CORSAllowedOrigins: env.List("CORS_ALLOWED_ORIGINS"),
 	}
 }

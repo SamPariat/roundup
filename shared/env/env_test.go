@@ -120,3 +120,27 @@ func TestDuration(t *testing.T) {
 		})
 	}
 }
+
+func TestList(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  []string
+	}{
+		{name: "Empty", value: "", want: nil},
+		{name: "Single", value: "http://localhost:8081", want: []string{"http://localhost:8081"}},
+		{name: "SplitsOnCommas", value: "https://a.example,https://b.example", want: []string{"https://a.example", "https://b.example"}},
+		{name: "TrimsSpacesAndDropsEmpties", value: " https://a.example , ,https://b.example,", want: []string{"https://a.example", "https://b.example"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("ROUNDUP_TEST_LIST", tt.value)
+			assert.Equal(t, tt.want, List("ROUNDUP_TEST_LIST"))
+		})
+	}
+
+	t.Run("UnsetIsNil", func(t *testing.T) {
+		assert.Nil(t, List("ROUNDUP_TEST_LIST_UNSET"))
+	})
+}

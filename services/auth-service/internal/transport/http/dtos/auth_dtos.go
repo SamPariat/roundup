@@ -20,8 +20,9 @@ type VerifyOTPRequest struct {
 // RefreshTokenRequest carries the JSON body for POST /api/v1/auth/refresh and
 // POST /api/v1/auth/logout.
 type RefreshTokenRequest struct {
-	// RefreshToken is the refresh token from the last login or refresh.
-	RefreshToken string `json:"refreshToken"`
+	// RefreshToken is the refresh token from the last login or refresh. Web
+	// clients may leave it out and rely on the roundup_refresh cookie.
+	RefreshToken string `json:"refreshToken,omitempty"`
 }
 
 // TokenPairResponse is returned by refresh, and embedded in LoginResponse.
@@ -35,7 +36,10 @@ type TokenPairResponse struct {
 
 	// RefreshToken replaces the previous one, which no longer works. Store it
 	// securely (Keychain / Keystore); sending an old one logs the session out.
-	RefreshToken string `json:"refreshToken"`
+	//
+	// Left out for web clients (X-Client: web), which get it as an httpOnly
+	// cookie instead.
+	RefreshToken string `json:"refreshToken,omitempty"`
 
 	// RefreshTokenExpiresAt is when the refresh token expires (RFC 3339);
 	// after it, the user must log in again.

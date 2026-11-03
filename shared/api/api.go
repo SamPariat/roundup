@@ -22,6 +22,14 @@ const SquadsPath = V1 + "/squads"
 // GET VenuesPath/{placeID} directly to snapshot a nominated place.
 const VenuesPath = V1 + "/venues"
 
+// ClientHeader is the request header a client names itself in: ios, android
+// or web. The gateway lets browsers send it, and auth-service reads it to keep
+// a web client's refresh token in an httpOnly cookie.
+const ClientHeader = "X-Client"
+
+// ClientWeb is the ClientHeader value of the browser app.
+const ClientWeb = "web"
+
 // Service names, used as the logger name and in startup messages.
 const (
 	AuthService  = "auth-service"

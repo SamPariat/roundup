@@ -37,6 +37,14 @@ func TestLoadDefaults(t *testing.T) {
 	assert.Equal(t, 10*time.Second, cfg.UpstreamTimeout)
 	assert.Equal(t, "http://localhost:3002", cfg.Upstreams.User)
 	assert.NotNil(t, cfg.JWTPublicKey)
+	assert.Empty(t, cfg.CORSAllowedOrigins, "CORS is off unless origins are configured")
+}
+
+func TestLoadCORSAllowedOrigins(t *testing.T) {
+	setRequired(t)
+	t.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:8081, https://app.example.com")
+
+	assert.Equal(t, []string{"http://localhost:8081", "https://app.example.com"}, Load().CORSAllowedOrigins)
 }
 
 func TestLoadPanics(t *testing.T) {

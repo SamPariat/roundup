@@ -7,6 +7,7 @@ package env
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -81,6 +82,20 @@ func Get(key, defaultValue string) string {
 	}
 
 	return defaultValue
+}
+
+// List returns the value of a key split on commas, with surrounding spaces
+// and empty entries dropped. It is nil if the key is unset or empty.
+func List(key string) []string {
+	var out []string
+
+	for part := range strings.SplitSeq(Get(key, ""), ",") {
+		if part = strings.TrimSpace(part); part != "" {
+			out = append(out, part)
+		}
+	}
+
+	return out
 }
 
 // Duration returns the value of a key parsed as a Go duration (e.g. "15m"),

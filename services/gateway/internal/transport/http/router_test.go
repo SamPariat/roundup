@@ -27,7 +27,7 @@ const userID = "7dc92d84-1950-43d6-b676-debacf84d830"
 
 // seen is what a fake upstream received.
 type seen struct {
-	Service, Method, URI, UserID, RequestID, Body string
+	Service, Method, URI, UserID, RequestID, Body, Cookie string
 }
 
 // upstream is a fake service that records each request and answers 200.
@@ -46,9 +46,10 @@ func newUpstream(t *testing.T, name string) *upstream {
 		body, _ := io.ReadAll(r.Body)
 
 		u.mu.Lock()
-		u.got = append(u.got, seen{name, r.Method, r.URL.RequestURI(), r.Header.Get(sharedmw.UserIDHeader), r.Header.Get(sharedmw.RequestIDHeader), string(body)})
+		u.got = append(u.got, seen{name, r.Method, r.URL.RequestURI(), r.Header.Get(sharedmw.UserIDHeader), r.Header.Get(sharedmw.RequestIDHeader), string(body), r.Header.Get("Cookie")})
 		u.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
+		http.SetCookie(w, &http.Cookie{Name: "roundup_refresh", Value: "rotated", Path: "/api/v1/auth", HttpOnly: true})
 		_ = json.NewEncoder(w).Encode(map[string]string{"from": name})
 	}))
 	t.Cleanup(u.srv.Close)
@@ -75,6 +76,13 @@ type fixture struct {
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
 
+	return newFixtureWithOrigins(t, nil)
+}
+
+// newFixtureWithOrigins mounts the CORS middleware the way main.go does.
+func newFixtureWithOrigins(t *testing.T, origins []string) *fixture {
+	t.Helper()
+
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	token, _, err := authtoken.Sign(priv, userID, time.Minute)
@@ -82,7 +90,7 @@ func newFixture(t *testing.T) *fixture {
 
 	f := &fixture{auth: newUpstream(t, "auth"), user: newUpstream(t, "user"), event: newUpstream(t, "event"), venue: newUpstream(t, "venue"), token: token}
 	f.app = fiber.New()
-	f.app.Use(sharedmw.GenerateRequestID(), middleware.StripIdentity())
+	f.app.Use(sharedmw.GenerateRequestID(), middleware.StripIdentity(), middleware.CORS(origins))
 	RegisterRoutes(f.app, config.Upstreams{Auth: f.auth.srv.URL, User: f.user.srv.URL, Event: f.event.srv.URL, Venue: f.venue.srv.URL}, pub, 2*time.Second)
 
 	return f
@@ -216,4 +224,95 @@ func TestRegisterDocs(t *testing.T) {
 	body, _ := io.ReadAll(spec.Body)
 	assert.Equal(t, http.StatusOK, spec.StatusCode)
 	assert.Equal(t, api.Spec, body)
+}
+
+const webOrigin = "http://localhost:8081"
+
+func (f *fixture) doFrom(t *testing.T, method, origin string, headers map[string]string) *http.Response {
+	t.Helper()
+
+	req := httptest.NewRequest(method, "/api/v1/auth/refresh", nil)
+	req.Header.Set("Origin", origin)
+
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+
+	resp, err := f.app.Test(req)
+	require.NoError(t, err)
+
+	return resp
+}
+
+func TestCORSPreflightFromAllowedOrigin(t *testing.T) {
+	f := newFixtureWithOrigins(t, []string{webOrigin})
+
+	// More preflights than the auth rate limit allows: none may be counted.
+	for range 25 {
+		resp := f.doFrom(t, http.MethodOptions, webOrigin, map[string]string{
+			"Access-Control-Request-Method":  http.MethodPost,
+			"Access-Control-Request-Headers": "content-type, x-client",
+		})
+
+		require.Equal(t, http.StatusNoContent, resp.StatusCode)
+		assert.Equal(t, webOrigin, resp.Header.Get("Access-Control-Allow-Origin"))
+		assert.Equal(t, "true", resp.Header.Get("Access-Control-Allow-Credentials"))
+		assert.Contains(t, resp.Header.Get("Access-Control-Allow-Headers"), "X-Client")
+		assert.Contains(t, resp.Header.Get("Access-Control-Allow-Headers"), "Authorization")
+		assert.Equal(t, "600", resp.Header.Get("Access-Control-Max-Age"))
+	}
+
+	assert.Empty(t, f.auth.got, "a preflight never reaches the upstream")
+
+	resp := f.do(t, http.MethodPost, "/api/v1/auth/otp/request", `{"phone":"+919876543210"}`, false)
+	assert.Equal(t, http.StatusOK, resp.StatusCode, "preflights did not use up the rate limit")
+}
+
+func TestCORSDisallowedOriginGetsNoHeaders(t *testing.T) {
+	f := newFixtureWithOrigins(t, []string{webOrigin})
+
+	resp := f.doFrom(t, http.MethodOptions, "https://evil.example", map[string]string{
+		"Access-Control-Request-Method": http.MethodPost,
+	})
+
+	assert.Empty(t, resp.Header.Get("Access-Control-Allow-Origin"))
+	assert.Empty(t, resp.Header.Get("Access-Control-Allow-Credentials"))
+}
+
+func TestCORSIsOffWithoutOrigins(t *testing.T) {
+	f := newFixture(t)
+
+	resp := f.doFrom(t, http.MethodOptions, webOrigin, map[string]string{
+		"Access-Control-Request-Method": http.MethodPost,
+	})
+
+	assert.Empty(t, resp.Header.Get("Access-Control-Allow-Origin"))
+}
+
+func TestCORSHeadersSurviveProxiedResponse(t *testing.T) {
+	f := newFixtureWithOrigins(t, []string{webOrigin})
+
+	resp := f.doFrom(t, http.MethodPost, webOrigin, nil)
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, webOrigin, resp.Header.Get("Access-Control-Allow-Origin"))
+	assert.Equal(t, "true", resp.Header.Get("Access-Control-Allow-Credentials"))
+	assert.Equal(t, "X-Request-ID", resp.Header.Get("Access-Control-Expose-Headers"))
+}
+
+func TestCookiesPassThroughTheProxy(t *testing.T) {
+	f := newFixture(t)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/refresh", nil)
+	req.Header.Set("Cookie", "roundup_refresh=abc")
+
+	resp, err := f.app.Test(req)
+	require.NoError(t, err)
+
+	assert.Equal(t, "roundup_refresh=abc", f.auth.last(t).Cookie, "the upstream sees the request cookie")
+
+	cookies := resp.Cookies()
+	require.Len(t, cookies, 1)
+	assert.Equal(t, "roundup_refresh", cookies[0].Name)
+	assert.Equal(t, "rotated", cookies[0].Value)
+	assert.True(t, cookies[0].HttpOnly)
 }

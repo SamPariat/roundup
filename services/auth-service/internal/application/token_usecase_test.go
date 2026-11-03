@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/SamPariat/roundup/services/auth-service/internal/domain"
+	"github.com/SamPariat/roundup/services/auth-service/internal/domain/domaintest"
 	"github.com/SamPariat/roundup/shared/authtoken"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -12,8 +13,8 @@ import (
 
 type tokenFixture struct {
 	uc       *TokenUseCase
-	sessions *fakeSessionRepo
-	clock    *clock
+	sessions *domaintest.SessionRepo
+	clock    *domaintest.Clock
 	pub      []byte
 	login    *domain.TokenPair
 }
@@ -22,17 +23,17 @@ type tokenFixture struct {
 func newTokenFixture(t *testing.T) *tokenFixture {
 	t.Helper()
 
-	clk := newClock()
-	pub, priv := newKeys(t)
-	sessions := newFakeSessions()
+	clk := domaintest.NewClock()
+	pub, priv := domaintest.NewKeys(t)
+	sessions := domaintest.NewSessionRepo()
 	issuer := NewTokenIssuer(priv, 15*time.Minute, 30*24*time.Hour)
-	issuer.now = clk.now
+	issuer.now = clk.Now
 
-	login, err := issuer.startSession(t.Context(), sessions, testUserID)
+	login, err := issuer.startSession(t.Context(), sessions, domaintest.UserID)
 	require.NoError(t, err)
 
 	uc := NewTokenUseCase(sessions, issuer)
-	uc.now = clk.now
+	uc.now = clk.Now
 
 	return &tokenFixture{uc: uc, sessions: sessions, clock: clk, pub: pub, login: login}
 }
@@ -46,7 +47,7 @@ func TestRefreshRotatesTokens(t *testing.T) {
 	assert.NotEqual(t, f.login.RefreshToken, next.RefreshToken)
 	claims, err := authtoken.Verify(f.pub, next.AccessToken)
 	require.NoError(t, err)
-	assert.Equal(t, testUserID, claims.UserID)
+	assert.Equal(t, domaintest.UserID, claims.UserID)
 
 	_, err = f.uc.Refresh(t.Context(), next.RefreshToken)
 	assert.NoError(t, err, "the newest token keeps working")
@@ -72,7 +73,7 @@ func TestRefreshRejects(t *testing.T) {
 	}{
 		{"Unknown", func(*tokenFixture) string { return "not-a-real-token" }},
 		{"Expired", func(f *tokenFixture) string {
-			f.clock.advance(30 * 24 * time.Hour)
+			f.clock.Advance(30 * 24 * time.Hour)
 
 			return f.login.RefreshToken
 		}},

@@ -22,6 +22,7 @@ func main() {
 	app := fiber.New()
 	app.Use(middleware.GenerateRequestID(), middleware.Logging(log), middleware.Recover(log))
 	app.Use(gatewaymw.StripIdentity())
+	app.Use(gatewaymw.CORS(cfg.CORSAllowedOrigins))
 
 	// The gateway has no dependency of its own to check; each upstream reports
 	// its own readiness.

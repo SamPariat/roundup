@@ -36,6 +36,21 @@ func TestLoadDefaults(t *testing.T) {
 	assert.Equal(t, 15*time.Minute, cfg.AccessTokenTTL)
 	assert.Equal(t, 720*time.Hour, cfg.RefreshTokenTTL)
 	assert.NotNil(t, cfg.JWTPrivateKey)
+	assert.True(t, cfg.CookieSecure, "the web cookie is Secure unless turned off")
+}
+
+func TestLoadCookieSecureCanBeTurnedOff(t *testing.T) {
+	setRequired(t, "prod")
+	t.Setenv("AUTH_COOKIE_SECURE", "false")
+
+	assert.False(t, Load().CookieSecure)
+}
+
+func TestLoadCookieSecureStaysOnUnlessExactlyFalse(t *testing.T) {
+	setRequired(t, "prod")
+	t.Setenv("AUTH_COOKIE_SECURE", "no")
+
+	assert.True(t, Load().CookieSecure, "only the exact value false turns Secure off")
 }
 
 func TestLoadAllowsDevCodeInBeta(t *testing.T) {

@@ -63,6 +63,8 @@ paths:
       description: |
         Sends a 6-digit code to the phone, valid for 5 minutes. At most 3 codes
         per phone per 15 minutes.
+      parameters:
+        - $ref: '#/components/parameters/XClient'
       security: []
       requestBody:
         required: true
@@ -93,6 +95,11 @@ paths:
         Verifies the code and returns an access/refresh token pair. Creates the
         user on first login (`isNewUser: true`). After 5 wrong attempts the code
         is burned and a new one must be requested.
+
+        A web client (`X-Client: web`) gets the refresh token as an httpOnly
+        `roundup_refresh` cookie instead of in the body.
+      parameters:
+        - $ref: '#/components/parameters/XClient'
       security: []
       requestBody:
         required: true
@@ -106,6 +113,8 @@ paths:
           headers:
             X-Request-ID:
               $ref: '#/components/headers/X-Request-ID'
+            Set-Cookie:
+              $ref: '#/components/headers/SetRefreshCookie'
           content:
             application/json:
               schema:
@@ -136,9 +145,16 @@ paths:
       description: |
         Returns a new access and refresh token. The old refresh token stops
         working; presenting it again revokes the whole session.
+
+        The refresh token comes from the body or, when the body has none, from
+        the `roundup_refresh` cookie. A web client (`X-Client: web`) gets the
+        new one back as the cookie instead of in the body.
+      parameters:
+        - $ref: '#/components/parameters/XClient'
+        - $ref: '#/components/parameters/RefreshCookie'
       security: []
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -149,6 +165,8 @@ paths:
           headers:
             X-Request-ID:
               $ref: '#/components/headers/X-Request-ID'
+            Set-Cookie:
+              $ref: '#/components/headers/SetRefreshCookie'
           content:
             application/json:
               schema:
@@ -174,10 +192,17 @@ paths:
       tags: [Auth]
       operationId: logout
       summary: Revoke the session
-      description: Revokes the session the refresh token belongs to. Logging out twice is not an error.
+      description: |
+        Revokes the session the refresh token belongs to. Logging out twice is not an error.
+
+        The refresh token comes from the body or the `roundup_refresh` cookie. A
+        web client (`X-Client: web`) always gets the cookie cleared, even on a 401.
+      parameters:
+        - $ref: '#/components/parameters/XClient'
+        - $ref: '#/components/parameters/RefreshCookie'
       security: []
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -185,6 +210,9 @@ paths:
       responses:
         '204':
           description: Logged out. No body.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/ClearRefreshCookie'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1636,8 +1664,36 @@ components:
       schema:
         type: string
         format: uuid
+    SetRefreshCookie:
+      description: |
+        Web clients only (`X-Client: web`): the rotated refresh token as
+        `roundup_refresh=<token>; Path=/api/v1/auth; HttpOnly; SameSite=Strict`
+        (plus `Secure` outside local development), expiring with the token.
+      schema:
+        type: string
+    ClearRefreshCookie:
+      description: 'Web clients only (`X-Client: web`): clears the `roundup_refresh` cookie.'
+      schema:
+        type: string
 
   parameters:
+    XClient:
+      name: X-Client
+      in: header
+      required: false
+      description: |
+        Which kind of client is calling. `web` switches the refresh token to an
+        httpOnly cookie; `ios`, `android` and a missing header keep it in the body.
+      schema:
+        type: string
+        enum: [web, ios, android]
+    RefreshCookie:
+      name: roundup_refresh
+      in: cookie
+      required: false
+      description: The refresh token of a web client. Used when the body carries none.
+      schema:
+        type: string
     Limit:
       name: limit
       in: query
@@ -1884,13 +1940,13 @@ components:
           example: '123456'
     RefreshTokenRequest:
       type: object
-      required: [refreshToken]
       properties:
         refreshToken:
           type: string
+          description: Absent for web clients, which send it as the httpOnly `roundup_refresh` cookie.
     TokenPair:
       type: object
-      required: [accessToken, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt]
+      required: [accessToken, accessTokenExpiresAt, refreshTokenExpiresAt]
       properties:
         accessToken:
           type: string
@@ -1900,7 +1956,7 @@ components:
           format: date-time
         refreshToken:
           type: string
-          description: Opaque; rotates on every refresh.
+          description: Opaque; rotates on every refresh. Absent for web clients, which get it as an httpOnly cookie.
         refreshTokenExpiresAt:
           type: string
           format: date-time

@@ -49,7 +49,7 @@ func main() {
 	app.Use(middleware.RequestID(), middleware.Logging(log), middleware.Recover(log))
 	server.Health(app, log, map[string]server.Check{"postgres": pool.Ping})
 	transporthttp.RegisterRoutes(app, &transporthttp.Handlers{
-		Auth: transporthttp.NewAuthHandler(otpUC, tokenUC),
+		Auth: transporthttp.NewAuthHandler(otpUC, tokenUC, cfg.CookieSecure),
 	})
 
 	log.Info("starting "+api.AuthService, zap.String("env", cfg.Env), zap.String("port", cfg.Port))

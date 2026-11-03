@@ -43,6 +43,11 @@ type Config struct {
 	// Only allowed when Env is beta; Load panics if it is set in prod.
 	OTPDevCode string
 
+	// CookieSecure sets the Secure attribute of the web refresh cookie. True
+	// unless AUTH_COOKIE_SECURE is exactly "false", which is only for plain-http
+	// local development, where browsers would drop a Secure cookie.
+	CookieSecure bool
+
 	// LogLevel controls zap verbosity: debug, info, warn, or error. Defaults to info.
 	LogLevel string
 }
@@ -68,6 +73,7 @@ func Load() *Config {
 		AccessTokenTTL:  env.Duration("ACCESS_TOKEN_TTL", "15m"),
 		RefreshTokenTTL: env.Duration("REFRESH_TOKEN_TTL", "720h"),
 		OTPDevCode:      env.Get("OTP_DEV_CODE", ""),
+		CookieSecure:    env.Get("AUTH_COOKIE_SECURE", "") != "false",
 		LogLevel:        env.Get(env.KeyLogLevel, env.DefaultLogLevel),
 	}
 
