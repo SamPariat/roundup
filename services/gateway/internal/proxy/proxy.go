@@ -2,6 +2,7 @@
 package proxy
 
 import (
+	"bytes"
 	"sync"
 	"time"
 
@@ -28,6 +29,23 @@ func allowInternalUpstreams() {
 	})
 }
 
+// corsHeader is one response header the cors middleware set.
+type corsHeader struct{ key, value []byte }
+
+// corsHeaders copies the Access-Control-* and Vary headers already on the
+// response, so they can be put back after the upstream's response replaces it.
+func corsHeaders(c fiber.Ctx) []corsHeader {
+	var saved []corsHeader
+
+	for key, value := range c.Response().Header.All() {
+		if bytes.HasPrefix(bytes.ToLower(key), []byte("access-control-")) || bytes.EqualFold(key, []byte(fiber.HeaderVary)) {
+			saved = append(saved, corsHeader{bytes.Clone(key), bytes.Clone(value)})
+		}
+	}
+
+	return saved
+}
+
 // To returns a handler that forwards the request unchanged — same method,
 // path, query, headers and body — to the service at baseURL (from config,
 // never from the request), and relays its response. The request ID is passed
@@ -42,6 +60,9 @@ func To(baseURL string, timeout time.Duration) fiber.Handler {
 			c.Request().Header.Set(sharedmw.RequestIDHeader, id)
 		}
 
+		// Same for the CORS headers set before this handler ran.
+		cors := corsHeaders(c)
+
 		url := baseURL + string(c.Request().URI().RequestURI())
 		err := fiberproxy.DoTimeout(c, url, timeout)
 
@@ -49,6 +70,10 @@ func To(baseURL string, timeout time.Duration) fiber.Handler {
 		// request ID the caller should see.
 		if id != "" {
 			c.Set(sharedmw.RequestIDHeader, id)
+		}
+
+		for _, h := range cors {
+			c.Response().Header.AddBytesKV(h.key, h.value)
 		}
 
 		if err != nil {
