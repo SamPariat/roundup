@@ -1,7 +1,6 @@
 package http
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -9,58 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/SamPariat/roundup/services/auth-service/internal/domain"
+	"github.com/SamPariat/roundup/services/auth-service/internal/application"
+	"github.com/SamPariat/roundup/services/auth-service/internal/domain/domaintest"
 	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-var (
-	expiresAt = time.Date(2026, 11, 15, 12, 0, 0, 0, time.UTC)
-	loginPair = domain.TokenPair{
-		AccessToken:           "access-1",
-		AccessTokenExpiresAt:  expiresAt.Add(-720 * time.Hour),
-		RefreshToken:          "refresh-1",
-		RefreshTokenExpiresAt: expiresAt,
-	}
-)
-
-type fakeOTP struct{}
-
-func (fakeOTP) Request(context.Context, string) error { return nil }
-
-func (fakeOTP) Verify(context.Context, string, string) (*domain.LoginResult, error) {
-	return &domain.LoginResult{TokenPair: loginPair, UserID: "u1", IsNewUser: true}, nil
-}
-
-// fakeTokens accepts only the token "refresh-1", and records what it was given.
-type fakeTokens struct {
-	refreshedWith string
-	loggedOutWith string
-}
-
-func (f *fakeTokens) Refresh(_ context.Context, token string) (*domain.TokenPair, error) {
-	f.refreshedWith = token
-	if token != "refresh-1" {
-		return nil, domain.ErrInvalidRefreshToken
-	}
-
-	return &domain.TokenPair{
-		AccessToken:           "access-2",
-		AccessTokenExpiresAt:  loginPair.AccessTokenExpiresAt,
-		RefreshToken:          "refresh-2",
-		RefreshTokenExpiresAt: expiresAt,
-	}, nil
-}
-
-func (f *fakeTokens) Logout(_ context.Context, token string) error {
-	f.loggedOutWith = token
-	if token != "refresh-1" {
-		return domain.ErrInvalidRefreshToken
-	}
-
-	return nil
-}
 
 type call struct {
 	path, body string
@@ -127,35 +80,74 @@ func newApp(h *AuthHandler) *fiber.App {
 	return app
 }
 
-func newTestHandler(secure bool) (*AuthHandler, *fakeTokens) {
-	tk := &fakeTokens{}
+// newTestHandler builds the handler on the real OTP and token use cases, over
+// the in-memory fakes, the same way cmd/main.go wires the Postgres adapters.
+func newTestHandler(t *testing.T, secure bool) (*AuthHandler, *application.OTPUseCase, *domaintest.OTPSender) {
+	t.Helper()
 
-	return &AuthHandler{otp: fakeOTP{}, tokens: tk, cookieSecure: secure}, tk
+	_, priv := domaintest.NewKeys(t)
+	sender := domaintest.NewOTPSender()
+	sessions := domaintest.NewSessionRepo()
+	issuer := application.NewTokenIssuer(priv, 15*time.Minute, 720*time.Hour)
+	otp := application.NewOTPUseCase(
+		&domaintest.OTPRepo{Clock: domaintest.NewClock()},
+		sender,
+		&domaintest.UserDirectory{Created: true},
+		sessions,
+		issuer,
+		"",
+	)
+
+	return NewAuthHandler(otp, application.NewTokenUseCase(sessions, issuer), secure), otp, sender
 }
 
 const (
 	verifyPath  = "/api/v1/auth/otp/verify"
 	refreshPath = "/api/v1/auth/refresh"
 	logoutPath  = "/api/v1/auth/logout"
-	verifyBody  = `{"phone":"+919876543210","code":"123456"}`
 )
 
-func TestVerifyNativeGetsTokenInBodyAndNoCookie(t *testing.T) {
-	h, _ := newTestHandler(true)
+// verifyBody requests a code for domaintest.Phone and returns the verify body
+// that sends it back.
+func verifyBody(t *testing.T, otp *application.OTPUseCase, sender *domaintest.OTPSender) string {
+	t.Helper()
 
-	resp := send(t, h, call{path: verifyPath, body: verifyBody})
+	require.NoError(t, otp.Request(t.Context(), domaintest.Phone))
+
+	return `{"phone":"` + domaintest.Phone + `","code":"` + sender.Sent[domaintest.Phone] + `"}`
+}
+
+// login signs in as a native client and returns the refresh token it got.
+func login(t *testing.T, h *AuthHandler, otp *application.OTPUseCase, sender *domaintest.OTPSender) string {
+	t.Helper()
+
+	resp := send(t, h, call{path: verifyPath, body: verifyBody(t, otp, sender)})
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	_, refresh, _ := tokens(t, resp)
+	require.NotEmpty(t, refresh)
+
+	return refresh
+}
+
+func refreshBody(token string) string { return `{"refreshToken":"` + token + `"}` }
+
+func TestVerifyNativeGetsTokenInBodyAndNoCookie(t *testing.T) {
+	h, otp, sender := newTestHandler(t, true)
+
+	resp := send(t, h, call{path: verifyPath, body: verifyBody(t, otp, sender)})
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	access, refresh, _ := tokens(t, resp)
-	assert.Equal(t, "access-1", access)
-	assert.Equal(t, "refresh-1", refresh)
+	assert.NotEmpty(t, access)
+	assert.NotEmpty(t, refresh)
 	assert.Nil(t, refreshCookieOf(t, resp))
 }
 
 func TestVerifyWebGetsCookieAndNoTokenInBody(t *testing.T) {
-	h, _ := newTestHandler(true)
+	h, otp, sender := newTestHandler(t, true)
 
-	resp := send(t, h, call{path: verifyPath, body: verifyBody, web: true})
+	resp := send(t, h, call{path: verifyPath, body: verifyBody(t, otp, sender), web: true})
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -165,66 +157,71 @@ func TestVerifyWebGetsCookieAndNoTokenInBody(t *testing.T) {
 
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
 	assert.NotContains(t, body.Data, "refreshToken")
-	assert.Equal(t, "access-1", body.Data["accessToken"])
-	assert.Contains(t, body.Data, "refreshTokenExpiresAt")
+	assert.NotEmpty(t, body.Data["accessToken"])
 	assert.Equal(t, true, body.Data["isNewUser"])
+
+	expiresAt, err := time.Parse(time.RFC3339, body.Data["refreshTokenExpiresAt"].(string))
+	require.NoError(t, err)
 
 	cookie := refreshCookieOf(t, resp)
 	require.NotNil(t, cookie)
-	assert.Equal(t, "refresh-1", cookie.Value)
+	assert.NotEmpty(t, cookie.Value)
 	assert.Equal(t, "/api/v1/auth", cookie.Path)
 	assert.True(t, cookie.HttpOnly)
 	assert.True(t, cookie.Secure)
 	assert.Equal(t, http.SameSiteStrictMode, cookie.SameSite)
-	assert.True(t, expiresAt.Equal(cookie.Expires), "expires with the refresh token, got %v", cookie.Expires)
+	assert.WithinDuration(t, expiresAt, cookie.Expires, time.Second, "expires with the refresh token")
 }
 
 func TestWebCookieIsNotSecureWhenConfiguredOff(t *testing.T) {
-	h, _ := newTestHandler(false)
+	h, otp, sender := newTestHandler(t, false)
 
-	cookie := refreshCookieOf(t, send(t, h, call{path: verifyPath, body: verifyBody, web: true}))
+	cookie := refreshCookieOf(t, send(t, h, call{path: verifyPath, body: verifyBody(t, otp, sender), web: true}))
 
 	require.NotNil(t, cookie)
 	assert.False(t, cookie.Secure)
 }
 
 func TestRefreshNativeUsesBodyAndReturnsTokenInBody(t *testing.T) {
-	h, tk := newTestHandler(true)
+	h, otp, sender := newTestHandler(t, true)
+	token := login(t, h, otp, sender)
 
-	resp := send(t, h, call{path: refreshPath, body: `{"refreshToken":"refresh-1"}`})
+	resp := send(t, h, call{path: refreshPath, body: refreshBody(token)})
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	_, refresh, _ := tokens(t, resp)
-	assert.Equal(t, "refresh-1", tk.refreshedWith)
-	assert.Equal(t, "refresh-2", refresh)
+	assert.NotEmpty(t, refresh)
+	assert.NotEqual(t, token, refresh, "the token rotates")
 	assert.Nil(t, refreshCookieOf(t, resp))
 }
 
 func TestRefreshWebReadsCookieAndRotatesIt(t *testing.T) {
-	h, tk := newTestHandler(true)
+	h, otp, sender := newTestHandler(t, true)
+	token := login(t, h, otp, sender)
 
-	resp := send(t, h, call{path: refreshPath, web: true, cookie: "refresh-1"})
+	resp := send(t, h, call{path: refreshPath, web: true, cookie: token})
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Equal(t, "refresh-1", tk.refreshedWith)
 
 	access, _, hasRefresh := tokens(t, resp)
-	assert.Equal(t, "access-2", access)
+	assert.NotEmpty(t, access)
 	assert.False(t, hasRefresh, "the rotated token is only in the cookie")
 
 	cookie := refreshCookieOf(t, resp)
 	require.NotNil(t, cookie)
-	assert.Equal(t, "refresh-2", cookie.Value)
+	assert.NotEmpty(t, cookie.Value)
+	assert.NotEqual(t, token, cookie.Value, "the cookie rotates")
 	assert.True(t, cookie.HttpOnly)
 	assert.Equal(t, http.SameSiteStrictMode, cookie.SameSite)
 }
 
 func TestRefreshBodyTokenWinsOverCookie(t *testing.T) {
-	h, tk := newTestHandler(true)
+	h, otp, sender := newTestHandler(t, true)
+	token := login(t, h, otp, sender)
 
-	send(t, h, call{path: refreshPath, body: `{"refreshToken":"refresh-1"}`, web: true, cookie: "other"})
+	resp := send(t, h, call{path: refreshPath, body: refreshBody(token), web: true, cookie: "stale"})
 
-	assert.Equal(t, "refresh-1", tk.refreshedWith)
+	assert.Equal(t, http.StatusOK, resp.StatusCode, "the stale cookie would have been a 401")
 }
 
 func TestRefreshWithoutAnyTokenIsBadRequest(t *testing.T) {
@@ -239,18 +236,17 @@ func TestRefreshWithoutAnyTokenIsBadRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h, tk := newTestHandler(true)
+			h, _, _ := newTestHandler(t, true)
 
 			resp := send(t, h, tt.in)
 
 			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-			assert.Empty(t, tk.refreshedWith, "the use case is never called")
 		})
 	}
 }
 
 func TestRefreshWithBadCookieIsUnauthorized(t *testing.T) {
-	h, _ := newTestHandler(true)
+	h, _, _ := newTestHandler(t, true)
 
 	resp := send(t, h, call{path: refreshPath, web: true, cookie: "stale"})
 
@@ -258,17 +254,18 @@ func TestRefreshWithBadCookieIsUnauthorized(t *testing.T) {
 }
 
 func TestLogoutWebClearsCookieOnSuccess(t *testing.T) {
-	h, tk := newTestHandler(true)
+	h, otp, sender := newTestHandler(t, true)
+	token := login(t, h, otp, sender)
 
-	resp := send(t, h, call{path: logoutPath, web: true, cookie: "refresh-1"})
+	resp := send(t, h, call{path: logoutPath, web: true, cookie: token})
 
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
-	assert.Equal(t, "refresh-1", tk.loggedOutWith)
 	assertCookieCleared(t, resp)
+	assertLoggedOut(t, h, token)
 }
 
 func TestLogoutWebClearsCookieOnUnauthorized(t *testing.T) {
-	h, _ := newTestHandler(true)
+	h, _, _ := newTestHandler(t, true)
 
 	resp := send(t, h, call{path: logoutPath, web: true, cookie: "stale"})
 
@@ -277,7 +274,7 @@ func TestLogoutWebClearsCookieOnUnauthorized(t *testing.T) {
 }
 
 func TestLogoutWebClearsCookieWhenNothingWasSent(t *testing.T) {
-	h, _ := newTestHandler(true)
+	h, _, _ := newTestHandler(t, true)
 
 	resp := send(t, h, call{path: logoutPath, web: true})
 
@@ -286,13 +283,23 @@ func TestLogoutWebClearsCookieWhenNothingWasSent(t *testing.T) {
 }
 
 func TestLogoutNativeUsesBodyAndSetsNoCookie(t *testing.T) {
-	h, tk := newTestHandler(true)
+	h, otp, sender := newTestHandler(t, true)
+	token := login(t, h, otp, sender)
 
-	resp := send(t, h, call{path: logoutPath, body: `{"refreshToken":"refresh-1"}`})
+	resp := send(t, h, call{path: logoutPath, body: refreshBody(token)})
 
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
-	assert.Equal(t, "refresh-1", tk.loggedOutWith)
 	assert.Nil(t, refreshCookieOf(t, resp))
+	assertLoggedOut(t, h, token)
+}
+
+// assertLoggedOut checks the session is over: its refresh token no longer works.
+func assertLoggedOut(t *testing.T, h *AuthHandler, token string) {
+	t.Helper()
+
+	resp := send(t, h, call{path: refreshPath, body: refreshBody(token)})
+
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "the logged-out session's token is rejected")
 }
 
 func assertCookieCleared(t *testing.T, resp *http.Response) {

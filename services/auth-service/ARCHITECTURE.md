@@ -119,7 +119,8 @@ In prod, `cmd/main.go` refuses to start until a real SMS provider adapter exists
 
 | Layer | Tests |
 |---|---|
-| application | In-memory fakes and an injected clock: rate limit, wrong/expired/old/used codes, attempt counting, dev code, user-service outage, rotation, reuse revoking the session |
+| application | In-memory fakes (`domain/domaintest`) and an injected clock: rate limit, wrong/expired/old/used codes, attempt counting, dev code, user-service outage, rotation, reuse revoking the session |
 | persistence | `postgrestest` against real Postgres (needs `TEST_POSTGRES_DSN`): counting, newest code, consume-once, rotation atomicity, revoke |
 | users client | `httptest` user-service: 201/200, error statuses, bad bodies, unreachable, timeout |
+| transport/http | `fiber.Test()` on the real use cases over the `domaintest` fakes: the native body token, the web refresh cookie (attributes, rotation, body over cookie), missing tokens, logout clearing the cookie |
 | config | Defaults, and panics for dev code in prod, bad key, bad TTLs |

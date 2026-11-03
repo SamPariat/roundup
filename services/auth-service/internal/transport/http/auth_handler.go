@@ -1,7 +1,6 @@
 package http
 
 import (
-	"context"
 	"errors"
 
 	"github.com/SamPariat/roundup/services/auth-service/internal/application"
@@ -11,26 +10,14 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// otpService is what the handler needs from the OTP use case.
-type otpService interface {
-	Request(ctx context.Context, number string) error
-	Verify(ctx context.Context, number, code string) (*domain.LoginResult, error)
-}
-
-// tokenService is what the handler needs from the token use case.
-type tokenService interface {
-	Refresh(ctx context.Context, token string) (*domain.TokenPair, error)
-	Logout(ctx context.Context, token string) error
-}
-
 // AuthHandler handles HTTP requests for login, refresh, and logout. All of its
 // routes are public: they are how a client gets a token in the first place.
 //
 // Web clients (X-Client: web) keep the refresh token in an httpOnly cookie
 // instead of the response body; every other client gets it in the body.
 type AuthHandler struct {
-	otp          otpService
-	tokens       tokenService
+	otp          *application.OTPUseCase
+	tokens       *application.TokenUseCase
 	cookieSecure bool
 }
 
