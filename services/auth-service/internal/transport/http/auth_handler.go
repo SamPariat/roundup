@@ -69,10 +69,7 @@ func (h *AuthHandler) VerifyOTP(c fiber.Ctx) error {
 	}
 
 	login := dtos.LoginToResponse(result)
-	if isWebClient(c) {
-		c.Cookie(refreshCookie(login.RefreshToken, login.RefreshTokenExpiresAt, h.cookieSecure))
-		login.RefreshToken = ""
-	}
+	h.moveRefreshTokenToCookie(c, &login.TokenPairResponse)
 
 	return c.Status(fiber.StatusOK).JSON(response.OK(login))
 }
@@ -91,10 +88,7 @@ func (h *AuthHandler) Refresh(c fiber.Ctx) error {
 	}
 
 	res := dtos.TokenPairToResponse(pair)
-	if isWebClient(c) {
-		c.Cookie(refreshCookie(res.RefreshToken, res.RefreshTokenExpiresAt, h.cookieSecure))
-		res.RefreshToken = ""
-	}
+	h.moveRefreshTokenToCookie(c, &res)
 
 	return c.Status(fiber.StatusOK).JSON(response.OK(res))
 }
@@ -116,6 +110,17 @@ func (h *AuthHandler) Logout(c fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// moveRefreshTokenToCookie hands a web client its refresh token as the httpOnly
+// cookie and takes it out of the response body. Other clients keep it in the body.
+func (h *AuthHandler) moveRefreshTokenToCookie(c fiber.Ctx, pair *dtos.TokenPairResponse) {
+	if !isWebClient(c) {
+		return
+	}
+
+	c.Cookie(refreshCookie(pair.RefreshToken, pair.RefreshTokenExpiresAt, h.cookieSecure))
+	pair.RefreshToken = ""
 }
 
 // errMissingRefreshToken is returned when a request carries no refresh token

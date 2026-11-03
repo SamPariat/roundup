@@ -46,6 +46,13 @@ func TestLoadCookieSecureCanBeTurnedOff(t *testing.T) {
 	assert.False(t, Load().CookieSecure)
 }
 
+func TestLoadCookieSecureStaysOnUnlessExactlyFalse(t *testing.T) {
+	setRequired(t, "prod")
+	t.Setenv("AUTH_COOKIE_SECURE", "no")
+
+	assert.True(t, Load().CookieSecure, "only the exact value false turns Secure off")
+}
+
 func TestLoadAllowsDevCodeInBeta(t *testing.T) {
 	setRequired(t, "beta")
 	t.Setenv("OTP_DEV_CODE", "123456")
@@ -62,7 +69,6 @@ func TestLoadPanics(t *testing.T) {
 		{"BadPrivateKey", map[string]string{"JWT_PRIVATE_KEY": "not a key"}},
 		{"BadTTL", map[string]string{"ACCESS_TOKEN_TTL": "fifteen minutes"}},
 		{"NegativeTTL", map[string]string{"REFRESH_TOKEN_TTL": "-1h"}},
-		{"BadCookieSecure", map[string]string{"AUTH_COOKIE_SECURE": "sometimes"}},
 		{"MissingUserServiceURL", map[string]string{"USER_SERVICE_URL": ""}},
 	}
 

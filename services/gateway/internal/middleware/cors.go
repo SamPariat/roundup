@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"github.com/SamPariat/roundup/shared/api"
+	sharedmw "github.com/SamPariat/roundup/shared/middleware"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
 )
@@ -22,8 +24,8 @@ func CORS(origins []string) fiber.Handler {
 	return cors.New(cors.Config{
 		AllowOrigins:     origins,
 		AllowCredentials: true,
-		AllowHeaders:     []string{fiber.HeaderContentType, fiber.HeaderAuthorization, "X-Client"},
-		ExposeHeaders:    []string{"X-Request-ID"},
+		AllowHeaders:     []string{fiber.HeaderContentType, fiber.HeaderAuthorization, api.ClientHeader},
+		ExposeHeaders:    []string{sharedmw.RequestIDHeader},
 		MaxAge:           corsMaxAge,
 	})
 }
