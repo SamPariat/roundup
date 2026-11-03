@@ -89,7 +89,7 @@ func Get(key, defaultValue string) string {
 func List(key string) []string {
 	var out []string
 
-	for part := range strings.SplitSeq(os.Getenv(key), ",") {
+	for part := range strings.SplitSeq(Get(key, ""), ",") {
 		if part = strings.TrimSpace(part); part != "" {
 			out = append(out, part)
 		}

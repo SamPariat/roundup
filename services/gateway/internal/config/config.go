@@ -86,10 +86,9 @@ func Load() *Config {
 			Event: env.Require("EVENT_SERVICE_URL"),
 			Venue: env.Require("VENUE_SERVICE_URL"),
 		},
-		JWTPublicKey:    publicKey,
-		UpstreamTimeout: env.Duration("UPSTREAM_TIMEOUT", defaultUpstreamTimeout),
-		DocsEnabled:     env.Get("DOCS_ENABLED", "") == "true",
-
+		JWTPublicKey:       publicKey,
+		UpstreamTimeout:    env.Duration("UPSTREAM_TIMEOUT", defaultUpstreamTimeout),
+		DocsEnabled:        env.Get("DOCS_ENABLED", "") == "true",
 		CORSAllowedOrigins: env.List("CORS_ALLOWED_ORIGINS"),
 	}
 }
