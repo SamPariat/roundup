@@ -251,6 +251,16 @@ OTP_DEV_CODE="123456"
 
 Only auth-service holds the private key; the gateway verifies tokens with the public key and can't mint them. Use a separate keypair per environment.
 
+**Web clients.** A request with `X-Client: web` gets the refresh token as an httpOnly `roundup_refresh` cookie (`SameSite=Strict`, `Path=/api/v1/auth`) instead of in the response body; refresh and logout then read it from the cookie. Native apps keep the token in the body. Two settings make this work in a browser:
+
+```env
+# services/gateway/.env.beta: origins allowed to call the gateway; empty turns CORS off
+CORS_ALLOWED_ORIGINS="http://localhost:8081"
+
+# services/auth-service/.env.beta: Secure cookie; true by default, false for plain-http local beta
+AUTH_COOKIE_SECURE="false"
+```
+
 </details>
 
 <details>

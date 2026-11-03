@@ -950,7 +950,7 @@ One TypeScript codebase for web, Android and iOS. The web build ships first.
 
 - [ ] Static export with `npx expo export --platform web`; host behind the gateway's domain
 - [ ] Welcome page at `/` for signed-out visitors; return to the original link after sign-in
-- [ ] Keep the refresh token in an httpOnly cookie on web (needs a gateway change); access token in memory
+- [x] Keep the refresh token in an httpOnly cookie on web (needs a gateway change); access token in memory — backend done (`roundup_refresh` cookie, CORS); the web client side lands with the sign-in screens
 
 ### Auth screens
 
@@ -1037,7 +1037,7 @@ One TypeScript codebase for web, Android and iOS. The web build ships first.
 - [ ] Rotate all API keys every 90 days (automated)
 - [ ] Enable HTTPS only on all Cloud Run services
 - [ ] Add Content Security Policy headers
-- [ ] Add CORS — whitelist only the web app origin and the admin domain (native apps send no Origin)
+- [x] Add CORS — whitelist only the web app origin and the admin domain (native apps send no Origin) — gateway `CORS_ALLOWED_ORIGINS`; set the real web origin in prod, and the admin domain once it exists
 - [ ] Penetration test auth flow (JWT forgery, OTP brute force)
 - [ ] Scan Docker images for vulnerabilities (Trivy in CI)
 
