@@ -27,9 +27,6 @@ const VenuesPath = V1 + "/venues"
 // a web client's refresh token in an httpOnly cookie.
 const ClientHeader = "X-Client"
 
-// ClientWeb is the ClientHeader value of the browser app.
-const ClientWeb = "web"
-
 // Service names, used as the logger name and in startup messages.
 const (
 	AuthService  = "auth-service"
