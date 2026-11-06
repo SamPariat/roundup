@@ -17,7 +17,7 @@ func TestRecoverTurnsPanicIntoLogged500(t *testing.T) {
 	log := zap.New(core)
 
 	app := fiber.New()
-	app.Use(RequestID(), Logging(log), Recover(log))
+	app.Use(RequestID(), Logging(log, false), Recover(log))
 	app.Get("/boom", func(fiber.Ctx) error { panic("secret internal state") })
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/boom", nil))
