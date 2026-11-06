@@ -20,7 +20,7 @@ func main() {
 	log := logger.New(api.Gateway, cfg.LogLevel)
 
 	app := fiber.New()
-	app.Use(middleware.GenerateRequestID(), middleware.Logging(log), middleware.Recover(log))
+	app.Use(middleware.GenerateRequestID(), middleware.Logging(log, false), middleware.Recover(log))
 	app.Use(gatewaymw.StripIdentity())
 	app.Use(gatewaymw.CORS(cfg.CORSAllowedOrigins))
 
