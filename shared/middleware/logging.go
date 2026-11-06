@@ -15,49 +15,57 @@ import (
 // log line; longer bodies are cut and marked as truncated.
 const maxLoggedBody = 8 << 10
 
-// Logging logs method, path, status, latency, and request ID for every
-// request, as one line. Register it after RequestID so the request ID is
-// available by the time a request completes. An error saved by
-// response.Error is included, and 5xx responses are logged at error level.
+// Logging logs two lines per request, joined by request_id: a "request" line
+// when it arrives (method, path) and a "response" line when it completes
+// (method, path, status, latency). Register it after RequestID so the request
+// ID is available on arrival. An error saved by response.Error goes on the
+// response line, and 5xx responses are logged at error level.
 //
-// With logBodies, JSON request and response bodies are added as req_body and
-// resp_body, compacted onto the same line, with sensitive keys redacted (see
-// redact). Non-JSON bodies (e.g. streamed photos) are never read. The gateway
-// passes false; internal services pass true.
+// With logBodies, the JSON request body is added to the request line as
+// req_body and the JSON response body to the response line as resp_body,
+// compacted onto one line each, with sensitive keys redacted (see redact).
+// Non-JSON bodies (e.g. streamed photos) are never read. The gateway passes
+// false; internal services pass true.
 func Logging(log *zap.Logger, logBodies bool) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		start := time.Now()
-		err := c.Next()
-
-		status := c.Response().StatusCode()
-		fields := []zap.Field{
+		base := []zap.Field{
 			zap.String("method", c.Method()),
 			zap.String("path", c.Path()),
-			zap.Int("status", status),
-			zap.Duration("latency", time.Since(start)),
 			zap.String("request_id", RequestIDFrom(c)),
 		}
 
-		if logBodies {
-			if isJSON(c.Get(fiber.HeaderContentType)) {
-				fields = append(fields, bodyField("req_body", c.Body()))
-			}
+		// Full slice expressions cap base, so each append copies it instead of
+		// the request and response lines writing into one shared array.
+		reqFields := base[:len(base):len(base)]
+		if logBodies && isJSON(c.Get(fiber.HeaderContentType)) {
+			reqFields = append(reqFields, bodyField("req_body", c.Body()))
+		}
 
-			// Checked before Body(): on a streamed response, Body() would read
-			// the whole stream into memory.
-			if isJSON(string(c.Response().Header.ContentType())) {
-				fields = append(fields, bodyField("resp_body", c.Response().Body()))
-			}
+		log.Info("request", reqFields...)
+
+		err := c.Next()
+
+		status := c.Response().StatusCode()
+		respFields := append(base[:len(base):len(base)],
+			zap.Int("status", status),
+			zap.Duration("latency", time.Since(start)),
+		)
+
+		// Checked before Body(): on a streamed response, Body() would read the
+		// whole stream into memory.
+		if logBodies && isJSON(string(c.Response().Header.ContentType())) {
+			respFields = append(respFields, bodyField("resp_body", c.Response().Body()))
 		}
 
 		if handlerErr := response.ErrorFrom(c); handlerErr != nil {
-			fields = append(fields, zap.Error(handlerErr))
+			respFields = append(respFields, zap.Error(handlerErr))
 		}
 
 		if status >= fiber.StatusInternalServerError {
-			log.Error("request", fields...)
+			log.Error("response", respFields...)
 		} else {
-			log.Info("request", fields...)
+			log.Info("response", respFields...)
 		}
 
 		return err

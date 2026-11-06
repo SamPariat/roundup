@@ -32,7 +32,8 @@ func TestRecoverTurnsPanicIntoLogged500(t *testing.T) {
 	require.Len(t, panics, 1)
 	assert.NotEmpty(t, panics[0].ContextMap()["stack"])
 
-	requests := logs.FilterMessage("request").All()
-	require.Len(t, requests, 1)
-	assert.EqualValues(t, fiber.StatusInternalServerError, requests[0].ContextMap()["status"])
+	responses := logs.FilterMessage("response").All()
+	require.Len(t, responses, 1)
+	assert.Equal(t, zap.ErrorLevel, responses[0].Level)
+	assert.EqualValues(t, fiber.StatusInternalServerError, responses[0].ContextMap()["status"])
 }
