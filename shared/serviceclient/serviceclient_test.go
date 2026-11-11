@@ -111,3 +111,23 @@ func TestRedirectLoopStops(t *testing.T) {
 	_, err := New(server.URL, time.Second).Do(t.Context(), http.MethodGet, "/loop", "", nil) //nolint:bodyclose // errors before a body exists
 	require.ErrorContains(t, err, "stopped after 10 redirects")
 }
+
+func TestClientDoesNotUseHTTP2(t *testing.T) {
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
+	server.EnableHTTP2 = true
+	server.StartTLS()
+
+	defer server.Close()
+
+	client := New(server.URL, time.Second)
+	// Trust the test certificate without replacing the client's TLS config, so
+	// the ALPN offer under test is the one the client really sends.
+	client.http.Transport.(*http.Transport).TLSClientConfig.RootCAs = server.Client().Transport.(*http.Transport).TLSClientConfig.RootCAs
+
+	resp, err := client.Do(context.Background(), http.MethodGet, "/", "", nil)
+	require.NoError(t, err)
+
+	defer func() { _ = resp.Body.Close() }()
+
+	assert.Equal(t, 1, resp.ProtoMajor)
+}

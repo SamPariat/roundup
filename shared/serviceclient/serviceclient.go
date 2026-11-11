@@ -9,6 +9,7 @@ package serviceclient
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -46,9 +47,29 @@ func New(baseURL string, timeout time.Duration, opts ...Option) *Client {
 		opt(c)
 	}
 
-	c.http = &http.Client{Timeout: timeout, CheckRedirect: c.dropHeaderOffHost}
+	c.http = &http.Client{Timeout: timeout, CheckRedirect: c.dropHeaderOffHost, Transport: newHTTP1Transport()}
 
 	return c
+}
+
+// newHTTP1Transport returns the default transport restricted to HTTP/1.1.
+// Go's HTTP/2 client (through 1.27.4) updates its HPACK encoder when the
+// server sends a SETTINGS_HEADER_TABLE_SIZE frame without holding the lock
+// request encoding uses, so concurrent requests on one connection (e.g. a
+// burst of photo fetches from Google) can corrupt the encoder and panic with
+// "id (N) <= evictCount (M)", which kills the process. HTTP/1.1 has no shared
+// header encoder. Remove this once a Go release fixes it.
+//
+// ALPN is pinned to http/1.1 because setting Protocols alone still offers h2
+// in the TLS handshake; Google then answers in HTTP/2 and every call fails
+// with "malformed HTTP response".
+func newHTTP1Transport() *http.Transport {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.Protocols = new(http.Protocols)
+	t.Protocols.SetHTTP1(true)
+	t.TLSClientConfig = &tls.Config{NextProtos: []string{"http/1.1"}}
+
+	return t
 }
 
 // Do sends method to path. userID, if not empty, is sent as X-User-ID so the
