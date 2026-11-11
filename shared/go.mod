@@ -2,6 +2,8 @@ module github.com/SamPariat/roundup/shared
 
 go 1.27.0
 
+toolchain go1.27.4
+
 require (
 	github.com/casbin/casbin/v2 v2.135.0
 	github.com/getkin/kin-openapi v0.151.0

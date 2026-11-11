@@ -2,6 +2,8 @@ module github.com/SamPariat/roundup/services/auth-service
 
 go 1.27.0
 
+toolchain go1.27.4
+
 replace github.com/SamPariat/roundup/shared => ../../shared
 
 require (

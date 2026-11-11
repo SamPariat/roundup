@@ -9,7 +9,7 @@
 # Neither stage runs as root: the build stage uses an unprivileged "builder"
 # user, and the runtime image is distroless with its built-in "nonroot" user.
 
-FROM golang:1.27-alpine AS build
+FROM golang:1.27.4-alpine AS build
 RUN adduser -D -u 10001 builder
 USER builder
 WORKDIR /home/builder/src

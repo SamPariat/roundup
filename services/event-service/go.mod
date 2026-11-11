@@ -2,6 +2,8 @@ module github.com/SamPariat/roundup/services/event-service
 
 go 1.27.0
 
+toolchain go1.27.4
+
 require (
 	github.com/SamPariat/roundup/shared v0.0.0
 	github.com/gofiber/fiber/v3 v3.6.1
