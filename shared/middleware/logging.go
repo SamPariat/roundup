@@ -34,8 +34,8 @@ const (
 //
 // In LogFull, every line has the method and the path (the route alone, so
 // lines group by route); the response line adds the status and latency. The
-// JSON request body goes on the request line as req_body and the JSON
-// response body on the response line as resp_body, each whole and compacted
+// JSON request body goes on the request line as reqBody and the JSON
+// response body on the response line as respBody, each whole and compacted
 // onto one line, with sensitive keys redacted (see redact). Non-JSON bodies
 // (e.g. streamed files) are never read.
 func Logging(log *zap.Logger, mode LogMode) fiber.Handler {
@@ -49,14 +49,14 @@ func Logging(log *zap.Logger, mode LogMode) fiber.Handler {
 			zap.String("method", c.Method()),
 			zap.String("path", c.Path()),
 			queryField(c),
-			zap.String("request_id", RequestIDFrom(c)),
+			zap.String("requestID", RequestIDFrom(c)),
 		}
 
 		// Full slice expressions cap base, so each append copies it instead
 		// of the request and response lines writing into one shared array.
 		reqFields := base[:len(base):len(base)]
 		if isJSON(c.Get(fiber.HeaderContentType)) {
-			reqFields = append(reqFields, bodyField("req_body", c.Body()))
+			reqFields = append(reqFields, bodyField("reqBody", c.Body()))
 		}
 
 		log.Info("request", reqFields...)
@@ -72,7 +72,7 @@ func Logging(log *zap.Logger, mode LogMode) fiber.Handler {
 		// Checked before Body(): on a streamed response, Body() would read the
 		// whole stream into memory.
 		if isJSON(string(c.Response().Header.ContentType())) {
-			fields = append(fields, bodyField("resp_body", c.Response().Body()))
+			fields = append(fields, bodyField("respBody", c.Response().Body()))
 		}
 
 		logCompleted(log, c, "response", status, fields)
@@ -96,32 +96,32 @@ func accessLog(log *zap.Logger) fiber.Handler {
 }
 
 // accessFields are the access line's fields, named as in Traefik's JSON access
-// log. ClientHost is the address the connection came from (behind a load
+// log. clientHost is the address the connection came from (behind a load
 // balancer, the balancer); the client's own address, as the balancer saw it,
-// is in request_X-Forwarded-For when present. RouterName is the route that
-// matched, and ServiceURL the upstream the gateway's proxy sent the request
+// is in requestXForwardedFor when present. routerName is the route that
+// matched, and serviceURL the upstream the gateway's proxy sent the request
 // to (see SetServiceURL), absent when the gateway answered itself.
 func accessFields(c fiber.Ctx, status int, took time.Duration) []zap.Field {
 	fields := []zap.Field{
-		zap.String("ClientHost", c.IP()),
-		zap.String("RequestMethod", c.Method()),
-		zap.String("RequestPath", c.Path()),
+		zap.String("clientHost", c.IP()),
+		zap.String("requestMethod", c.Method()),
+		zap.String("requestPath", c.Path()),
 		queryField(c),
-		zap.String("RequestProtocol", c.Protocol()),
-		zap.Int("DownstreamStatus", status),
-		zap.Int("DownstreamContentSize", len(c.Response().Body())),
-		zap.String("request_User-Agent", c.Get(fiber.HeaderUserAgent)),
-		zap.String("RouterName", c.Route().Path),
-		zap.Duration("Duration", took),
-		zap.String("request_id", RequestIDFrom(c)),
+		zap.String("requestProtocol", c.Protocol()),
+		zap.Int("downstreamStatus", status),
+		zap.Int("downstreamContentSize", len(c.Response().Body())),
+		zap.String("requestUserAgent", c.Get(fiber.HeaderUserAgent)),
+		zap.String("routerName", c.Route().Path),
+		zap.Duration("duration", took),
+		zap.String("requestID", RequestIDFrom(c)),
 	}
 
 	if forwarded := c.Get(fiber.HeaderXForwardedFor); forwarded != "" {
-		fields = append(fields, zap.String("request_X-Forwarded-For", forwarded))
+		fields = append(fields, zap.String("requestXForwardedFor", forwarded))
 	}
 
 	if url, ok := c.Locals(serviceURLKey).(string); ok {
-		fields = append(fields, zap.String("ServiceURL", url))
+		fields = append(fields, zap.String("serviceURL", url))
 	}
 
 	return fields
@@ -145,7 +145,7 @@ func logCompleted(log *zap.Logger, c fiber.Ctx, msg string, status int, fields [
 const serviceURLKey = "middleware.serviceURL"
 
 // SetServiceURL records which upstream a proxied request went to, for the
-// access line's ServiceURL. The gateway's proxy calls it.
+// access line's serviceURL. The gateway's proxy calls it.
 func SetServiceURL(c fiber.Ctx, url string) {
 	c.Locals(serviceURLKey, url)
 }

@@ -56,7 +56,7 @@ func newLoggedApp(t *testing.T, mode LogMode) (*fiber.App, func() loggedLines) {
 		require.Len(t, parsed, 2, "a request is logged as one request line and one response line")
 		require.Equal(t, "request", parsed[0]["msg"])
 		require.Equal(t, "response", parsed[1]["msg"])
-		require.Equal(t, parsed[0]["request_id"], parsed[1]["request_id"], "both lines share the request ID")
+		require.Equal(t, parsed[0]["requestID"], parsed[1]["requestID"], "both lines share the request ID")
 
 		return loggedLines{req: parsed[0], resp: parsed[1]}
 	}
@@ -76,7 +76,7 @@ func TestLoggingRecordsRequestFields(t *testing.T) {
 	lines := logLine()
 	assert.Equal(t, "GET", lines.req["method"])
 	assert.Equal(t, "/venues", lines.req["path"])
-	assert.NotEmpty(t, lines.req["request_id"])
+	assert.NotEmpty(t, lines.req["requestID"])
 	assert.NotContains(t, lines.req, "status")
 
 	assert.Equal(t, "GET", lines.resp["method"])
@@ -108,27 +108,27 @@ func postJSON(t *testing.T, mode LogMode, body, resp string) loggedLines {
 func TestLoggingAddsCompactedBodies(t *testing.T) {
 	lines := postJSON(t, LogFull, "{\n  \"phone\": \"+919876543210\"\n}", `{"success":true}`)
 
-	assert.Equal(t, map[string]any{"phone": "+919876543210"}, lines.req["req_body"])
-	assert.Equal(t, map[string]any{"success": true}, lines.resp["resp_body"])
-	assert.NotContains(t, lines.req, "resp_body")
-	assert.NotContains(t, lines.resp, "req_body")
+	assert.Equal(t, map[string]any{"phone": "+919876543210"}, lines.req["reqBody"])
+	assert.Equal(t, map[string]any{"success": true}, lines.resp["respBody"])
+	assert.NotContains(t, lines.req, "respBody")
+	assert.NotContains(t, lines.resp, "reqBody")
 }
 
 func TestLoggingAccessWritesOneLineWithoutBodies(t *testing.T) {
 	lines := postJSON(t, LogAccess, `{"phone":"+919876543210"}`, `{"success":true}`)
 
-	assert.Equal(t, "POST", lines.resp["RequestMethod"])
-	assert.Equal(t, "/echo", lines.resp["RequestPath"])
-	assert.Equal(t, "HTTP/1.1", lines.resp["RequestProtocol"])
-	assert.EqualValues(t, fiber.StatusOK, lines.resp["DownstreamStatus"])
-	assert.EqualValues(t, len(`{"success":true}`), lines.resp["DownstreamContentSize"])
-	assert.Equal(t, "/echo", lines.resp["RouterName"])
-	assert.Contains(t, lines.resp, "Duration")
-	assert.Contains(t, lines.resp, "ClientHost")
-	assert.NotEmpty(t, lines.resp["request_id"])
-	assert.NotContains(t, lines.resp, "ServiceURL", "the app answered itself, so no upstream")
-	assert.NotContains(t, lines.resp, "req_body")
-	assert.NotContains(t, lines.resp, "resp_body")
+	assert.Equal(t, "POST", lines.resp["requestMethod"])
+	assert.Equal(t, "/echo", lines.resp["requestPath"])
+	assert.Equal(t, "HTTP/1.1", lines.resp["requestProtocol"])
+	assert.EqualValues(t, fiber.StatusOK, lines.resp["downstreamStatus"])
+	assert.EqualValues(t, len(`{"success":true}`), lines.resp["downstreamContentSize"])
+	assert.Equal(t, "/echo", lines.resp["routerName"])
+	assert.Contains(t, lines.resp, "duration")
+	assert.Contains(t, lines.resp, "clientHost")
+	assert.NotEmpty(t, lines.resp["requestID"])
+	assert.NotContains(t, lines.resp, "serviceURL", "the app answered itself, so no upstream")
+	assert.NotContains(t, lines.resp, "reqBody")
+	assert.NotContains(t, lines.resp, "respBody")
 }
 
 func TestLoggingAccessNamesTheUpstreamAndTheClient(t *testing.T) {
@@ -147,10 +147,10 @@ func TestLoggingAccessNamesTheUpstreamAndTheClient(t *testing.T) {
 	require.NoError(t, err)
 
 	lines := logLine()
-	assert.Equal(t, "http://venue-service:3006", lines.resp["ServiceURL"])
-	assert.Equal(t, "/api/v1/venues/:placeID", lines.resp["RouterName"], "the route pattern, not the path")
-	assert.Equal(t, "Roundup/1.0 (iPhone)", lines.resp["request_User-Agent"])
-	assert.Equal(t, "203.0.113.7, 10.0.0.1", lines.resp["request_X-Forwarded-For"])
+	assert.Equal(t, "http://venue-service:3006", lines.resp["serviceURL"])
+	assert.Equal(t, "/api/v1/venues/:placeID", lines.resp["routerName"], "the route pattern, not the path")
+	assert.Equal(t, "Roundup/1.0 (iPhone)", lines.resp["requestUserAgent"])
+	assert.Equal(t, "203.0.113.7, 10.0.0.1", lines.resp["requestXForwardedFor"])
 }
 
 func TestLoggingRedactsSensitiveKeys(t *testing.T) {
@@ -159,18 +159,18 @@ func TestLoggingRedactsSensitiveKeys(t *testing.T) {
 		`{"data":[{"accessToken":"a","refreshToken":{"v":"r"},"userID":"u"}]}`,
 	)
 
-	assert.Equal(t, map[string]any{"phone": "+919876543210", "code": redacted}, lines.req["req_body"])
+	assert.Equal(t, map[string]any{"phone": "+919876543210", "code": redacted}, lines.req["reqBody"])
 	assert.Equal(t,
 		map[string]any{"data": []any{map[string]any{"accessToken": redacted, "refreshToken": redacted, "userID": "u"}}},
-		lines.resp["resp_body"],
+		lines.resp["respBody"],
 	)
 }
 
 func TestLoggingKeepsInvalidJSONAsString(t *testing.T) {
 	lines := postJSON(t, LogFull, `{"phone":`, `{"a":1} trailing`)
 
-	assert.Equal(t, `{"phone":`, lines.req["req_body"])
-	assert.Equal(t, `{"a":1} trailing`, lines.resp["resp_body"])
+	assert.Equal(t, `{"phone":`, lines.req["reqBody"])
+	assert.Equal(t, `{"a":1} trailing`, lines.resp["respBody"])
 }
 
 func TestLoggingSkipsNonJSONResponse(t *testing.T) {
@@ -184,12 +184,12 @@ func TestLoggingSkipsNonJSONResponse(t *testing.T) {
 	_, err := app.Test(httptest.NewRequest("GET", "/photo", nil))
 	require.NoError(t, err)
 
-	assert.NotContains(t, logLine().resp, "resp_body")
+	assert.NotContains(t, logLine().resp, "respBody")
 }
 
 func TestLoggingKeepsLargeBodiesWhole(t *testing.T) {
 	note := strings.Repeat("x", 64<<10)
 	lines := postJSON(t, LogFull, `{"note":"`+note+`"}`, `{}`)
 
-	assert.Equal(t, map[string]any{"note": note}, lines.req["req_body"])
+	assert.Equal(t, map[string]any{"note": note}, lines.req["reqBody"])
 }

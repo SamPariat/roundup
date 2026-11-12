@@ -20,7 +20,7 @@ func Recover(log *zap.Logger) fiber.Handler {
 				log.Error("panic recovered",
 					zap.Any("panic", r),
 					zap.ByteString("stack", debug.Stack()),
-					zap.String("request_id", RequestIDFrom(c)),
+					zap.String("requestID", RequestIDFrom(c)),
 				)
 				err = response.Error(c, fiber.StatusInternalServerError, fmt.Errorf("panic: %v", r))
 			}

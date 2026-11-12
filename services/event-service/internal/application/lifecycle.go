@@ -136,6 +136,6 @@ func (u *EventUseCase) recordVisit(ctx context.Context, e domain.Event, userID s
 	}
 
 	if err := u.venues.RecordVisit(ctx, e, userID); err != nil {
-		u.log.Warn("failed to record the visit", zap.String("event_id", e.ID), zap.Error(err))
+		u.log.Warn("failed to record the visit", zap.String("eventID", e.ID), zap.Error(err))
 	}
 }
