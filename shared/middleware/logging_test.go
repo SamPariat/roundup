@@ -14,16 +14,18 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// loggedLines holds the fields of the two lines Logging writes per request.
+// loggedLines holds the fields of the lines Logging writes per request: in
+// LogFull the request and response lines, in LogAccess only the access line,
+// held in resp (req is nil).
 type loggedLines struct {
 	req, resp map[string]any
 }
 
-// newLoggedApp returns an app with RequestID and Logging mounted, and a
-// function that returns the request and response lines Logging wrote. Lines
-// are captured through a real JSON encoder, so tests see what production logs
-// contain rather than raw field values.
-func newLoggedApp(t *testing.T, logBodies bool) (*fiber.App, func() loggedLines) {
+// newLoggedApp returns an app with RequestID and Logging mounted in mode, and
+// a function that returns the lines Logging wrote, checking there are as many
+// as mode writes. Lines are captured through a real JSON encoder, so tests see
+// what production logs contain rather than raw field values.
+func newLoggedApp(t *testing.T, mode LogMode) (*fiber.App, func() loggedLines) {
 	t.Helper()
 
 	var buf bytes.Buffer
@@ -32,19 +34,26 @@ func newLoggedApp(t *testing.T, logBodies bool) (*fiber.App, func() loggedLines)
 
 	app := fiber.New()
 	app.Use(RequestID())
-	app.Use(Logging(zap.New(core), logBodies))
+	app.Use(Logging(zap.New(core), mode))
 
 	logLine := func() loggedLines {
 		t.Helper()
 
 		lines := strings.Split(strings.TrimSuffix(buf.String(), "\n"), "\n")
-		require.Len(t, lines, 2, "request is logged as one request line and one response line")
 
 		parsed := make([]map[string]any, len(lines))
 		for i, line := range lines {
 			require.NoError(t, json.Unmarshal([]byte(line), &parsed[i]))
 		}
 
+		if mode == LogAccess {
+			require.Len(t, parsed, 1, "a request is logged as one access line")
+			require.Equal(t, "access", parsed[0]["msg"])
+
+			return loggedLines{resp: parsed[0]}
+		}
+
+		require.Len(t, parsed, 2, "a request is logged as one request line and one response line")
 		require.Equal(t, "request", parsed[0]["msg"])
 		require.Equal(t, "response", parsed[1]["msg"])
 		require.Equal(t, parsed[0]["request_id"], parsed[1]["request_id"], "both lines share the request ID")
@@ -56,7 +65,7 @@ func newLoggedApp(t *testing.T, logBodies bool) (*fiber.App, func() loggedLines)
 }
 
 func TestLoggingRecordsRequestFields(t *testing.T) {
-	app, logLine := newLoggedApp(t, false)
+	app, logLine := newLoggedApp(t, LogFull)
 	app.Get("/venues", func(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
@@ -77,11 +86,11 @@ func TestLoggingRecordsRequestFields(t *testing.T) {
 }
 
 // postJSON sends body as a JSON POST to /echo, which replies with resp, and
-// returns the logged lines.
-func postJSON(t *testing.T, logBodies bool, body, resp string) loggedLines {
+// returns the lines Logging wrote in mode.
+func postJSON(t *testing.T, mode LogMode, body, resp string) loggedLines {
 	t.Helper()
 
-	app, logLine := newLoggedApp(t, logBodies)
+	app, logLine := newLoggedApp(t, mode)
 	app.Post("/echo", func(c fiber.Ctx) error {
 		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 
@@ -97,7 +106,7 @@ func postJSON(t *testing.T, logBodies bool, body, resp string) loggedLines {
 }
 
 func TestLoggingAddsCompactedBodies(t *testing.T) {
-	lines := postJSON(t, true, "{\n  \"phone\": \"+919876543210\"\n}", `{"success":true}`)
+	lines := postJSON(t, LogFull, "{\n  \"phone\": \"+919876543210\"\n}", `{"success":true}`)
 
 	assert.Equal(t, map[string]any{"phone": "+919876543210"}, lines.req["req_body"])
 	assert.Equal(t, map[string]any{"success": true}, lines.resp["resp_body"])
@@ -105,15 +114,20 @@ func TestLoggingAddsCompactedBodies(t *testing.T) {
 	assert.NotContains(t, lines.resp, "req_body")
 }
 
-func TestLoggingLeavesBodiesOutWhenDisabled(t *testing.T) {
-	lines := postJSON(t, false, `{"phone":"+919876543210"}`, `{"success":true}`)
+func TestLoggingAccessWritesOneLineWithoutBodies(t *testing.T) {
+	lines := postJSON(t, LogAccess, `{"phone":"+919876543210"}`, `{"success":true}`)
 
-	assert.NotContains(t, lines.req, "req_body")
+	assert.Equal(t, "POST", lines.resp["method"])
+	assert.Equal(t, "/echo", lines.resp["path"])
+	assert.EqualValues(t, fiber.StatusOK, lines.resp["status"])
+	assert.Contains(t, lines.resp, "latency")
+	assert.NotEmpty(t, lines.resp["request_id"])
+	assert.NotContains(t, lines.resp, "req_body")
 	assert.NotContains(t, lines.resp, "resp_body")
 }
 
 func TestLoggingRedactsSensitiveKeys(t *testing.T) {
-	lines := postJSON(t, true,
+	lines := postJSON(t, LogFull,
 		`{"phone":"+919876543210","code":"123456"}`,
 		`{"data":[{"accessToken":"a","refreshToken":{"v":"r"},"userID":"u"}]}`,
 	)
@@ -126,14 +140,14 @@ func TestLoggingRedactsSensitiveKeys(t *testing.T) {
 }
 
 func TestLoggingKeepsInvalidJSONAsString(t *testing.T) {
-	lines := postJSON(t, true, `{"phone":`, `{"a":1} trailing`)
+	lines := postJSON(t, LogFull, `{"phone":`, `{"a":1} trailing`)
 
 	assert.Equal(t, `{"phone":`, lines.req["req_body"])
 	assert.Equal(t, `{"a":1} trailing`, lines.resp["resp_body"])
 }
 
 func TestLoggingSkipsNonJSONResponse(t *testing.T) {
-	app, logLine := newLoggedApp(t, true)
+	app, logLine := newLoggedApp(t, LogFull)
 	app.Get("/photo", func(c fiber.Ctx) error {
 		c.Set(fiber.HeaderContentType, "image/jpeg")
 
@@ -146,11 +160,9 @@ func TestLoggingSkipsNonJSONResponse(t *testing.T) {
 	assert.NotContains(t, logLine().resp, "resp_body")
 }
 
-func TestLoggingTruncatesLargeBody(t *testing.T) {
-	big := `{"note":"` + strings.Repeat("x", maxLoggedBody) + `"}`
-	lines := postJSON(t, true, big, `{}`)
+func TestLoggingKeepsLargeBodiesWhole(t *testing.T) {
+	note := strings.Repeat("x", 64<<10)
+	lines := postJSON(t, LogFull, `{"note":"`+note+`"}`, `{}`)
 
-	body, ok := lines.req["req_body"].(string)
-	require.True(t, ok, "oversized body is logged as a string")
-	assert.Contains(t, body, "…(truncated ")
+	assert.Equal(t, map[string]any{"note": note}, lines.req["req_body"])
 }

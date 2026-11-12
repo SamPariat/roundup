@@ -15,7 +15,7 @@ import (
 func getLogged(t *testing.T, target string) loggedLines {
 	t.Helper()
 
-	app, logLine := newLoggedApp(t, false)
+	app, logLine := newLoggedApp(t, LogFull)
 	app.Get("/venues", func(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
@@ -53,15 +53,25 @@ func TestLoggingRedactsSensitiveQueryKeys(t *testing.T) {
 	assert.Equal(t, map[string]any{"code": redacted, "refreshToken": redacted}, lines.req["query"])
 }
 
-func TestLoggingCutsLongQueryValues(t *testing.T) {
-	lines := getLogged(t, "/venues?cursor="+strings.Repeat("x", maxLoggedQueryValue+44))
+func TestLoggingKeepsLongQueryValuesWhole(t *testing.T) {
+	cursor := strings.Repeat("x", 4<<10)
+	lines := getLogged(t, "/venues?cursor="+cursor)
 
-	query, ok := lines.req["query"].(map[string]any)
-	require.True(t, ok)
+	assert.Equal(t, map[string]any{"cursor": cursor}, lines.req["query"])
+}
 
-	cursor, ok := query["cursor"].(string)
-	require.True(t, ok)
-	assert.Equal(t, strings.Repeat("x", maxLoggedQueryValue)+"…(truncated 44 bytes)", cursor)
+func TestLoggingAccessLineHasTheQuery(t *testing.T) {
+	app, logLine := newLoggedApp(t, LogAccess)
+	app.Get("/venues", func(c fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	})
+
+	_, err := app.Test(httptest.NewRequest("GET", "/venues?lat=12.971598&radius=3000", nil))
+	require.NoError(t, err)
+
+	lines := logLine()
+	assert.Equal(t, map[string]any{"lat": "12.97", "radius": "3000"}, lines.resp["query"])
+	assert.EqualValues(t, fiber.StatusUnauthorized, lines.resp["status"])
 }
 
 func TestLoggingAddsNoQueryWithoutOne(t *testing.T) {

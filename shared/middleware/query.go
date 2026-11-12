@@ -18,10 +18,6 @@ var locationKeys = map[string]struct{}{
 // locationPlaces is how many decimal places a logged location keeps.
 const locationPlaces = 2
 
-// maxLoggedQueryValue caps how many bytes of one query value are logged;
-// Google's page tokens, sent back as ?cursor=, run to hundreds of characters.
-const maxLoggedQueryValue = 256
-
 // queryField logs the request's query string as a "query" object of its
 // parameters (the last value wins for a repeated key), with locations rounded
 // and sensitive keys redacted (see loggedQueryValue). No query string adds
@@ -42,8 +38,7 @@ func queryField(c fiber.Ctx) zap.Field {
 
 // loggedQueryValue is what the logs keep of one query parameter: a sensitive
 // key's value redacted, a location rounded (or redacted when it isn't a
-// number, since it could then hold anything), and any other value cut to
-// maxLoggedQueryValue bytes.
+// number, since it could then hold anything), and any other value whole.
 func loggedQueryValue(key, value string) string {
 	if _, ok := sensitiveKeys[key]; ok {
 		return redacted
@@ -58,5 +53,5 @@ func loggedQueryValue(key, value string) string {
 		return strconv.FormatFloat(f, 'f', locationPlaces, 64)
 	}
 
-	return string(truncateTo([]byte(value), maxLoggedQueryValue))
+	return value
 }
