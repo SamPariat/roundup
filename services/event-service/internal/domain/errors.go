@@ -17,6 +17,10 @@ var (
 	// times that can't work.
 	ErrInvalidEvent = errors.New("invalid event")
 
+	// ErrInvalidPhotoWidth is returned for a photo width other than one of
+	// api.PhotoWidths.
+	ErrInvalidPhotoWidth = errors.New("invalid photo width")
+
 	// ErrInvalidRSVP is returned for an answer other than GOING, MAYBE or
 	// NOT_GOING.
 	ErrInvalidRSVP = errors.New("rsvp must be GOING, MAYBE or NOT_GOING")

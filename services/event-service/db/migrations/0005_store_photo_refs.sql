@@ -19,6 +19,11 @@ ALTER TABLE nominations
     ADD COLUMN photo_author_uri  TEXT NOT NULL DEFAULT '';
 
 -- +goose Down
+-- Rolling back means running the code from before this change, which reads
+-- photo_url as venue-service's old photo path and loads the image from it. So
+-- the refs are turned back into those paths, /api/v1/venues/photos/{ref}, the
+-- reverse of the Up conversion above. (That route is gone after this change;
+-- the Down only matters together with rolling the services back too.)
 ALTER TABLE nominations
     DROP COLUMN photo_author_name,
     DROP COLUMN photo_author_uri;

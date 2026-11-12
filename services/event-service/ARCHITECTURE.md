@@ -55,7 +55,7 @@ Each is a single guarded `UPDATE`. Postgres locks each row and re-checks the `WH
 
 A nomination stores its place's first photo as venue-service's opaque `photo_ref`, with its size and first author, never a URL: the URLs venue-service hands out point at Google's image servers and expire.
 
-- **Each response looks up fresh URLs.** The event list (winners) and event detail (nominations and winner) collect the refs they show and make one `POST /internal/v1/venues/photo-urls` call (`EventUseCase.PhotoURLs`, 800 px wide).
+- **Each response looks up fresh URLs.** The event list (winners) and event detail (nominations and winner) collect the refs they show and make one `POST /internal/v1/venues/photo-urls` call (`EventUseCase.PhotoURLs`), as wide as the request's `?photoWidth=` (one of `api.PhotoWidths`, 800 when omitted; 400 otherwise). Routes that change the event check the width before changing anything.
 - **Photos are decoration.** If venue-service can't answer, the use case logs a warning and the event shows without photos instead of failing.
 - **Credits:** Google requires showing a photo's author with it, so each photo carries `attributions`.
 - Migration `0005_store_photo_refs.sql` turned the old `photo_url` paths (`/api/v1/venues/photos/{ref}`) back into refs.
