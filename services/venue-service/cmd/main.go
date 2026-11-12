@@ -48,7 +48,7 @@ func main() {
 	historyUC := application.NewHistoryUseCase(venueRepo, squadDirectory, venueUC)
 
 	app := fiber.New()
-	app.Use(middleware.RequestID(), middleware.Logging(log, true), middleware.Recover(log))
+	app.Use(middleware.RequestID(), middleware.Logging(log, middleware.LogFull), middleware.Recover(log))
 	server.Health(app, log, map[string]server.Check{"postgres": pool.Ping})
 	transporthttp.RegisterRoutes(app, &transporthttp.Handlers{
 		Venue:    transporthttp.NewVenueHandler(venueUC, favoriteUC),

@@ -63,6 +63,8 @@ func To(baseURL string, timeout time.Duration) fiber.Handler {
 		// Same for the CORS headers set before this handler ran.
 		cors := corsHeaders(c)
 
+		sharedmw.SetServiceURL(c, baseURL)
+
 		url := baseURL + string(c.Request().URI().RequestURI())
 		err := fiberproxy.DoTimeout(c, url, timeout)
 
