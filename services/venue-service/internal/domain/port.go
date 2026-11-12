@@ -40,6 +40,13 @@ type VenueCache interface {
 
 	// SetDetail stores the detail for placeID.
 	SetDetail(ctx context.Context, placeID string, detail *VenueDetail) error
+
+	// GetPhotoURLs returns the cached URLs of refs at width, by reference; a
+	// miss is absent from the map.
+	GetPhotoURLs(ctx context.Context, refs []string, width int) (map[string]string, error)
+
+	// SetPhotoURLs stores urls, by reference, as looked up at width.
+	SetPhotoURLs(ctx context.Context, urls map[string]string, width int) error
 }
 
 // VenueRepository abstracts the persistence layer (Postgres, etc.).

@@ -28,6 +28,19 @@ type SearchRequest struct {
 	Cursor string `query:"cursor"`
 }
 
+// PhotoRequest carries the query parameters of every route that returns
+// photos.
+type PhotoRequest struct {
+	// PhotoWidth is how wide the photos may be, one of api.PhotoWidths;
+	// api.DefaultPhotoWidth when omitted.
+	PhotoWidth int `query:"photoWidth"`
+
+	// PhotoCount is how many photos a venue's page returns,
+	// 1–api.MaxVenuePhotos; api.MaxVenuePhotos when omitted. Routes that show
+	// one photo per venue ignore it.
+	PhotoCount int `query:"photoCount"`
+}
+
 // ReviewResponse is the JSON representation of a single user review.
 type ReviewResponse struct {
 	// AuthorName is the reviewer's display name.

@@ -33,6 +33,10 @@ var (
 	// or out of range. Callers must fix the request; retrying will not help.
 	ErrInvalidSearch = errors.New("invalid search parameters")
 
+	// ErrInvalidPhotoOptions is returned when a request asks for a photo width
+	// outside api.PhotoWidths or a photo count outside 1–api.MaxVenuePhotos.
+	ErrInvalidPhotoOptions = errors.New("invalid photo options")
+
 	// ErrVisitAlreadyRecorded is returned when the squad already has a visit
 	// recorded for this venue during this event.
 	ErrVisitAlreadyRecorded = errors.New("visit already recorded for this event")

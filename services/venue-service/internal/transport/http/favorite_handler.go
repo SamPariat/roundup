@@ -63,6 +63,11 @@ func (h *FavoriteHandler) List(c fiber.Ctx) error {
 		return response.Error(c, fiber.StatusBadRequest, err)
 	}
 
+	photos, err := photoOptions(c)
+	if err != nil {
+		return response.Error(c, errorStatus(err), err)
+	}
+
 	favorites, next, err := h.uc.List(c.Context(), c.Params("squadID"), middleware.UserIDFrom(c), page)
 	if err != nil {
 		return response.Error(c, errorStatus(err), err)
@@ -73,7 +78,7 @@ func (h *FavoriteHandler) List(c fiber.Ctx) error {
 		refs = append(refs, item.Photo)
 	}
 
-	urls, err := h.venues.PhotoURLs(c.Context(), refs, thumbPhotoWidth)
+	urls, err := h.venues.PhotoURLs(c.Context(), refs, photos.Width)
 	if err != nil {
 		return response.Error(c, errorStatus(err), err)
 	}

@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sync"
 
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
@@ -12,7 +14,7 @@ import (
 // searchKeyPrefix namespaces search entries in the cache. Each entry holds a
 // whole page (venues and next token); bump the version when that shape
 // changes, so old entries are never read as the new one.
-const searchKeyPrefix = "venue:search:v2:"
+const searchKeyPrefix = "venue:search:v1:"
 
 // maxPhotoLookups caps how many photo URL lookups one call to PhotoURLs runs at
 // once; a search page needs up to 20.
@@ -81,13 +83,44 @@ func (u *VenueUseCase) GetDetail(ctx context.Context, placeID string) (*domain.V
 	return detail, nil
 }
 
-// PhotoURLs looks up a direct URL, at most maxWidth pixels wide, for each of
-// refs at once (at most maxPhotoLookups in flight) and returns them by
-// reference. The first domain.ErrProviderUnavailable cancels the other
-// lookups and is returned. Refs with an empty Reference are skipped, and a photo missing
-// from the map is one the response leaves out. URLs expire, so they are
-// looked up per request and never cached or stored.
+// PhotoURLs returns a direct URL, at most maxWidth pixels wide, for each of
+// refs, by reference. URLs cached for maxWidth are reused; the rest are looked
+// up from the provider and cached. Refs with an empty Reference are skipped,
+// and a photo missing from the map is one the response leaves out. Cache
+// errors are ignored, like the other cache reads and writes here.
 func (u *VenueUseCase) PhotoURLs(ctx context.Context, refs []domain.PhotoRef, maxWidth int) (map[string]string, error) {
+	wanted := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		if ref.Reference != "" && !slices.Contains(wanted, ref.Reference) {
+			wanted = append(wanted, ref.Reference)
+		}
+	}
+
+	cached, _ := u.cache.GetPhotoURLs(ctx, wanted, maxWidth)
+
+	missing := make([]string, 0, len(wanted))
+	for _, ref := range wanted {
+		if _, ok := cached[ref]; !ok {
+			missing = append(missing, ref)
+		}
+	}
+
+	urls, err := u.lookUpPhotoURLs(ctx, missing, maxWidth)
+	if err != nil {
+		return nil, err
+	}
+
+	_ = u.cache.SetPhotoURLs(ctx, urls, maxWidth)
+
+	maps.Copy(urls, cached)
+
+	return urls, nil
+}
+
+// lookUpPhotoURLs asks the provider for each of refs at once (at most
+// maxPhotoLookups in flight) and returns the URLs by reference. The first
+// domain.ErrProviderUnavailable cancels the other lookups and is returned.
+func (u *VenueUseCase) lookUpPhotoURLs(ctx context.Context, refs []string, maxWidth int) (map[string]string, error) {
 	var (
 		mu      sync.Mutex
 		wg      sync.WaitGroup
@@ -102,7 +135,7 @@ func (u *VenueUseCase) PhotoURLs(ctx context.Context, refs []domain.PhotoRef, ma
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// fail makes PhotoURLs return err instead of the URLs and cancels the
+	// fail makes lookUpPhotoURLs return err instead of the URLs and cancels the
 	// remaining lookups; the first call wins.
 	fail := func(err error) {
 		mu.Lock()
@@ -116,10 +149,6 @@ func (u *VenueUseCase) PhotoURLs(ctx context.Context, refs []domain.PhotoRef, ma
 	}
 
 	for _, ref := range refs {
-		if ref.Reference == "" {
-			continue
-		}
-
 		wg.Go(func() {
 			// Wait for a slot, unless a failure already cancelled the rest.
 			select {
@@ -130,7 +159,7 @@ func (u *VenueUseCase) PhotoURLs(ctx context.Context, refs []domain.PhotoRef, ma
 
 			defer func() { <-slots }()
 
-			url, err := u.provider.PhotoURL(ctx, ref.Reference, maxWidth)
+			url, err := u.provider.PhotoURL(ctx, ref, maxWidth)
 			if err != nil {
 				// A photo Google no longer has is left out; Google itself
 				// failing fails the response, so an outage or a bad key is
@@ -143,7 +172,7 @@ func (u *VenueUseCase) PhotoURLs(ctx context.Context, refs []domain.PhotoRef, ma
 			}
 
 			mu.Lock()
-			urls[ref.Reference] = url
+			urls[ref] = url
 			mu.Unlock()
 		})
 	}

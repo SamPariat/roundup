@@ -5,6 +5,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/SamPariat/roundup/shared/api"
 	"github.com/SamPariat/roundup/shared/domainerr"
 )
 
@@ -141,6 +142,46 @@ func (v Venue) Snapshot() VenueSnapshot {
 	}
 
 	return snapshot
+}
+
+// PhotoOptions are how a response's photos are looked up, as the client asks:
+// how wide, and on a venue's page how many.
+type PhotoOptions struct {
+	// Width is the widest the images may be, one of api.PhotoWidths.
+	Width int
+
+	// Count is how many photos a venue's page shows, 1–api.MaxVenuePhotos.
+	// Responses that show one photo per venue ignore it.
+	Count int
+}
+
+// NewPhotoOptions fills what the client left out (zero) with
+// api.DefaultPhotoWidth and api.MaxVenuePhotos.
+func NewPhotoOptions(width, count int) PhotoOptions {
+	if width == 0 {
+		width = api.DefaultPhotoWidth
+	}
+
+	if count == 0 {
+		count = api.MaxVenuePhotos
+	}
+
+	return PhotoOptions{Width: width, Count: count}
+}
+
+// Validate reports whether o is a width and count the client may ask for. It
+// returns a DomainError wrapping ErrInvalidPhotoOptions, so the transport
+// layer maps it to 400 before any provider call.
+func (o PhotoOptions) Validate() error {
+	if !api.IsPhotoWidth(o.Width) {
+		return domainerr.New(ErrInvalidPhotoOptions, fmt.Sprintf("photoWidth must be one of %v", api.PhotoWidths))
+	}
+
+	if o.Count < 1 || o.Count > api.MaxVenuePhotos {
+		return domainerr.New(ErrInvalidPhotoOptions, fmt.Sprintf("photoCount must be between 1 and %d", api.MaxVenuePhotos))
+	}
+
+	return nil
 }
 
 // Search limits enforced by SearchParams.Validate.

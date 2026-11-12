@@ -18,6 +18,7 @@ func TestErrorStatus(t *testing.T) {
 	}{
 		{domain.ErrInvalidSearch, fiber.StatusBadRequest},
 		{pagination.ErrInvalid, fiber.StatusBadRequest},
+		{domain.ErrInvalidPhotoOptions, fiber.StatusBadRequest},
 		{domain.ErrSquadNotFound, fiber.StatusNotFound},
 		{domain.ErrVenueNotFound, fiber.StatusNotFound},
 		{domain.ErrNotSaved, fiber.StatusNotFound},

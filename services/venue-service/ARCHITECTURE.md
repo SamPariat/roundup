@@ -134,6 +134,8 @@ type VenueCache interface {
     SetNearby(ctx context.Context, key string, result *SearchResult) error
     GetDetail(ctx context.Context, placeID string) (*VenueDetail, error)
     SetDetail(ctx context.Context, placeID string, detail *VenueDetail) error
+    GetPhotoURLs(ctx context.Context, refs []string, width int) (map[string]string, error) // misses absent
+    SetPhotoURLs(ctx context.Context, urls map[string]string, width int) error
 }
 
 // VenueRepository — swap Postgres for any DB by writing a new adapter
@@ -326,7 +328,7 @@ All `/squads/:squadID/*` routes, and `GET /venues/:placeID` (for `savedIn`), req
 
 | Domain sentinel | HTTP status |
 |---|---|
-| request body / query fails to bind, `ErrInvalidSearch` | 400 |
+| request body / query fails to bind, `ErrInvalidSearch`, `ErrInvalidPhotoOptions` | 400 |
 | missing or invalid `X-User-ID` on squad routes and venue details (middleware) | 401 |
 | `ErrVenueNotFound`, `ErrNotSaved`, `ErrSquadNotFound` | 404 |
 | `ErrAlreadySaved`, `ErrVisitAlreadyRecorded` | 409 |
@@ -410,8 +412,9 @@ The `RedisCacheAdapter` implements `domain.VenueCache`. All cache operations are
 
 | Data | Key | TTL |
 |---|---|---|
-| Search (one page) | `venue:search:v2:{lat}:{lng}:{radius}:{query}:{type}:{pageToken}` | 10 min |
-| Venue detail | `venue:detail:v2:{placeID}` | 10 min |
+| Search (one page) | `venue:search:v1:{lat}:{lng}:{radius}:{query}:{type}:{pageToken}` | 10 min |
+| Venue detail | `venue:detail:v1:{placeID}` | 10 min |
+| Photo URL | `venue:photo:v1:{width}:{reference}` | 10 min |
 
 Every key is namespaced under `venue:` so entries never collide with other users of the same Redis. The TTL is `cache.DefaultTTL`, passed to `NewRedisCacheAdapter` in `main.go` and applied to every write.
 
@@ -493,9 +496,10 @@ Google names a photo `places/{placeId}/photos/{ref}`, which has slashes, so the 
 
 Responses carry each photo's image URL on Google's servers, so clients load images directly and never call venue-service per image. `PhotoURL` asks Google's photo media endpoint with `skipHttpRedirect=true`, which answers with the image's `photoUri` (no API key in it) instead of the image.
 
-- **Only what the screen draws is looked up**, since Google bills every photo: the first photo per search card, five on a venue's page, one per favorite or history row. Each handler picks its width (`cardPhotoWidth`, `detailPhotoWidth`, `thumbPhotoWidth`).
+- **The client says how big and how many.** Every route that returns photos takes `?photoWidth=`, one of `api.PhotoWidths` (200, 400, 600, 800, 1200, 1600; 800 when omitted), which the client picks from the slot's size times the screen's pixel density. A venue's page also takes `?photoCount=` (1–5; 5 when omitted). Anything else is 400 (`ErrInvalidPhotoOptions`), checked in `photoOptions` before any Google call.
+- **Only what the screen draws is looked up**, since Google bills every photo: the first photo per search card, `photoCount` on a venue's page, one per favorite or history row.
 - **`VenueUseCase.PhotoURLs` looks them up at once**, at most `maxPhotoLookups` in flight. A photo Google no longer has is left out of the response; Google itself failing (`ErrProviderUnavailable`) fails the response with 503, so an outage or a bad key shows instead of hiding behind cards without photos. That first failure cancels the lookups still running, and the ones waiting for a slot never start.
-- **URLs expire, so they are never cached or stored.** The Redis cache and the favorite and visit snapshots keep the `reference`; every response looks up fresh URLs. event-service does the same with `POST /internal/v1/venues/photo-urls`.
+- **URLs are cached for 10 minutes, never stored.** `PhotoURLs` reads `venue:photo:v1:{width}:{reference}` for every photo in one MGET, looks up only the misses, and writes them back in one pipeline, with the same TTL as the search results that name them (the URLs expire on Google's side). The favorite and visit snapshots keep the `reference`, never a URL. event-service does the same with `POST /internal/v1/venues/photo-urls`.
 - **Credits:** Google requires showing a photo's authors with it, so each photo carries `attributions`; snapshots keep the first author.
 - **Shared contract:** the photo response, `POST /internal/v1/venues/photo-urls` and its bodies live in `shared/api` (`PhotoResponse`, `VenuePhotoURLsPath`, `PhotoURLsRequest`), since event-service answers with the same photo and calls the route.
 - **Connections:** the shared service client speaks HTTP/1.1 (see `shared/serviceclient`), one request per connection, so it keeps up to 16 idle connections per host to reuse across a page of lookups.

@@ -7,23 +7,10 @@ import (
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 	"github.com/SamPariat/roundup/services/venue-service/internal/transport/http/dtos"
 	"github.com/SamPariat/roundup/shared/api"
+	"github.com/SamPariat/roundup/shared/domainerr"
 	"github.com/SamPariat/roundup/shared/middleware"
 	"github.com/SamPariat/roundup/shared/response"
 	"github.com/gofiber/fiber/v3"
-)
-
-// Photo widths in pixels, one per kind of screen, and how many photos a
-// venue's page shows. Google bills each photo looked up, so a response only
-// carries the photos its screen draws.
-const (
-	// cardPhotoWidth fits a search card, 400 points at 2x.
-	cardPhotoWidth = 800
-	// detailPhotoWidth fits the largest tile of a venue's page, 570 points at 2x.
-	detailPhotoWidth = 1200
-	// thumbPhotoWidth fits a favorite or history row's thumbnail, 56 points at 3x.
-	thumbPhotoWidth = 200
-	// detailPhotoCount is the large photo and the four beside it.
-	detailPhotoCount = 5
 )
 
 // VenueHandler handles HTTP requests for venue search and detail lookups.
@@ -47,6 +34,11 @@ func (h *VenueHandler) Search(c fiber.Ctx) error {
 		return response.Error(c, fiber.StatusBadRequest, err)
 	}
 
+	photos, err := photoOptions(c)
+	if err != nil {
+		return response.Error(c, errorStatus(err), err)
+	}
+
 	result, err := h.uc.Search(c.Context(), domain.SearchParams{
 		Latitude:       req.Lat,
 		Longitude:      req.Lng,
@@ -64,7 +56,7 @@ func (h *VenueHandler) Search(c fiber.Ctx) error {
 		refs = append(refs, firstPhotos(v.PhotoRefs, 1)...)
 	}
 
-	urls, err := h.uc.PhotoURLs(c.Context(), refs, cardPhotoWidth)
+	urls, err := h.uc.PhotoURLs(c.Context(), refs, photos.Width)
 	if err != nil {
 		return response.Error(c, errorStatus(err), err)
 	}
@@ -73,9 +65,14 @@ func (h *VenueHandler) Search(c fiber.Ctx) error {
 }
 
 // GetDetail handles GET /api/v1/venues/:placeID: full details for one venue,
-// with its first detailPhotoCount photos, plus which of the caller's squads
-// they saved it in.
+// with as many of its photos as ?photoCount= asks for (5 when omitted), plus
+// which of the caller's squads they saved it in.
 func (h *VenueHandler) GetDetail(c fiber.Ctx) error {
+	photos, err := photoOptions(c)
+	if err != nil {
+		return response.Error(c, errorStatus(err), err)
+	}
+
 	placeID := c.Params("placeID")
 
 	detail, err := h.uc.GetDetail(c.Context(), placeID)
@@ -88,7 +85,7 @@ func (h *VenueHandler) GetDetail(c fiber.Ctx) error {
 		return response.Error(c, errorStatus(err), err)
 	}
 
-	urls, err := h.uc.PhotoURLs(c.Context(), firstPhotos(detail.PhotoRefs, detailPhotoCount), detailPhotoWidth)
+	urls, err := h.uc.PhotoURLs(c.Context(), firstPhotos(detail.PhotoRefs, photos.Count), photos.Width)
 	if err != nil {
 		return response.Error(c, errorStatus(err), err)
 	}
@@ -96,7 +93,7 @@ func (h *VenueHandler) GetDetail(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.VenueDetailToResponse(*detail, savedIn, urls)))
 }
 
-// PhotoURLs handles POST api.VenuePhotoURLsPath: fresh direct URLs
+// PhotoURLs handles POST /internal/v1/venues/photo-urls: fresh direct URLs
 // for photo references another service stored, since the URLs expire.
 func (h *VenueHandler) PhotoURLs(c fiber.Ctx) error {
 	var req api.PhotoURLsRequest
@@ -105,11 +102,14 @@ func (h *VenueHandler) PhotoURLs(c fiber.Ctx) error {
 	}
 
 	if len(req.Refs) > api.MaxPhotoURLRefs {
-		return response.Error(c, fiber.StatusBadRequest, fmt.Errorf("at most %d refs per request", api.MaxPhotoURLRefs))
+		err := domainerr.New(domain.ErrInvalidPhotoOptions, fmt.Sprintf("at most %d refs per request", api.MaxPhotoURLRefs))
+
+		return response.Error(c, errorStatus(err), err)
 	}
 
-	if req.MaxWidth < 1 || req.MaxWidth > api.MaxPhotoURLWidth {
-		return response.Error(c, fiber.StatusBadRequest, fmt.Errorf("maxWidth must be between 1 and %d", api.MaxPhotoURLWidth))
+	photos := domain.NewPhotoOptions(req.MaxWidth, 0)
+	if err := photos.Validate(); err != nil {
+		return response.Error(c, errorStatus(err), err)
 	}
 
 	refs := make([]domain.PhotoRef, 0, len(req.Refs))
@@ -117,12 +117,27 @@ func (h *VenueHandler) PhotoURLs(c fiber.Ctx) error {
 		refs = append(refs, domain.PhotoRef{Reference: ref})
 	}
 
-	urls, err := h.uc.PhotoURLs(c.Context(), refs, req.MaxWidth)
+	urls, err := h.uc.PhotoURLs(c.Context(), refs, photos.Width)
 	if err != nil {
 		return response.Error(c, errorStatus(err), err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response.OK(api.PhotoURLsResponse{URLs: urls}))
+}
+
+// photoOptions reads ?photoWidth= and ?photoCount=, filling what is left out
+// with the defaults. A value the client may not ask for is
+// domain.ErrInvalidPhotoOptions, and one that isn't a number a bind error;
+// both are 400 through errorStatus.
+func photoOptions(c fiber.Ctx) (domain.PhotoOptions, error) {
+	var req dtos.PhotoRequest
+	if err := c.Bind().Query(&req); err != nil {
+		return domain.PhotoOptions{}, domainerr.New(domain.ErrInvalidPhotoOptions, err.Error())
+	}
+
+	photos := domain.NewPhotoOptions(req.PhotoWidth, req.PhotoCount)
+
+	return photos, photos.Validate()
 }
 
 // firstPhotos returns at most n of refs, from the start.

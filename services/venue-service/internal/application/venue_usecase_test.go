@@ -26,6 +26,8 @@ type fakeVenueCache struct {
 	getNearbyFn func(ctx context.Context, key string) (*domain.SearchResult, error)
 	getDetailFn func(ctx context.Context, placeID string) (*domain.VenueDetail, error)
 	setKeys     []string
+	// photos holds cached photo URLs by "width:reference".
+	photos map[string]string
 }
 
 type fakePlaceProvider struct {
@@ -57,6 +59,30 @@ func (f *fakeVenueCache) GetDetail(ctx context.Context, placeID string) (*domain
 }
 
 func (f *fakeVenueCache) SetDetail(_ context.Context, _ string, _ *domain.VenueDetail) error {
+	return nil
+}
+
+func (f *fakeVenueCache) GetPhotoURLs(_ context.Context, refs []string, width int) (map[string]string, error) {
+	urls := map[string]string{}
+
+	for _, ref := range refs {
+		if url, ok := f.photos[fmt.Sprintf("%d:%s", width, ref)]; ok {
+			urls[ref] = url
+		}
+	}
+
+	return urls, nil
+}
+
+func (f *fakeVenueCache) SetPhotoURLs(_ context.Context, urls map[string]string, width int) error {
+	if f.photos == nil {
+		f.photos = map[string]string{}
+	}
+
+	for ref, url := range urls {
+		f.photos[fmt.Sprintf("%d:%s", width, ref)] = url
+	}
+
 	return nil
 }
 
@@ -361,4 +387,37 @@ func TestPhotoURLsCancelsTheOtherLookupsWhenGoogleIsDown(t *testing.T) {
 	assert.Less(t, time.Since(begin), time.Second, "the hanging lookups are cancelled, not waited out")
 	assert.Equal(t, started-1, cancelled, "every lookup that started, other than the failed one, saw the cancel")
 	assert.Less(t, started, len(refs), "lookups still waiting for a slot never start")
+}
+
+func TestPhotoURLsReusesCachedURLsAndCachesTheRest(t *testing.T) {
+	var asked []string
+
+	cache := &fakeVenueCache{photos: map[string]string{"400:a": "https://img.example/cached-a"}}
+	uc := NewVenueUseCase(&fakePlaceProvider{
+		photoURLFn: func(_ context.Context, reference string, maxWidth int) (string, error) {
+			asked = append(asked, reference)
+
+			return fmt.Sprintf("https://img.example/%s?w=%d", reference, maxWidth), nil
+		},
+	}, cache)
+
+	urls, err := uc.PhotoURLs(t.Context(), []domain.PhotoRef{{Reference: "a"}, {Reference: "b"}, {Reference: "b"}}, 400)
+	require.NoError(t, err)
+
+	assert.Equal(t, map[string]string{"a": "https://img.example/cached-a", "b": "https://img.example/b?w=400"}, urls)
+	assert.Equal(t, []string{"b"}, asked, "only the uncached photo is looked up, once")
+	assert.Equal(t, "https://img.example/b?w=400", cache.photos["400:b"], "the new URL is cached under its width")
+}
+
+func TestPhotoURLsCachesEachWidthSeparately(t *testing.T) {
+	cache := &fakeVenueCache{photos: map[string]string{"400:a": "https://img.example/a?w=400"}}
+	uc := NewVenueUseCase(&fakePlaceProvider{
+		photoURLFn: func(_ context.Context, reference string, maxWidth int) (string, error) {
+			return fmt.Sprintf("https://img.example/%s?w=%d", reference, maxWidth), nil
+		},
+	}, cache)
+
+	urls, err := uc.PhotoURLs(t.Context(), []domain.PhotoRef{{Reference: "a"}}, 800)
+	require.NoError(t, err)
+	assert.Equal(t, "https://img.example/a?w=800", urls["a"], "a URL cached at 400 doesn't serve 800")
 }
