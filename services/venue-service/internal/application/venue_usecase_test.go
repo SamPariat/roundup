@@ -324,9 +324,13 @@ func TestPhotoURLsCancelsTheOtherLookupsWhenGoogleIsDown(t *testing.T) {
 		photoURLFn: func(ctx context.Context, reference string, _ int) (string, error) {
 			mu.Lock()
 			started++
+			first := started == 1
 			mu.Unlock()
 
-			if reference == "down" {
+			// Whichever lookup starts first finds Google down. Goroutines
+			// don't start in loop order, so the failure can't be tied to a
+			// particular ref.
+			if first {
 				return "", domainerr.New(domain.ErrProviderUnavailable, "quota")
 			}
 
@@ -345,7 +349,7 @@ func TestPhotoURLsCancelsTheOtherLookupsWhenGoogleIsDown(t *testing.T) {
 	}, &fakeVenueCache{})
 
 	// More refs than slots, so some wait for a slot when the failure lands.
-	refs := []domain.PhotoRef{{Reference: "down"}}
+	refs := make([]domain.PhotoRef, 0, 3*maxPhotoLookups)
 	for i := range 3 * maxPhotoLookups {
 		refs = append(refs, domain.PhotoRef{Reference: fmt.Sprintf("slow-%d", i)})
 	}
