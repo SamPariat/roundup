@@ -1,22 +1,20 @@
 package dtos
 
 import (
-	"net/url"
-
+	"github.com/SamPariat/roundup/shared/api"
 	"github.com/SamPariat/roundup/shared/pagination"
 
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 )
 
-// photoPath is where clients load venue photos; the gateway serves it without
-// a token so it works as an image source.
-const photoPath = "/api/v1/venues/photos/"
-
-// VenueToResponse maps a domain.Venue to a VenueResponse.
-func VenueToResponse(v domain.Venue) VenueResponse {
-	photos := make([]PhotoResponse, 0, len(v.PhotoRefs))
+// VenueToResponse maps a domain.Venue to a VenueResponse. urls holds each
+// photo's direct URL by reference; photos without one are left out.
+func VenueToResponse(v domain.Venue, urls map[string]string) VenueResponse {
+	photos := make([]api.PhotoResponse, 0, len(v.PhotoRefs))
 	for _, p := range v.PhotoRefs {
-		photos = append(photos, photoToResponse(p))
+		if photo := optionalPhoto(p, urls); photo != nil {
+			photos = append(photos, *photo)
+		}
 	}
 
 	return VenueResponse{
@@ -35,8 +33,8 @@ func VenueToResponse(v domain.Venue) VenueResponse {
 }
 
 // VenueDetailToResponse maps a domain.VenueDetail and the caller's squads to
-// a VenueDetailResponse.
-func VenueDetailToResponse(d domain.VenueDetail, savedIn []domain.SquadSaved) VenueDetailResponse {
+// a VenueDetailResponse, with the photos urls holds.
+func VenueDetailToResponse(d domain.VenueDetail, savedIn []domain.SquadSaved, urls map[string]string) VenueDetailResponse {
 	reviews := make([]ReviewResponse, 0, len(d.Reviews))
 	for _, r := range d.Reviews {
 		reviews = append(reviews, ReviewResponse{
@@ -48,7 +46,7 @@ func VenueDetailToResponse(d domain.VenueDetail, savedIn []domain.SquadSaved) Ve
 	}
 
 	return VenueDetailResponse{
-		VenueResponse:    VenueToResponse(d.Venue),
+		VenueResponse:    VenueToResponse(d.Venue, urls),
 		PhoneNumber:      d.PhoneNumber,
 		Website:          d.Website,
 		OpeningHours:     d.OpeningHours,
@@ -59,8 +57,9 @@ func VenueDetailToResponse(d domain.VenueDetail, savedIn []domain.SquadSaved) Ve
 }
 
 // FavoritesToResponse maps one page of domain.SquadFavorite to a
-// FavoritesResponse; next is the next page's cursor, "" on the last page.
-func FavoritesToResponse(favorites []domain.SquadFavorite, next string) FavoritesResponse {
+// FavoritesResponse; next is the next page's cursor, "" on the last page, and
+// urls holds the photos' direct URLs.
+func FavoritesToResponse(favorites []domain.SquadFavorite, next string, urls map[string]string) FavoritesResponse {
 	responses := make([]FavoriteResponse, 0, len(favorites))
 	for _, f := range favorites {
 		savedBy := make([]MemberResponse, 0, len(f.SavedBy))
@@ -75,7 +74,7 @@ func FavoritesToResponse(favorites []domain.SquadFavorite, next string) Favorite
 			AverageRating: f.AverageRating,
 			RatingCount:   f.RatingCount,
 			PriceLevel:    f.PriceLevel,
-			Photo:         optionalPhoto(f.Photo),
+			Photo:         optionalPhoto(f.Photo, urls),
 			SavedBy:       savedBy,
 			SavedByMe:     f.SavedByMe,
 			LastSavedAt:   f.LastSavedAt,
@@ -86,8 +85,9 @@ func FavoritesToResponse(favorites []domain.SquadFavorite, next string) Favorite
 }
 
 // VisitHistoryToResponse maps one page of domain.VisitSummary to a
-// VisitHistoryResponse; next is the next page's cursor, "" on the last page.
-func VisitHistoryToResponse(summaries []domain.VisitSummary, next string) VisitHistoryResponse {
+// VisitHistoryResponse; next is the next page's cursor, "" on the last page,
+// and urls holds the photos' direct URLs.
+func VisitHistoryToResponse(summaries []domain.VisitSummary, next string, urls map[string]string) VisitHistoryResponse {
 	responses := make([]VisitSummaryResponse, 0, len(summaries))
 	for _, s := range summaries {
 		var avgSpend *int64
@@ -99,7 +99,7 @@ func VisitHistoryToResponse(summaries []domain.VisitSummary, next string) VisitH
 			PlaceID:         s.PlaceID,
 			Name:            s.Name,
 			Address:         s.Address,
-			Photo:           optionalPhoto(s.Photo),
+			Photo:           optionalPhoto(s.Photo, urls),
 			VisitCount:      s.VisitCount,
 			LastVisitedAt:   s.LastVisitedAt,
 			AvgSpendInPaise: avgSpend,
@@ -109,34 +109,31 @@ func VisitHistoryToResponse(summaries []domain.VisitSummary, next string) VisitH
 	return VisitHistoryResponse{History: responses, NextCursor: pagination.NextCursor(next)}
 }
 
-// SearchResultToResponse maps one page of search results to a SearchResponse.
-func SearchResultToResponse(result *domain.SearchResult) SearchResponse {
+// SearchResultToResponse maps one page of search results to a SearchResponse,
+// with the photos urls holds.
+func SearchResultToResponse(result *domain.SearchResult, urls map[string]string) SearchResponse {
 	responses := make([]VenueResponse, 0, len(result.Venues))
 	for _, v := range result.Venues {
-		responses = append(responses, VenueToResponse(v))
+		responses = append(responses, VenueToResponse(v, urls))
 	}
 
 	return SearchResponse{Venues: responses, NextCursor: pagination.NextCursor(result.NextPageToken)}
 }
 
-// photoToResponse maps a domain.PhotoRef to a PhotoResponse.
-func photoToResponse(p domain.PhotoRef) PhotoResponse {
-	return PhotoResponse{
-		URL:    photoPath + url.PathEscape(p.Reference),
-		Width:  p.Width,
-		Height: p.Height,
-	}
-}
-
-// optionalPhoto maps p to a PhotoResponse, or nil when it has no reference.
-func optionalPhoto(p domain.PhotoRef) *PhotoResponse {
-	if p.Reference == "" {
+// optionalPhoto maps p to a PhotoResponse with its URL from urls, or nil when
+// urls has none for it (no photo, or its lookup failed).
+func optionalPhoto(p domain.PhotoRef, urls map[string]string) *api.PhotoResponse {
+	url, ok := urls[p.Reference]
+	if !ok {
 		return nil
 	}
 
-	photo := photoToResponse(p)
+	attributions := make([]api.PhotoAttributionResponse, 0, len(p.Attributions))
+	for _, a := range p.Attributions {
+		attributions = append(attributions, api.PhotoAttributionResponse{Name: a.Name, URI: a.URI})
+	}
 
-	return &photo
+	return &api.PhotoResponse{URL: url, Ref: p.Reference, Width: p.Width, Height: p.Height, Attributions: attributions}
 }
 
 // savedInToResponse maps the caller's squads to SavedInResponses, never nil.

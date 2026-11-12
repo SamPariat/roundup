@@ -2,7 +2,11 @@ package application
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"maps"
+	"slices"
+	"sync"
 
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
 )
@@ -11,6 +15,10 @@ import (
 // whole page (venues and next token); bump the version when that shape
 // changes, so old entries are never read as the new one.
 const searchKeyPrefix = "venue:search:v1:"
+
+// maxPhotoLookups caps how many photo URL lookups one call to PhotoURLs runs at
+// once; a search page needs up to 20.
+const maxPhotoLookups = 10
 
 // VenueLookup returns a venue's details. FavoriteUseCase and HistoryUseCase
 // use it to snapshot a venue; VenueUseCase implements it, so lookups go
@@ -75,18 +83,107 @@ func (u *VenueUseCase) GetDetail(ctx context.Context, placeID string) (*domain.V
 	return detail, nil
 }
 
-// Photo streams a venue photo. maxWidth outside 1–domain.MaxPhotoWidth falls
-// back to domain.DefaultPhotoWidth or the maximum. Photos are not cached here:
-// clients and CDNs cache them through the response headers.
-func (u *VenueUseCase) Photo(ctx context.Context, reference string, maxWidth int) (*domain.Photo, error) {
-	switch {
-	case maxWidth <= 0:
-		maxWidth = domain.DefaultPhotoWidth
-	case maxWidth > domain.MaxPhotoWidth:
-		maxWidth = domain.MaxPhotoWidth
+// PhotoURLs returns a direct URL, at most maxWidth pixels wide, for each of
+// refs, by reference. URLs cached for maxWidth are reused; the rest are looked
+// up from the provider and cached. Refs with an empty Reference are skipped,
+// and a photo missing from the map is one the response leaves out. Cache
+// errors are ignored, like the other cache reads and writes here.
+func (u *VenueUseCase) PhotoURLs(ctx context.Context, refs []domain.PhotoRef, maxWidth int) (map[string]string, error) {
+	wanted := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		if ref.Reference != "" && !slices.Contains(wanted, ref.Reference) {
+			wanted = append(wanted, ref.Reference)
+		}
 	}
 
-	return u.provider.Photo(ctx, reference, maxWidth)
+	cached, _ := u.cache.GetPhotoURLs(ctx, wanted, maxWidth)
+
+	missing := make([]string, 0, len(wanted))
+	for _, ref := range wanted {
+		if _, ok := cached[ref]; !ok {
+			missing = append(missing, ref)
+		}
+	}
+
+	urls, err := u.lookUpPhotoURLs(ctx, missing, maxWidth)
+	if err != nil {
+		return nil, err
+	}
+
+	_ = u.cache.SetPhotoURLs(ctx, urls, maxWidth)
+
+	maps.Copy(urls, cached)
+
+	return urls, nil
+}
+
+// lookUpPhotoURLs asks the provider for each of refs at once (at most
+// maxPhotoLookups in flight) and returns the URLs by reference. The first
+// domain.ErrProviderUnavailable cancels the other lookups and is returned.
+func (u *VenueUseCase) lookUpPhotoURLs(ctx context.Context, refs []string, maxWidth int) (map[string]string, error) {
+	var (
+		mu      sync.Mutex
+		wg      sync.WaitGroup
+		failure error
+	)
+
+	urls := make(map[string]string, len(refs))
+	slots := make(chan struct{}, maxPhotoLookups)
+
+	// Cancelled by the first failure, so the lookups still running stop and
+	// the ones waiting for a slot never start: the response fails either way.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// fail makes lookUpPhotoURLs return err instead of the URLs and cancels the
+	// remaining lookups; the first call wins.
+	fail := func(err error) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		if failure == nil {
+			failure = err
+
+			cancel()
+		}
+	}
+
+	for _, ref := range refs {
+		wg.Go(func() {
+			// Wait for a slot, unless a failure already cancelled the rest.
+			select {
+			case slots <- struct{}{}:
+			case <-ctx.Done():
+				return
+			}
+
+			defer func() { <-slots }()
+
+			url, err := u.provider.PhotoURL(ctx, ref, maxWidth)
+			if err != nil {
+				// A photo Google no longer has is left out; Google itself
+				// failing fails the response, so an outage or a bad key is
+				// seen instead of hiding behind cards without photos.
+				if errors.Is(err, domain.ErrProviderUnavailable) {
+					fail(err)
+				}
+
+				return
+			}
+
+			mu.Lock()
+			urls[ref] = url
+			mu.Unlock()
+		})
+	}
+
+	wg.Wait()
+
+	if failure != nil {
+		return nil, failure
+	}
+
+	return urls, nil
 }
 
 // buildCacheKey returns a deterministic cache key for a given set of SearchParams.

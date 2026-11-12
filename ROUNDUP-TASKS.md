@@ -178,7 +178,6 @@ Access tokens are Ed25519 JWTs: the gateway verifies them locally with auth-serv
 - [x] Rate limit `/api/v1/auth/*` by IP: 20 requests per 15 minutes, in memory per gateway instance (protects OTP sending)
 - [ ] Rate limit by user ID for authenticated routes
 - [x] Return `429 Too Many Requests` with `Retry-After` header
-- [x] Public `GET /api/v1/venues/photos/:ref` (image tags can't send a token), rate limited by IP: 600 per 15 minutes
 
 ### Load balancing
 
@@ -461,7 +460,7 @@ Built in PR B. See `services/event-service/ARCHITECTURE.md`. Kafka publishing is
 - [x] `internal/adapters/places/google_places_adapter.go` — implements `domain.PlaceProvider` with Places API (New)
 - [x] Search (lat, lng, radius, query, type) → `[]Venue`, as Text Search (New) inside the square around the radius
 - [x] Place details → `VenueDetail` (phone, website, hours, reviews, summary)
-- [x] Photos streamed through `GET /api/v1/venues/photos/:ref`, so the API key never reaches clients (`Cache-Control: public, max-age=86400`)
+- [x] Photos as direct, keyless Google image URLs in each response (`skipHttpRedirect`), looked up per response since they expire, with author credits
 - [x] Map Google responses to domain `Venue`, including `ratingCount` from `userRatingCount`
 - [x] Field masks on search and details to fetch only needed fields (cost control)
 - [x] Paging with Google's `nextPageToken` as the cursor (20 per page, 60 per search)
@@ -492,7 +491,7 @@ Built in PR B. See `services/event-service/ARCHITECTURE.md`. Kafka publishing is
 
 - [x] `GET /api/v1/venues?lat=&lng=&radius=&query=&type=` — nearby search
 - [x] `GET /api/v1/venues/:placeID` — place details plus `savedIn`
-- [x] `GET /api/v1/venues/photos/:ref` — photo bytes (public at the gateway)
+- [x] `POST /internal/v1/venues/photo-urls` — fresh URLs for stored photo refs (event-service)
 - [x] `GET` / `POST /api/v1/squads/:squadID/favorites`, `DELETE /api/v1/squads/:squadID/favorites/:placeID`
 - [x] `GET` / `POST /api/v1/squads/:squadID/history`
 

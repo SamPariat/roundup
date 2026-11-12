@@ -14,28 +14,32 @@ import (
 
 const addNomination = `-- name: AddNomination :execrows
 INSERT INTO nominations (event_id, place_id, name, address, lat, lng, rating, price_level,
-                         photo_url, photo_width, photo_height, nominated_by)
+                         photo_ref, photo_width, photo_height, photo_author_name,
+                         photo_author_uri, nominated_by)
 SELECT e.id, $1, $2, $3, $4,
        $5, $6, $7, $8,
-       $9, $10, $11
+       $9, $10, $11,
+       $12, $13
 FROM events e
-WHERE e.id = $12
+WHERE e.id = $14
   AND e.status = 'DRAFT'
 `
 
 type AddNominationParams struct {
-	PlaceID     string    `json:"place_id"`
-	Name        string    `json:"name"`
-	Address     string    `json:"address"`
-	Lat         float64   `json:"lat"`
-	Lng         float64   `json:"lng"`
-	Rating      float32   `json:"rating"`
-	PriceLevel  int32     `json:"price_level"`
-	PhotoUrl    string    `json:"photo_url"`
-	PhotoWidth  int32     `json:"photo_width"`
-	PhotoHeight int32     `json:"photo_height"`
-	NominatedBy uuid.UUID `json:"nominated_by"`
-	EventID     uuid.UUID `json:"event_id"`
+	PlaceID         string    `json:"place_id"`
+	Name            string    `json:"name"`
+	Address         string    `json:"address"`
+	Lat             float64   `json:"lat"`
+	Lng             float64   `json:"lng"`
+	Rating          float32   `json:"rating"`
+	PriceLevel      int32     `json:"price_level"`
+	PhotoRef        string    `json:"photo_ref"`
+	PhotoWidth      int32     `json:"photo_width"`
+	PhotoHeight     int32     `json:"photo_height"`
+	PhotoAuthorName string    `json:"photo_author_name"`
+	PhotoAuthorUri  string    `json:"photo_author_uri"`
+	NominatedBy     uuid.UUID `json:"nominated_by"`
+	EventID         uuid.UUID `json:"event_id"`
 }
 
 // Stores a suggestion while the event is a draft. A repeat is a unique violation.
@@ -48,9 +52,11 @@ func (q *Queries) AddNomination(ctx context.Context, arg AddNominationParams) (i
 		arg.Lng,
 		arg.Rating,
 		arg.PriceLevel,
-		arg.PhotoUrl,
+		arg.PhotoRef,
 		arg.PhotoWidth,
 		arg.PhotoHeight,
+		arg.PhotoAuthorName,
+		arg.PhotoAuthorUri,
 		arg.NominatedBy,
 		arg.EventID,
 	)
@@ -119,26 +125,28 @@ func (q *Queries) CountNominations(ctx context.Context, eventIds []uuid.UUID) ([
 }
 
 const listNominations = `-- name: ListNominations :many
-SELECT place_id, name, address, lat, lng, rating, price_level, photo_url, photo_width,
-       photo_height, nominated_by, nominated_at
+SELECT place_id, name, address, lat, lng, rating, price_level, photo_ref, photo_width,
+       photo_height, photo_author_name, photo_author_uri, nominated_by, nominated_at
 FROM nominations
 WHERE event_id = $1
 ORDER BY nominated_at, place_id
 `
 
 type ListNominationsRow struct {
-	PlaceID     string             `json:"place_id"`
-	Name        string             `json:"name"`
-	Address     string             `json:"address"`
-	Lat         float64            `json:"lat"`
-	Lng         float64            `json:"lng"`
-	Rating      float32            `json:"rating"`
-	PriceLevel  int32              `json:"price_level"`
-	PhotoUrl    string             `json:"photo_url"`
-	PhotoWidth  int32              `json:"photo_width"`
-	PhotoHeight int32              `json:"photo_height"`
-	NominatedBy uuid.UUID          `json:"nominated_by"`
-	NominatedAt pgtype.Timestamptz `json:"nominated_at"`
+	PlaceID         string             `json:"place_id"`
+	Name            string             `json:"name"`
+	Address         string             `json:"address"`
+	Lat             float64            `json:"lat"`
+	Lng             float64            `json:"lng"`
+	Rating          float32            `json:"rating"`
+	PriceLevel      int32              `json:"price_level"`
+	PhotoRef        string             `json:"photo_ref"`
+	PhotoWidth      int32              `json:"photo_width"`
+	PhotoHeight     int32              `json:"photo_height"`
+	PhotoAuthorName string             `json:"photo_author_name"`
+	PhotoAuthorUri  string             `json:"photo_author_uri"`
+	NominatedBy     uuid.UUID          `json:"nominated_by"`
+	NominatedAt     pgtype.Timestamptz `json:"nominated_at"`
 }
 
 func (q *Queries) ListNominations(ctx context.Context, eventID uuid.UUID) ([]ListNominationsRow, error) {
@@ -158,9 +166,11 @@ func (q *Queries) ListNominations(ctx context.Context, eventID uuid.UUID) ([]Lis
 			&i.Lng,
 			&i.Rating,
 			&i.PriceLevel,
-			&i.PhotoUrl,
+			&i.PhotoRef,
 			&i.PhotoWidth,
 			&i.PhotoHeight,
+			&i.PhotoAuthorName,
+			&i.PhotoAuthorUri,
 			&i.NominatedBy,
 			&i.NominatedAt,
 		); err != nil {

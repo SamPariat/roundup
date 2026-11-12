@@ -3,11 +3,13 @@ package dtos
 import (
 	"github.com/SamPariat/roundup/services/event-service/internal/application"
 	"github.com/SamPariat/roundup/services/event-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/api"
 	"github.com/SamPariat/roundup/shared/pagination"
 )
 
-// EventToResponse maps a domain.Event to an EventResponse.
-func EventToResponse(e domain.Event) EventResponse {
+// EventToResponse maps a domain.Event to an EventResponse; urls holds the
+// photos' fresh URLs by reference.
+func EventToResponse(e domain.Event, urls map[string]string) EventResponse {
 	resp := EventResponse{
 		ID:             e.ID,
 		SquadID:        e.SquadID,
@@ -22,18 +24,18 @@ func EventToResponse(e domain.Event) EventResponse {
 	}
 
 	if e.Winner != nil {
-		resp.Winner = &WinnerResponse{PlaceResponse: placeToResponse(e.Winner.Place)}
+		resp.Winner = &WinnerResponse{PlaceResponse: placeToResponse(e.Winner.Place, urls)}
 	}
 
 	return resp
 }
 
-// SquadEventsToResponse maps a page of a squad's events.
-func SquadEventsToResponse(page *application.SquadEvents) SquadEventsResponse {
+// SquadEventsToResponse maps a page of a squad's events, with the photos urls holds.
+func SquadEventsToResponse(page *application.SquadEvents, urls map[string]string) SquadEventsResponse {
 	events := make([]EventSummaryResponse, 0, len(page.Events))
 	for _, s := range page.Events {
 		events = append(events, EventSummaryResponse{
-			EventResponse: EventToResponse(s.Event),
+			EventResponse: EventToResponse(s.Event, urls),
 			RSVPCounts: RSVPCountsResponse{
 				Going:    s.RSVPCounts.Going,
 				Maybe:    s.RSVPCounts.Maybe,
@@ -54,10 +56,10 @@ func SquadEventsToResponse(page *application.SquadEvents) SquadEventsResponse {
 	}
 }
 
-// EventDetailToResponse maps a domain.EventDetail.
-func EventDetailToResponse(d *domain.EventDetail) EventDetailResponse {
+// EventDetailToResponse maps a domain.EventDetail, with the photos urls holds.
+func EventDetailToResponse(d *domain.EventDetail, urls map[string]string) EventDetailResponse {
 	resp := EventDetailResponse{
-		EventResponse: EventToResponse(d.Event),
+		EventResponse: EventToResponse(d.Event, urls),
 		CreatedByName: optional(d.CreatedByName),
 		MemberCount:   len(d.Members),
 		VotedCount:    d.VotedCount,
@@ -88,7 +90,7 @@ func EventDetailToResponse(d *domain.EventDetail) EventDetailResponse {
 
 	for _, n := range d.Nominations {
 		resp.Nominations = append(resp.Nominations, NominationResponse{
-			PlaceResponse:   placeToResponse(n.Place),
+			PlaceResponse:   placeToResponse(n.Place, urls),
 			NominatedBy:     n.NominatedBy,
 			NominatedByName: optional(n.NominatedByName),
 			NominatedAt:     n.NominatedAt,
@@ -107,7 +109,9 @@ func EventDetailToResponse(d *domain.EventDetail) EventDetailResponse {
 	return resp
 }
 
-func placeToResponse(p domain.Place) PlaceResponse {
+// placeToResponse maps p; its photo is included only when urls has a URL for
+// it (none stored, or the lookup failed, leaves photo null).
+func placeToResponse(p domain.Place, urls map[string]string) PlaceResponse {
 	resp := PlaceResponse{
 		PlaceID:    p.PlaceID,
 		Name:       p.Name,
@@ -118,17 +122,30 @@ func placeToResponse(p domain.Place) PlaceResponse {
 		PriceLevel: p.PriceLevel,
 	}
 
-	if p.PhotoURL != "" {
-		resp.Photo = &PhotoResponse{URL: p.PhotoURL, Width: p.PhotoWidth, Height: p.PhotoHeight}
+	if url, ok := urls[p.PhotoRef]; ok && p.PhotoRef != "" {
+		attributions := []api.PhotoAttributionResponse{}
+		if p.PhotoAuthorName != "" {
+			attributions = append(attributions, api.PhotoAttributionResponse{Name: p.PhotoAuthorName, URI: p.PhotoAuthorURI})
+		}
+
+		resp.Photo = &api.PhotoResponse{
+			URL:          url,
+			Ref:          p.PhotoRef,
+			Width:        p.PhotoWidth,
+			Height:       p.PhotoHeight,
+			Attributions: attributions,
+		}
 	}
 
 	return resp
 }
 
+// memberToResponse maps a squad member to a MemberResponse.
 func memberToResponse(m domain.SquadMember) MemberResponse {
 	return MemberResponse{UserID: m.UserID, Name: m.Name, AvatarURL: m.AvatarURL}
 }
 
+// membersToResponse maps squad members to MemberResponses, never nil.
 func membersToResponse(members []domain.SquadMember) []MemberResponse {
 	resp := make([]MemberResponse, 0, len(members))
 	for _, m := range members {

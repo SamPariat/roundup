@@ -100,4 +100,9 @@ type VenueDirectory interface {
 
 	// RecordVisit adds the event's place to the squad's history.
 	RecordVisit(ctx context.Context, e Event, userID string) error
+
+	// PhotoURLs turns stored photo references into fresh URLs at most
+	// maxWidth pixels wide, by reference; a failed lookup is absent. Returns
+	// ErrVenueServiceUnavailable if venue-service cannot answer.
+	PhotoURLs(ctx context.Context, refs []string, maxWidth int) (map[string]string, error)
 }

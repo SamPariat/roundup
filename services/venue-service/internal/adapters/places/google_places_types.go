@@ -22,6 +22,7 @@ type apiError struct {
 	reason string
 }
 
+// Error reports the status, Google's status name and its message.
 func (e *apiError) Error() string {
 	return fmt.Sprintf("places: %d %s: %s", e.status, e.code, e.message)
 }
@@ -135,6 +136,19 @@ type photo struct {
 	WidthPx int `json:"widthPx"`
 	// HeightPx is the original height in pixels.
 	HeightPx int `json:"heightPx"`
+	// AuthorAttributions credit the photo's authors; Google requires showing them.
+	AuthorAttributions []struct {
+		// DisplayName is the author's public name.
+		DisplayName string `json:"displayName"`
+		// URI is the author's Google Maps profile.
+		URI string `json:"uri"`
+	} `json:"authorAttributions"`
+}
+
+// photoMedia is Google's answer to a photo media request with skipHttpRedirect.
+type photoMedia struct {
+	// PhotoURI serves the image itself, without the API key; it expires.
+	PhotoURI string `json:"photoUri"`
 }
 
 // review is one user review.
@@ -182,10 +196,16 @@ func (p place) toVenue() domain.Venue {
 	}
 
 	for _, ph := range p.Photos {
+		attributions := make([]domain.PhotoAttribution, 0, len(ph.AuthorAttributions))
+		for _, a := range ph.AuthorAttributions {
+			attributions = append(attributions, domain.PhotoAttribution{Name: a.DisplayName, URI: a.URI})
+		}
+
 		venue.PhotoRefs = append(venue.PhotoRefs, domain.PhotoRef{
-			Reference: encodePhotoReference(ph.Name),
-			Width:     ph.WidthPx,
-			Height:    ph.HeightPx,
+			Reference:    encodePhotoReference(ph.Name),
+			Width:        ph.WidthPx,
+			Height:       ph.HeightPx,
+			Attributions: attributions,
 		})
 	}
 

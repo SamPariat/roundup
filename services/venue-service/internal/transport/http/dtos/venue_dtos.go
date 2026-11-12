@@ -1,6 +1,10 @@
 package dtos
 
-import "time"
+import (
+	"time"
+
+	"github.com/SamPariat/roundup/shared/api"
+)
 
 // SearchRequest carries the query parameters for a nearby venue search.
 type SearchRequest struct {
@@ -24,23 +28,17 @@ type SearchRequest struct {
 	Cursor string `query:"cursor"`
 }
 
-// PhotoRequest carries the query parameters for a venue photo.
+// PhotoRequest carries the query parameters of every route that returns
+// photos.
 type PhotoRequest struct {
-	// MaxWidth is the widest the image may be, 1–1600; 800 when omitted.
-	MaxWidth int `query:"maxWidth"`
-}
+	// PhotoWidth is how wide the photos may be, one of api.PhotoWidths;
+	// api.DefaultPhotoWidth when omitted.
+	PhotoWidth int `query:"photoWidth"`
 
-// PhotoResponse is a venue photo the client can load directly.
-type PhotoResponse struct {
-	// URL is the photo's path on this API, e.g. "/api/v1/venues/photos/…".
-	// It needs no token, so it works as an <img> or <Image> source.
-	URL string `json:"url"`
-
-	// Width is the original image width in pixels.
-	Width int `json:"width"`
-
-	// Height is the original image height in pixels.
-	Height int `json:"height"`
+	// PhotoCount is how many photos a venue's page returns,
+	// 1–api.MaxVenuePhotos; api.MaxVenuePhotos when omitted. Routes that show
+	// one photo per venue ignore it.
+	PhotoCount int `query:"photoCount"`
 }
 
 // ReviewResponse is the JSON representation of a single user review.
@@ -92,7 +90,7 @@ type VenueResponse struct {
 	IsOpen *bool `json:"isOpen"`
 
 	// Photos can be loaded directly; empty, never null, when there are none.
-	Photos []PhotoResponse `json:"photos"`
+	Photos []api.PhotoResponse `json:"photos"`
 }
 
 // VenueDetailResponse is the JSON representation of a domain.VenueDetail.

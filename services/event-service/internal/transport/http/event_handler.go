@@ -2,10 +2,14 @@ package http
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 
 	"github.com/SamPariat/roundup/services/event-service/internal/application"
 	"github.com/SamPariat/roundup/services/event-service/internal/domain"
 	"github.com/SamPariat/roundup/services/event-service/internal/transport/http/dtos"
+	"github.com/SamPariat/roundup/shared/api"
+	"github.com/SamPariat/roundup/shared/domainerr"
 	"github.com/SamPariat/roundup/shared/middleware"
 	"github.com/SamPariat/roundup/shared/pagination"
 	"github.com/SamPariat/roundup/shared/response"
@@ -44,7 +48,8 @@ func (h *EventHandler) Create(c fiber.Ctx) error {
 		return response.Error(c, errorStatus(err), err)
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(response.OK(dtos.EventToResponse(*event)))
+	// A new event has no winner, so no photo to look up.
+	return c.Status(fiber.StatusCreated).JSON(response.OK(dtos.EventToResponse(*event, nil)))
 }
 
 // List handles GET /api/v1/squads/:squadID/events?limit=&cursor=.
@@ -54,12 +59,26 @@ func (h *EventHandler) List(c fiber.Ctx) error {
 		return response.Error(c, fiber.StatusBadRequest, err)
 	}
 
+	width, err := photoWidth(c)
+	if err != nil {
+		return response.Error(c, errorStatus(err), err)
+	}
+
 	events, err := h.uc.List(c.Context(), c.Params("squadID"), middleware.UserIDFrom(c), page)
 	if err != nil {
 		return response.Error(c, errorStatus(err), err)
 	}
 
-	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.SquadEventsToResponse(events)))
+	places := make([]domain.Place, 0, len(events.Events))
+	for _, e := range events.Events {
+		if e.Winner != nil {
+			places = append(places, e.Winner.Place)
+		}
+	}
+
+	urls := h.uc.PhotoURLs(c.Context(), places, width)
+
+	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.SquadEventsToResponse(events, urls)))
 }
 
 // Get handles GET /api/v1/events/:eventID.
@@ -163,14 +182,47 @@ func (h *EventHandler) CloseDue(c fiber.Ctx) error {
 }
 
 // detail runs fn for the path's event and the caller, and answers with the
-// event detail.
+// event detail. The photo width is checked first, so a bad one changes nothing.
 func (h *EventHandler) detail(c fiber.Ctx, fn func(ctx context.Context, eventID, userID string) (*domain.EventDetail, error)) error {
+	width, err := photoWidth(c)
+	if err != nil {
+		return response.Error(c, errorStatus(err), err)
+	}
+
 	d, err := fn(c.Context(), c.Params("eventID"), middleware.UserIDFrom(c))
 	if err != nil {
 		return response.Error(c, errorStatus(err), err)
 	}
 
-	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.EventDetailToResponse(d)))
+	places := make([]domain.Place, 0, len(d.Nominations)+1)
+	for _, n := range d.Nominations {
+		places = append(places, n.Place)
+	}
+
+	if d.Winner != nil {
+		places = append(places, d.Winner.Place)
+	}
+
+	urls := h.uc.PhotoURLs(c.Context(), places, width)
+
+	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.EventDetailToResponse(d, urls)))
+}
+
+// photoWidth reads ?photoWidth=, how wide the places' photos may be:
+// api.DefaultPhotoWidth when omitted, else one of api.PhotoWidths. Anything
+// else is domain.ErrInvalidPhotoWidth.
+func photoWidth(c fiber.Ctx) (int, error) {
+	raw := c.Query("photoWidth")
+	if raw == "" {
+		return api.DefaultPhotoWidth, nil
+	}
+
+	width, err := strconv.Atoi(raw)
+	if err != nil || !api.IsPhotoWidth(width) {
+		return 0, domainerr.New(domain.ErrInvalidPhotoWidth, fmt.Sprintf("photoWidth must be one of %v", api.PhotoWidths))
+	}
+
+	return width, nil
 }
 
 // due runs a sweep and answers with how many events it moved on.

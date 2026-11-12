@@ -14,7 +14,8 @@ import (
 func errorStatus(err error) int {
 	switch {
 	case errors.Is(err, domain.ErrInvalidEvent), errors.Is(err, domain.ErrInvalidRSVP),
-		errors.Is(err, domain.ErrNotNominated), errors.Is(err, pagination.ErrInvalid):
+		errors.Is(err, domain.ErrNotNominated), errors.Is(err, domain.ErrInvalidPhotoWidth),
+		errors.Is(err, pagination.ErrInvalid):
 		return fiber.StatusBadRequest
 	case errors.Is(err, domain.ErrForbidden):
 		return fiber.StatusForbidden

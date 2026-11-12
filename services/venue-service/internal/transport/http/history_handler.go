@@ -14,12 +14,13 @@ import (
 // squad ID comes from the path and the caller's user ID from the X-User-ID
 // header via middleware.UserIDFrom.
 type HistoryHandler struct {
-	uc *application.HistoryUseCase
+	uc     *application.HistoryUseCase
+	venues *application.VenueUseCase
 }
 
-// NewHistoryHandler constructs a HistoryHandler with the given use case.
-func NewHistoryHandler(uc *application.HistoryUseCase) *HistoryHandler {
-	return &HistoryHandler{uc: uc}
+// NewHistoryHandler constructs a HistoryHandler; venues looks up the photos' URLs.
+func NewHistoryHandler(uc *application.HistoryUseCase, venues *application.VenueUseCase) *HistoryHandler {
+	return &HistoryHandler{uc: uc, venues: venues}
 }
 
 // Record handles POST /api/v1/squads/:squadID/history.
@@ -51,10 +52,25 @@ func (h *HistoryHandler) List(c fiber.Ctx) error {
 		return response.Error(c, fiber.StatusBadRequest, err)
 	}
 
+	photos, err := photoOptions(c)
+	if err != nil {
+		return response.Error(c, errorStatus(err), err)
+	}
+
 	summaries, next, err := h.uc.List(c.Context(), c.Params("squadID"), middleware.UserIDFrom(c), page)
 	if err != nil {
 		return response.Error(c, errorStatus(err), err)
 	}
 
-	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.VisitHistoryToResponse(summaries, next)))
+	refs := make([]domain.PhotoRef, 0, len(summaries))
+	for _, item := range summaries {
+		refs = append(refs, item.Photo)
+	}
+
+	urls, err := h.venues.PhotoURLs(c.Context(), refs, photos.Width)
+	if err != nil {
+		return response.Error(c, errorStatus(err), err)
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.VisitHistoryToResponse(summaries, next, urls)))
 }

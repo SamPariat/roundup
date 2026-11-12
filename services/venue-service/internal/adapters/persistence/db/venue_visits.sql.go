@@ -13,6 +13,7 @@ import (
 
 const getVisitHistory = `-- name: GetVisitHistory :many
 SELECT h.place_id, h.name, h.address, h.photo_ref, h.photo_width, h.photo_height,
+       h.photo_author_name, h.photo_author_uri,
        h.visit_count, h.last_visited_at, h.avg_spend_in_paise
 FROM (SELECT place_id,
              (ARRAY_AGG(name ORDER BY visited_at DESC))[1]::text            AS name,
@@ -20,6 +21,8 @@ FROM (SELECT place_id,
              (ARRAY_AGG(photo_ref ORDER BY visited_at DESC))[1]::text       AS photo_ref,
              (ARRAY_AGG(photo_width ORDER BY visited_at DESC))[1]::integer  AS photo_width,
              (ARRAY_AGG(photo_height ORDER BY visited_at DESC))[1]::integer AS photo_height,
+             (ARRAY_AGG(photo_author_name ORDER BY visited_at DESC))[1]::text AS photo_author_name,
+             (ARRAY_AGG(photo_author_uri ORDER BY visited_at DESC))[1]::text  AS photo_author_uri,
              COUNT(*)                                                       AS visit_count,
              MAX(visited_at)::timestamptz                                   AS last_visited_at,
              COALESCE(ROUND(AVG(avg_spend_in_paise)), 0)::bigint            AS avg_spend_in_paise
@@ -46,6 +49,8 @@ type GetVisitHistoryRow struct {
 	PhotoRef        string             `json:"photo_ref"`
 	PhotoWidth      int32              `json:"photo_width"`
 	PhotoHeight     int32              `json:"photo_height"`
+	PhotoAuthorName string             `json:"photo_author_name"`
+	PhotoAuthorUri  string             `json:"photo_author_uri"`
 	VisitCount      int64              `json:"visit_count"`
 	LastVisitedAt   pgtype.Timestamptz `json:"last_visited_at"`
 	AvgSpendInPaise int64              `json:"avg_spend_in_paise"`
@@ -79,6 +84,8 @@ func (q *Queries) GetVisitHistory(ctx context.Context, arg GetVisitHistoryParams
 			&i.PhotoRef,
 			&i.PhotoWidth,
 			&i.PhotoHeight,
+			&i.PhotoAuthorName,
+			&i.PhotoAuthorUri,
 			&i.VisitCount,
 			&i.LastVisitedAt,
 			&i.AvgSpendInPaise,
@@ -96,8 +103,8 @@ func (q *Queries) GetVisitHistory(ctx context.Context, arg GetVisitHistoryParams
 const recordVisit = `-- name: RecordVisit :exec
 INSERT INTO venue_visits (squad_id, event_id, place_id, name, visited_at, avg_spend_in_paise,
                           address, rating, rating_count, price_level, photo_ref, photo_width,
-                          photo_height)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                          photo_height, photo_author_name, photo_author_uri)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 `
 
 type RecordVisitParams struct {
@@ -114,6 +121,8 @@ type RecordVisitParams struct {
 	PhotoRef        string             `json:"photo_ref"`
 	PhotoWidth      int32              `json:"photo_width"`
 	PhotoHeight     int32              `json:"photo_height"`
+	PhotoAuthorName string             `json:"photo_author_name"`
+	PhotoAuthorUri  string             `json:"photo_author_uri"`
 }
 
 // Records one squad visit to a venue during an event, with a snapshot of its display fields.
@@ -132,6 +141,8 @@ func (q *Queries) RecordVisit(ctx context.Context, arg RecordVisitParams) error 
 		arg.PhotoRef,
 		arg.PhotoWidth,
 		arg.PhotoHeight,
+		arg.PhotoAuthorName,
+		arg.PhotoAuthorUri,
 	)
 	return err
 }

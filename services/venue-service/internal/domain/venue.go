@@ -2,10 +2,10 @@ package domain
 
 import (
 	"fmt"
-	"io"
 	"math"
 	"time"
 
+	"github.com/SamPariat/roundup/shared/api"
 	"github.com/SamPariat/roundup/shared/domainerr"
 )
 
@@ -19,6 +19,19 @@ type PhotoRef struct {
 
 	// Height is the original image height in pixels.
 	Height int
+
+	// Attributions credit the photo's authors; the provider requires showing
+	// them wherever the photo is shown.
+	Attributions []PhotoAttribution
+}
+
+// PhotoAttribution credits one author of a photo.
+type PhotoAttribution struct {
+	// Name is the author's display name.
+	Name string
+
+	// URI is the author's profile page; "" when the provider gives none.
+	URI string
 }
 
 // Review is a single user review returned by the place provider.
@@ -131,23 +144,45 @@ func (v Venue) Snapshot() VenueSnapshot {
 	return snapshot
 }
 
-// Photo is a venue photo's bytes, streamed from the provider.
-type Photo struct {
-	// ContentType is the image's MIME type, e.g. "image/jpeg".
-	ContentType string
+// PhotoOptions are how a response's photos are looked up, as the client asks:
+// how wide, and on a venue's page how many.
+type PhotoOptions struct {
+	// Width is the widest the images may be, one of api.PhotoWidths.
+	Width int
 
-	// Body is the image data; the caller closes it.
-	Body io.ReadCloser
+	// Count is how many photos a venue's page shows, 1–api.MaxVenuePhotos.
+	// Responses that show one photo per venue ignore it.
+	Count int
 }
 
-// Photo widths the provider accepts.
-const (
-	// DefaultPhotoWidth is used when a request does not ask for a width.
-	DefaultPhotoWidth = 800
+// NewPhotoOptions fills what the client left out (zero) with
+// api.DefaultPhotoWidth and api.MaxVenuePhotos.
+func NewPhotoOptions(width, count int) PhotoOptions {
+	if width == 0 {
+		width = api.DefaultPhotoWidth
+	}
 
-	// MaxPhotoWidth is the largest width the provider serves.
-	MaxPhotoWidth = 1600
-)
+	if count == 0 {
+		count = api.MaxVenuePhotos
+	}
+
+	return PhotoOptions{Width: width, Count: count}
+}
+
+// Validate reports whether o is a width and count the client may ask for. It
+// returns a DomainError wrapping ErrInvalidPhotoOptions, so the transport
+// layer maps it to 400 before any provider call.
+func (o PhotoOptions) Validate() error {
+	if !api.IsPhotoWidth(o.Width) {
+		return domainerr.New(ErrInvalidPhotoOptions, fmt.Sprintf("photoWidth must be one of %v", api.PhotoWidths))
+	}
+
+	if o.Count < 1 || o.Count > api.MaxVenuePhotos {
+		return domainerr.New(ErrInvalidPhotoOptions, fmt.Sprintf("photoCount must be between 1 and %d", api.MaxVenuePhotos))
+	}
+
+	return nil
+}
 
 // Search limits enforced by SearchParams.Validate.
 const (

@@ -13,7 +13,8 @@ var (
 	// ErrVenueNotFound is returned when a venue lookup finds no matching record.
 	ErrVenueNotFound = errors.New("venue not found")
 
-	// ErrPhotoNotFound is returned when the provider has no photo for a reference.
+	// ErrPhotoNotFound is returned when the provider has no photo for a
+	// reference. PhotoURLs leaves such a photo out instead of failing.
 	ErrPhotoNotFound = errors.New("photo not found")
 
 	// ErrProviderUnavailable is returned when the external place provider
@@ -31,6 +32,10 @@ var (
 	// ErrInvalidSearch is returned when nearby-search parameters are missing
 	// or out of range. Callers must fix the request; retrying will not help.
 	ErrInvalidSearch = errors.New("invalid search parameters")
+
+	// ErrInvalidPhotoOptions is returned when a request asks for a photo width
+	// outside api.PhotoWidths or a photo count outside 1–api.MaxVenuePhotos.
+	ErrInvalidPhotoOptions = errors.New("invalid photo options")
 
 	// ErrVisitAlreadyRecorded is returned when the squad already has a visit
 	// recorded for this venue during this event.

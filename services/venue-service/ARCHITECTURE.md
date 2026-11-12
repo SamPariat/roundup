@@ -125,7 +125,7 @@ import "context"
 type PlaceProvider interface {
     SearchNearby(ctx context.Context, params SearchParams) (*SearchResult, error) // one page; Venues + NextPageToken
     GetDetail(ctx context.Context, placeID string) (*VenueDetail, error)
-    Photo(ctx context.Context, reference string, maxWidth int) (*Photo, error)
+    PhotoURL(ctx context.Context, reference string, maxWidth int) (string, error) // keyless, expiring image URL
 }
 
 // VenueCache — all cache operations are best-effort; callers ignore write errors
@@ -134,6 +134,8 @@ type VenueCache interface {
     SetNearby(ctx context.Context, key string, result *SearchResult) error
     GetDetail(ctx context.Context, placeID string) (*VenueDetail, error)
     SetDetail(ctx context.Context, placeID string, detail *VenueDetail) error
+    GetPhotoURLs(ctx context.Context, refs []string, width int) (map[string]string, error) // misses absent
+    SetPhotoURLs(ctx context.Context, urls map[string]string, width int) error
 }
 
 // VenueRepository — swap Postgres for any DB by writing a new adapter
@@ -172,7 +174,7 @@ type Venue struct {
     PriceLevel    int        // 0-4, provider-normalised
     Types         []string
     IsOpen        *bool      // nil = unknown
-    PhotoRefs     []PhotoRef // Reference, Width, Height
+    PhotoRefs     []PhotoRef // Reference, Width, Height, Attributions (authors to credit)
 }
 
 type VenueDetail struct {
@@ -303,13 +305,13 @@ All routes are versioned under `/api/v1`.
 | Method | Path | Handler | Use-case | Success |
 |---|---|---|---|---|
 | GET | /api/v1/venues | VenueHandler.Search | VenueUseCase.Search | 200 |
-| GET | /api/v1/venues/photos/:ref | VenueHandler.Photo | VenueUseCase.Photo | 200 (image; public at the gateway) |
 | GET | /api/v1/venues/:placeID | VenueHandler.GetDetail | VenueUseCase.GetDetail + FavoriteUseCase.SavedIn | 200 |
 | GET | /api/v1/squads/:squadID/favorites | FavoriteHandler.List | FavoriteUseCase.List | 200 |
 | POST | /api/v1/squads/:squadID/favorites | FavoriteHandler.Add | FavoriteUseCase.Add | 201 |
 | DELETE | /api/v1/squads/:squadID/favorites/:placeID | FavoriteHandler.Remove | FavoriteUseCase.Remove | 204 |
 | GET | /api/v1/squads/:squadID/history | HistoryHandler.List | HistoryUseCase.List | 200 |
 | POST | /api/v1/squads/:squadID/history | HistoryHandler.Record | HistoryUseCase.Record | 201 |
+| POST | /internal/v1/venues/photo-urls | VenueHandler.PhotoURLs | VenueUseCase.PhotoURLs | 200 (internal; event-service) |
 
 Search takes query params `lat`, `lng`, `radius`, `query`, `type` and `cursor`.
 
@@ -326,9 +328,9 @@ All `/squads/:squadID/*` routes, and `GET /venues/:placeID` (for `savedIn`), req
 
 | Domain sentinel | HTTP status |
 |---|---|
-| request body / query fails to bind, `ErrInvalidSearch` | 400 |
+| request body / query fails to bind, `ErrInvalidSearch`, `ErrInvalidPhotoOptions` | 400 |
 | missing or invalid `X-User-ID` on squad routes and venue details (middleware) | 401 |
-| `ErrVenueNotFound`, `ErrNotSaved`, `ErrSquadNotFound`, `ErrPhotoNotFound` | 404 |
+| `ErrVenueNotFound`, `ErrNotSaved`, `ErrSquadNotFound` | 404 |
 | `ErrAlreadySaved`, `ErrVisitAlreadyRecorded` | 409 |
 | `ErrProviderUnavailable`, `ErrUserServiceUnavailable` | 503 |
 | anything else | 500 |
@@ -353,6 +355,8 @@ CREATE TABLE saved_venues (
 
 -- 0003 adds the snapshot columns to both tables (all NOT NULL with defaults):
 -- address, rating, rating_count, price_level, photo_ref, photo_width, photo_height
+-- 0004 adds the photo's first author to both, for the credit Google requires:
+-- photo_author_name, photo_author_uri
 ```
 
 ---
@@ -377,7 +381,7 @@ Library errors are translated into domain sentinels at the adapter boundary. The
 | `RedisCacheAdapter` | `redis.Nil` | `nil` return — a cache miss, not an error |
 | `RedisCacheAdapter` | timeout / conn refused / bad JSON | logged with zap, swallowed (best-effort) |
 | `GooglePlacesAdapter` | 404, or 400 for an unparseable ID, on details | `domain.ErrVenueNotFound` |
-| `GooglePlacesAdapter` | 404 or 400 on a photo, or a reference it did not issue | `domain.ErrPhotoNotFound` |
+| `GooglePlacesAdapter` | 404 or 400 on a photo, or a reference it did not issue | `domain.ErrPhotoNotFound`; `PhotoURLs` leaves that photo out |
 | `GooglePlacesAdapter` | 400 on search (a stale cursor, an unknown type) | `domain.ErrInvalidSearch` |
 | `GooglePlacesAdapter` | no `places` in the answer | not an error — empty result list |
 | `GooglePlacesAdapter` | 400 `API_KEY_INVALID`, 401, 403, 429, 5xx, network failure | `domain.ErrProviderUnavailable` |
@@ -410,6 +414,7 @@ The `RedisCacheAdapter` implements `domain.VenueCache`. All cache operations are
 |---|---|---|
 | Search (one page) | `venue:search:v1:{lat}:{lng}:{radius}:{query}:{type}:{pageToken}` | 10 min |
 | Venue detail | `venue:detail:v1:{placeID}` | 10 min |
+| Photo URL | `venue:photo:v1:{width}:{reference}` | 10 min |
 
 Every key is namespaced under `venue:` so entries never collide with other users of the same Redis. The TTL is `cache.DefaultTTL`, passed to `NewRedisCacheAdapter` in `main.go` and applied to every write.
 
@@ -485,4 +490,16 @@ Squads live in user-service. Before any favorites or history operation, `Favorit
 
 ## Photo references
 
-Google names a photo `places/{placeId}/photos/{ref}`, which has slashes, so the adapter stores and serves it base64url-encoded as one opaque `reference` (`/api/v1/venues/photos/{reference}`). `Photo` decodes it and fetches only names of exactly that shape, so a crafted reference can't make venue-service call another Google path with its key. Google redirects the photo to an image host; the adapter drops the key header on that redirect. References saved before the move to Places API (New) don't decode and return 404.
+Google names a photo `places/{placeId}/photos/{ref}`, which has slashes, so the adapter stores and hands it out base64url-encoded as one opaque `reference` (a photo's `ref` in responses). `PhotoURL` decodes it and asks only for names of exactly that shape, so a crafted reference can't make venue-service call another Google path with its key. References saved before the move to Places API (New) don't decode, so those photos are left out.
+
+## Photo URLs
+
+Responses carry each photo's image URL on Google's servers, so clients load images directly and never call venue-service per image. `PhotoURL` asks Google's photo media endpoint with `skipHttpRedirect=true`, which answers with the image's `photoUri` (no API key in it) instead of the image.
+
+- **The client says how big and how many.** Every route that returns photos takes `?photoWidth=`, one of `api.PhotoWidths` (200, 400, 600, 800, 1200, 1600; 800 when omitted), which the client picks from the slot's size times the screen's pixel density. A venue's page also takes `?photoCount=` (1–5; 5 when omitted). Anything else is 400 (`ErrInvalidPhotoOptions`), checked in `photoOptions` before any Google call.
+- **Only what the screen draws is looked up**, since Google bills every photo: the first photo per search card, `photoCount` on a venue's page, one per favorite or history row.
+- **`VenueUseCase.PhotoURLs` looks them up at once**, at most `maxPhotoLookups` in flight. A photo Google no longer has is left out of the response; Google itself failing (`ErrProviderUnavailable`) fails the response with 503, so an outage or a bad key shows instead of hiding behind cards without photos. That first failure cancels the lookups still running, and the ones waiting for a slot never start.
+- **URLs are cached for 10 minutes, never stored.** `PhotoURLs` reads `venue:photo:v1:{width}:{reference}` for every photo in one MGET, looks up only the misses, and writes them back in one pipeline, with the same TTL as the search results that name them (the URLs expire on Google's side). The favorite and visit snapshots keep the `reference`, never a URL. event-service does the same with `POST /internal/v1/venues/photo-urls`.
+- **Credits:** Google requires showing a photo's authors with it, so each photo carries `attributions`; snapshots keep the first author.
+- **Shared contract:** the photo response, `POST /internal/v1/venues/photo-urls` and its bodies live in `shared/api` (`PhotoResponse`, `VenuePhotoURLsPath`, `PhotoURLsRequest`), since event-service answers with the same photo and calls the route.
+- **Connections:** the shared service client speaks HTTP/1.1 (see `shared/serviceclient`), one request per connection, so it keeps up to 16 idle connections per host to reuse across a page of lookups.

@@ -1,6 +1,10 @@
 package dtos
 
-import "time"
+import (
+	"time"
+
+	"github.com/SamPariat/roundup/shared/api"
+)
 
 // AddFavoriteRequest carries the JSON body for saving a venue as a favorite.
 // The user is taken from the X-User-ID header, never from the body, and the
@@ -43,7 +47,7 @@ type FavoriteResponse struct {
 	PriceLevel int `json:"priceLevel"`
 
 	// Photo can be loaded directly; null when the venue has none.
-	Photo *PhotoResponse `json:"photo"`
+	Photo *api.PhotoResponse `json:"photo"`
 
 	// SavedBy lists the members who saved it, most recent first. Never null.
 	SavedBy []MemberResponse `json:"savedBy"`

@@ -1,6 +1,10 @@
 package dtos
 
-import "time"
+import (
+	"time"
+
+	"github.com/SamPariat/roundup/shared/api"
+)
 
 // RecordVisitRequest carries the JSON body for recording a venue visit.
 type RecordVisitRequest struct {
@@ -30,7 +34,7 @@ type VisitSummaryResponse struct {
 	Address string `json:"address"`
 
 	// Photo can be loaded directly; null when the venue has none.
-	Photo *PhotoResponse `json:"photo"`
+	Photo *api.PhotoResponse `json:"photo"`
 
 	// VisitCount is how many visits the squad has recorded here.
 	VisitCount int64 `json:"visitCount"`

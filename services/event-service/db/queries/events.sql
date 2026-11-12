@@ -9,8 +9,9 @@ SELECT e.id, e.squad_id, e.name, e.type, e.status, e.created_by, e.starts_at,
        e.voting_deadline, e.closed_at, e.created_at,
        w.place_id AS winner_place_id, w.name AS winner_name, w.address AS winner_address,
        w.lat AS winner_lat, w.lng AS winner_lng, w.rating AS winner_rating,
-       w.price_level AS winner_price_level, w.photo_url AS winner_photo_url,
+       w.price_level AS winner_price_level, w.photo_ref AS winner_photo_ref,
        w.photo_width AS winner_photo_width, w.photo_height AS winner_photo_height,
+       w.photo_author_name AS winner_photo_author_name, w.photo_author_uri AS winner_photo_author_uri,
        w.nominated_by AS winner_nominated_by, w.nominated_at AS winner_nominated_at
 FROM events e
          LEFT JOIN nominations w ON w.event_id = e.id AND w.place_id = e.winner_place_id
@@ -32,8 +33,9 @@ SELECT e.id, e.squad_id, e.name, e.type, e.status, e.created_by, e.starts_at,
        e.voting_deadline, e.closed_at, e.created_at,
        w.place_id AS winner_place_id, w.name AS winner_name, w.address AS winner_address,
        w.lat AS winner_lat, w.lng AS winner_lng, w.rating AS winner_rating,
-       w.price_level AS winner_price_level, w.photo_url AS winner_photo_url,
+       w.price_level AS winner_price_level, w.photo_ref AS winner_photo_ref,
        w.photo_width AS winner_photo_width, w.photo_height AS winner_photo_height,
+       w.photo_author_name AS winner_photo_author_name, w.photo_author_uri AS winner_photo_author_uri,
        w.nominated_by AS winner_nominated_by, w.nominated_at AS winner_nominated_at
 FROM events e
          LEFT JOIN nominations w ON w.event_id = e.id AND w.place_id = e.winner_place_id

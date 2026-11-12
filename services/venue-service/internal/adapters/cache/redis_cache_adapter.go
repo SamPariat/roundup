@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
@@ -11,13 +12,19 @@ import (
 	"go.uber.org/zap"
 )
 
-// DefaultTTL is how long cached search results and details stay valid.
+// DefaultTTL is how long cached search results, details and photo URLs stay
+// valid. Photo URLs expire on Google's side at a time it doesn't document, so
+// they are kept no longer than the results that name them.
 const DefaultTTL = 10 * time.Minute
 
 // detailKeyPrefix namespaces detail entries, so a place ID can never collide
 // with another key in the same Redis. Bump the version when the cached shape
 // changes.
 const detailKeyPrefix = "venue:detail:v1:"
+
+// photoKeyPrefix namespaces photo URL entries; the key holds the width and
+// the photo reference, venue:photo:v1:{width}:{reference}.
+const photoKeyPrefix = "venue:photo:v1:"
 
 // RedisCacheAdapter implements domain.VenueCache by storing domain types as JSON
 // in Redis. Cache misses (redis.Nil) are returned as (nil, nil), not as errors.
@@ -116,4 +123,61 @@ func (r *RedisCacheAdapter) SetDetail(ctx context.Context, placeID string, detai
 	}
 
 	return nil
+}
+
+// GetPhotoURLs returns the cached URLs of refs at width in one MGET. A miss is
+// left out of the map, as is a value that isn't a string.
+func (r *RedisCacheAdapter) GetPhotoURLs(ctx context.Context, refs []string, width int) (map[string]string, error) {
+	urls := make(map[string]string, len(refs))
+	if len(refs) == 0 {
+		return urls, nil
+	}
+
+	keys := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		keys = append(keys, photoKey(ref, width))
+	}
+
+	vals, err := r.client.MGet(ctx, keys...).Result()
+	if err != nil {
+		r.log.Warn("failed to get photo urls", zap.Int("photos", len(refs)), zap.Error(err))
+
+		return nil, err
+	}
+
+	for i, val := range vals {
+		if url, ok := val.(string); ok {
+			urls[refs[i]] = url
+		}
+	}
+
+	return urls, nil
+}
+
+// SetPhotoURLs stores each URL under its reference and width, with the
+// configured TTL, in one pipelined round trip.
+func (r *RedisCacheAdapter) SetPhotoURLs(ctx context.Context, urls map[string]string, width int) error {
+	if len(urls) == 0 {
+		return nil
+	}
+
+	_, err := r.client.Pipelined(ctx, func(pipe redis.Pipeliner) error {
+		for ref, url := range urls {
+			pipe.Set(ctx, photoKey(ref, width), url, r.ttl)
+		}
+
+		return nil
+	})
+	if err != nil {
+		r.log.Warn("failed to set photo urls", zap.Int("photos", len(urls)), zap.Error(err))
+
+		return err
+	}
+
+	return nil
+}
+
+// photoKey is where the URL of the photo ref at width is cached.
+func photoKey(ref string, width int) string {
+	return photoKeyPrefix + strconv.Itoa(width) + ":" + ref
 }

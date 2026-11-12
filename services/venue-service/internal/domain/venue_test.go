@@ -4,6 +4,8 @@ import (
 	"errors"
 	"math"
 	"testing"
+
+	"github.com/SamPariat/roundup/shared/api"
 )
 
 func TestSearchParamsValidate(t *testing.T) {
@@ -40,6 +42,45 @@ func TestSearchParamsValidate(t *testing.T) {
 
 			if tt.wantErr && !errors.Is(err, ErrInvalidSearch) {
 				t.Fatalf("Validate() error = %v, want ErrInvalidSearch", err)
+			}
+		})
+	}
+}
+
+func TestNewPhotoOptionsFillsWhatTheClientLeftOut(t *testing.T) {
+	if got, want := NewPhotoOptions(0, 0), (PhotoOptions{Width: api.DefaultPhotoWidth, Count: api.MaxVenuePhotos}); got != want {
+		t.Fatalf("NewPhotoOptions(0, 0) = %+v, want %+v", got, want)
+	}
+
+	if got, want := NewPhotoOptions(400, 2), (PhotoOptions{Width: 400, Count: 2}); got != want {
+		t.Fatalf("NewPhotoOptions(400, 2) = %+v, want %+v", got, want)
+	}
+}
+
+func TestPhotoOptionsValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		options PhotoOptions
+		wantErr bool
+	}{
+		{"SmallestWidth", PhotoOptions{Width: 200, Count: 1}, false},
+		{"LargestWidthAndCount", PhotoOptions{Width: 1600, Count: api.MaxVenuePhotos}, false},
+		{"WidthOffTheList", PhotoOptions{Width: 700, Count: 1}, true},
+		{"WidthTooLarge", PhotoOptions{Width: 4800, Count: 1}, true},
+		{"NegativeWidth", PhotoOptions{Width: -800, Count: 1}, true},
+		{"TooManyPhotos", PhotoOptions{Width: 800, Count: api.MaxVenuePhotos + 1}, true},
+		{"NegativeCount", PhotoOptions{Width: 800, Count: -1}, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.options.Validate()
+			if tt.wantErr != (err != nil) {
+				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if tt.wantErr && !errors.Is(err, ErrInvalidPhotoOptions) {
+				t.Fatalf("Validate() error = %v, want ErrInvalidPhotoOptions", err)
 			}
 		})
 	}

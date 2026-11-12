@@ -26,14 +26,23 @@ type Place struct {
 	// PriceLevel is 0–4 (0 = free or unknown, 4 = very expensive).
 	PriceLevel int
 
-	// PhotoURL is venue-service's URL for the first photo; "" if it had none.
-	PhotoURL string
+	// PhotoRef is venue-service's opaque reference for the first photo; ""
+	// if it had none. Each response turns it into a fresh URL, since the
+	// URLs expire.
+	PhotoRef string
 
 	// PhotoWidth is the photo's original width in pixels.
 	PhotoWidth int
 
 	// PhotoHeight is the photo's original height in pixels.
 	PhotoHeight int
+
+	// PhotoAuthorName credits who took the photo; Google requires showing it.
+	// "" when unknown, e.g. a place suggested before credits were kept.
+	PhotoAuthorName string
+
+	// PhotoAuthorURI is the photo author's profile page; "" when unknown.
+	PhotoAuthorURI string
 }
 
 // Nomination is a place suggested for an event.

@@ -52,6 +52,9 @@ func New(baseURL string, timeout time.Duration, opts ...Option) *Client {
 	return c
 }
 
+// maxIdleConnsPerHost is how many idle connections the client keeps to one host.
+const maxIdleConnsPerHost = 16
+
 // newHTTP1Transport returns the default transport restricted to HTTP/1.1.
 // Go's HTTP/2 client (through 1.27.4) updates its HPACK encoder when the
 // server sends a SETTINGS_HEADER_TABLE_SIZE frame without holding the lock
@@ -68,6 +71,10 @@ func newHTTP1Transport() *http.Transport {
 	t.Protocols = new(http.Protocols)
 	t.Protocols.SetHTTP1(true)
 	t.TLSClientConfig = &tls.Config{NextProtos: []string{"http/1.1"}}
+	// HTTP/1.1 runs one request per connection, and venue-service looks up a
+	// page of photos at once, so keep enough idle connections to reuse them
+	// instead of a new TLS handshake per photo (the default keeps 2 per host).
+	t.MaxIdleConnsPerHost = maxIdleConnsPerHost
 
 	return t
 }

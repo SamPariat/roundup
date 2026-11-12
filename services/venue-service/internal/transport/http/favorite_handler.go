@@ -14,12 +14,13 @@ import (
 // ID comes from the path and the caller's user ID from the X-User-ID header
 // via middleware.UserIDFrom.
 type FavoriteHandler struct {
-	uc *application.FavoriteUseCase
+	uc     *application.FavoriteUseCase
+	venues *application.VenueUseCase
 }
 
-// NewFavoriteHandler constructs a FavoriteHandler with the given use case.
-func NewFavoriteHandler(uc *application.FavoriteUseCase) *FavoriteHandler {
-	return &FavoriteHandler{uc: uc}
+// NewFavoriteHandler constructs a FavoriteHandler; venues looks up the photos' URLs.
+func NewFavoriteHandler(uc *application.FavoriteUseCase, venues *application.VenueUseCase) *FavoriteHandler {
+	return &FavoriteHandler{uc: uc, venues: venues}
 }
 
 // Add handles POST /api/v1/squads/:squadID/favorites.
@@ -62,10 +63,25 @@ func (h *FavoriteHandler) List(c fiber.Ctx) error {
 		return response.Error(c, fiber.StatusBadRequest, err)
 	}
 
+	photos, err := photoOptions(c)
+	if err != nil {
+		return response.Error(c, errorStatus(err), err)
+	}
+
 	favorites, next, err := h.uc.List(c.Context(), c.Params("squadID"), middleware.UserIDFrom(c), page)
 	if err != nil {
 		return response.Error(c, errorStatus(err), err)
 	}
 
-	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.FavoritesToResponse(favorites, next)))
+	refs := make([]domain.PhotoRef, 0, len(favorites))
+	for _, item := range favorites {
+		refs = append(refs, item.Photo)
+	}
+
+	urls, err := h.venues.PhotoURLs(c.Context(), refs, photos.Width)
+	if err != nil {
+		return response.Error(c, errorStatus(err), err)
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.FavoritesToResponse(favorites, next, urls)))
 }

@@ -1,6 +1,7 @@
-// Package api holds the constants that make up the contract between Roundup's
-// services: route prefixes one service calls on another, service names, and
-// default ports. Values used by only one service stay in that service.
+// Package api holds the contract between Roundup's services: route prefixes
+// one service calls on another, the bodies those calls and shared responses
+// carry, service names, and default ports. Values used by only one service
+// stay in that service.
 package api
 
 // V1 is the prefix every public and internal route is mounted under.

@@ -13,10 +13,11 @@ import (
 // route and fall through to 500 on another.
 func errorStatus(err error) int {
 	switch {
-	case errors.Is(err, domain.ErrInvalidSearch), errors.Is(err, pagination.ErrInvalid):
+	case errors.Is(err, domain.ErrInvalidSearch), errors.Is(err, domain.ErrInvalidPhotoOptions),
+		errors.Is(err, pagination.ErrInvalid):
 		return fiber.StatusBadRequest
 	case errors.Is(err, domain.ErrSquadNotFound), errors.Is(err, domain.ErrVenueNotFound),
-		errors.Is(err, domain.ErrPhotoNotFound), errors.Is(err, domain.ErrNotSaved):
+		errors.Is(err, domain.ErrNotSaved):
 		return fiber.StatusNotFound
 	case errors.Is(err, domain.ErrAlreadySaved), errors.Is(err, domain.ErrVisitAlreadyRecorded):
 		return fiber.StatusConflict

@@ -1,8 +1,9 @@
 -- name: AddFavorite :exec
 -- Saves a venue for a user within a squad, with a snapshot of its display fields.
 INSERT INTO saved_venues (squad_id, user_id, place_id, name, address, rating, rating_count,
-                          price_level, photo_ref, photo_width, photo_height)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
+                          price_level, photo_ref, photo_width, photo_height,
+                          photo_author_name, photo_author_uri)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);
 
 -- name: RemoveFavorite :execrows
 -- Unsaves a venue. Returns 0 rows if the user had not saved it.
@@ -22,7 +23,8 @@ WHERE squad_id = $1
 -- values, so it filters the grouped rows in an outer query.
 -- The casts give sqlc concrete column types instead of interface{}.
 SELECT g.place_id, g.name, g.address, g.rating, g.rating_count, g.price_level,
-       g.photo_ref, g.photo_width, g.photo_height, g.saved_by, g.last_saved_at
+       g.photo_ref, g.photo_width, g.photo_height, g.photo_author_name, g.photo_author_uri,
+       g.saved_by, g.last_saved_at
 FROM (SELECT place_id,
              (ARRAY_AGG(name ORDER BY saved_at DESC))[1]::text            AS name,
              (ARRAY_AGG(address ORDER BY saved_at DESC))[1]::text         AS address,
@@ -32,6 +34,8 @@ FROM (SELECT place_id,
              (ARRAY_AGG(photo_ref ORDER BY saved_at DESC))[1]::text       AS photo_ref,
              (ARRAY_AGG(photo_width ORDER BY saved_at DESC))[1]::integer  AS photo_width,
              (ARRAY_AGG(photo_height ORDER BY saved_at DESC))[1]::integer AS photo_height,
+             (ARRAY_AGG(photo_author_name ORDER BY saved_at DESC))[1]::text AS photo_author_name,
+             (ARRAY_AGG(photo_author_uri ORDER BY saved_at DESC))[1]::text  AS photo_author_uri,
              ARRAY_AGG(user_id ORDER BY saved_at DESC)::text[]            AS saved_by,
              MAX(saved_at)::timestamptz                                   AS last_saved_at
       FROM saved_venues

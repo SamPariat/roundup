@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/SamPariat/roundup/services/event-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/api"
 	sharedmw "github.com/SamPariat/roundup/shared/middleware"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,7 +23,9 @@ func TestPlaceKeepsTheSnapshotFields(t *testing.T) {
 
 		_, _ = w.Write([]byte(`{"success":true,"data":{"placeID":"ChIJ/abc","name":"The Lantern","address":"1 Main St",
 			"latitude":19.07,"longitude":72.87,"averageRating":4.5,"priceLevel":2,
-			"photos":[{"url":"/api/v1/venues/photos/r1","width":400,"height":300},{"url":"/api/v1/venues/photos/r2"}]}}`))
+			"photos":[{"url":"https://img.example/r1","ref":"r1","width":400,"height":300,
+				"attributions":[{"name":"Asha","uri":"https://maps.example/asha"}]},
+				{"url":"https://img.example/r2","ref":"r2","attributions":[]}]}}`))
 	}))
 	defer server.Close()
 
@@ -30,8 +33,43 @@ func TestPlaceKeepsTheSnapshotFields(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.Place{
 		PlaceID: "ChIJ/abc", Name: "The Lantern", Address: "1 Main St", Lat: 19.07, Lng: 72.87, Rating: 4.5,
-		PriceLevel: 2, PhotoURL: "/api/v1/venues/photos/r1", PhotoWidth: 400, PhotoHeight: 300,
+		PriceLevel: 2, PhotoRef: "r1", PhotoWidth: 400, PhotoHeight: 300,
+		PhotoAuthorName: "Asha", PhotoAuthorURI: "https://maps.example/asha",
 	}, place)
+}
+
+func TestPhotoURLs(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, "/internal/v1/venues/photo-urls", r.URL.Path)
+
+		var body api.PhotoURLsRequest
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		assert.Equal(t, api.PhotoURLsRequest{Refs: []string{"r1", "r2"}, MaxWidth: 800}, body)
+
+		_, _ = w.Write([]byte(`{"success":true,"data":{"urls":{"r1":"https://img.example/r1"}}}`))
+	}))
+	defer server.Close()
+
+	urls, err := NewVenueServiceClient(server.URL).PhotoURLs(t.Context(), []string{"r1", "r2"}, 800)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{"r1": "https://img.example/r1"}, urls)
+}
+
+func TestPhotoURLsWithoutRefsMakesNoCall(t *testing.T) {
+	urls, err := NewVenueServiceClient("http://127.0.0.1:1").PhotoURLs(t.Context(), nil, 800)
+	require.NoError(t, err)
+	assert.Empty(t, urls)
+}
+
+func TestPhotoURLsUnavailable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+
+	_, err := NewVenueServiceClient(server.URL).PhotoURLs(t.Context(), []string{"r1"}, 800)
+	assert.ErrorIs(t, err, domain.ErrVenueServiceUnavailable)
 }
 
 func TestPlaceErrors(t *testing.T) {
