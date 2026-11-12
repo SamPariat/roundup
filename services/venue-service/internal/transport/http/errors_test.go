@@ -20,7 +20,6 @@ func TestErrorStatus(t *testing.T) {
 		{pagination.ErrInvalid, fiber.StatusBadRequest},
 		{domain.ErrSquadNotFound, fiber.StatusNotFound},
 		{domain.ErrVenueNotFound, fiber.StatusNotFound},
-		{domain.ErrPhotoNotFound, fiber.StatusNotFound},
 		{domain.ErrNotSaved, fiber.StatusNotFound},
 		{domain.ErrAlreadySaved, fiber.StatusConflict},
 		{domain.ErrVisitAlreadyRecorded, fiber.StatusConflict},

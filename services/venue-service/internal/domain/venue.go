@@ -2,7 +2,6 @@ package domain
 
 import (
 	"fmt"
-	"io"
 	"math"
 	"time"
 
@@ -19,6 +18,19 @@ type PhotoRef struct {
 
 	// Height is the original image height in pixels.
 	Height int
+
+	// Attributions credit the photo's authors; the provider requires showing
+	// them wherever the photo is shown.
+	Attributions []PhotoAttribution
+}
+
+// PhotoAttribution credits one author of a photo.
+type PhotoAttribution struct {
+	// Name is the author's display name.
+	Name string
+
+	// URI is the author's profile page; "" when the provider gives none.
+	URI string
 }
 
 // Review is a single user review returned by the place provider.
@@ -130,24 +142,6 @@ func (v Venue) Snapshot() VenueSnapshot {
 
 	return snapshot
 }
-
-// Photo is a venue photo's bytes, streamed from the provider.
-type Photo struct {
-	// ContentType is the image's MIME type, e.g. "image/jpeg".
-	ContentType string
-
-	// Body is the image data; the caller closes it.
-	Body io.ReadCloser
-}
-
-// Photo widths the provider accepts.
-const (
-	// DefaultPhotoWidth is used when a request does not ask for a width.
-	DefaultPhotoWidth = 800
-
-	// MaxPhotoWidth is the largest width the provider serves.
-	MaxPhotoWidth = 1600
-)
 
 // Search limits enforced by SearchParams.Validate.
 const (

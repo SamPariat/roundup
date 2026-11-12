@@ -54,7 +54,10 @@ func snapshotOf(placeID string) domain.VenueSnapshot {
 		AverageRating: 4.5,
 		RatingCount:   1240,
 		PriceLevel:    2,
-		Photo:         domain.PhotoRef{Reference: "ref-" + placeID, Width: 4032, Height: 3024},
+		Photo: domain.PhotoRef{
+			Reference: "ref-" + placeID, Width: 4032, Height: 3024,
+			Attributions: []domain.PhotoAttribution{{Name: "Asha", URI: "https://maps.example/asha"}},
+		},
 	}
 }
 

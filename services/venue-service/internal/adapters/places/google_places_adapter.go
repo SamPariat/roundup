@@ -22,7 +22,7 @@ import (
 // BaseURL is Places API (New).
 const BaseURL = "https://places.googleapis.com/v1"
 
-// requestTimeout bounds every call to Google, photo downloads included.
+// requestTimeout bounds every call to Google.
 const requestTimeout = 10 * time.Second
 
 // defaultTextQuery is what a search looks for when the caller typed nothing.
@@ -120,57 +120,47 @@ func (a *GooglePlacesAdapter) GetDetail(ctx context.Context, placeID string) (*d
 	return p.toVenueDetail(), nil
 }
 
-// Photo streams a venue photo at most maxWidth pixels wide, so the API key
-// never reaches clients. Returns domain.ErrPhotoNotFound for a reference this
-// adapter did not issue or Google no longer knows.
-func (a *GooglePlacesAdapter) Photo(ctx context.Context, reference string, maxWidth int) (*domain.Photo, error) {
+// PhotoURL asks Google for the photo's address on its image servers instead
+// of the image (skipHttpRedirect), at most maxWidth pixels wide. The address
+// carries no API key, so clients load it directly. Returns
+// domain.ErrPhotoNotFound for a reference this adapter did not issue or
+// Google no longer knows.
+func (a *GooglePlacesAdapter) PhotoURL(ctx context.Context, reference string, maxWidth int) (string, error) {
 	name, ok := decodePhotoReference(reference)
 	if !ok {
-		return nil, domainerr.New(domain.ErrPhotoNotFound, reference)
+		return "", domainerr.New(domain.ErrPhotoNotFound, reference)
 	}
 
-	resp, err := a.send(ctx, http.MethodGet, "/"+name+"/media?maxWidthPx="+strconv.Itoa(maxWidth), nil)
-	if err != nil {
+	var media photoMedia
+	if err := a.do(ctx, http.MethodGet, "/"+name+"/media?skipHttpRedirect=true&maxWidthPx="+strconv.Itoa(maxWidth), nil, &media); err != nil {
 		if isNotFound(err) {
-			return nil, domainerr.New(domain.ErrPhotoNotFound, reference)
+			return "", domainerr.New(domain.ErrPhotoNotFound, reference)
 		}
 
-		return nil, mapProviderError(err)
+		return "", mapProviderError(err)
 	}
 
-	return &domain.Photo{ContentType: resp.Header.Get("Content-Type"), Body: resp.Body}, nil
+	return media.PhotoURI, nil
 }
 
-// do sends a request and decodes a 2xx JSON answer into out.
+// do sends a request and decodes a 2xx JSON answer into out. A network
+// failure is domain.ErrProviderUnavailable; any other status is an *apiError.
 func (a *GooglePlacesAdapter) do(ctx context.Context, method, path string, body, out any) error {
-	resp, err := a.send(ctx, method, path, body)
+	resp, err := a.client.Do(ctx, method, path, "", body)
 	if err != nil {
-		return err
+		return domainerr.New(domain.ErrProviderUnavailable, err.Error())
 	}
 	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return readAPIError(resp)
+	}
 
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
 		return fmt.Errorf("places: decode %s: %w", path, err)
 	}
 
 	return nil
-}
-
-// send returns the response for any 2xx status. A network failure is
-// domain.ErrProviderUnavailable; any other status is an *apiError.
-func (a *GooglePlacesAdapter) send(ctx context.Context, method, path string, body any) (*http.Response, error) {
-	resp, err := a.client.Do(ctx, method, path, "", body)
-	if err != nil {
-		return nil, domainerr.New(domain.ErrProviderUnavailable, err.Error())
-	}
-
-	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices {
-		return resp, nil
-	}
-
-	defer func() { _ = resp.Body.Close() }()
-
-	return nil, readAPIError(resp)
 }
 
 // textQuery is what the search looks for: the caller's words, else the

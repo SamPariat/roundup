@@ -3,9 +3,13 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/SamPariat/roundup/services/venue-service/internal/domain"
+	"github.com/SamPariat/roundup/shared/domainerr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,7 +31,7 @@ type fakeVenueCache struct {
 type fakePlaceProvider struct {
 	searchNearbyFn func(ctx context.Context, params domain.SearchParams) (*domain.SearchResult, error)
 	getDetailFn    func(ctx context.Context, placeID string) (*domain.VenueDetail, error)
-	photoFn        func(ctx context.Context, reference string, maxWidth int) (*domain.Photo, error)
+	photoURLFn     func(ctx context.Context, reference string, maxWidth int) (string, error)
 }
 
 func (f *fakeVenueCache) GetNearby(ctx context.Context, key string) (*domain.SearchResult, error) {
@@ -72,12 +76,12 @@ func (f *fakePlaceProvider) GetDetail(ctx context.Context, placeID string) (*dom
 	return nil, nil
 }
 
-func (f *fakePlaceProvider) Photo(ctx context.Context, reference string, maxWidth int) (*domain.Photo, error) {
-	if f.photoFn != nil {
-		return f.photoFn(ctx, reference, maxWidth)
+func (f *fakePlaceProvider) PhotoURL(ctx context.Context, reference string, maxWidth int) (string, error) {
+	if f.photoURLFn != nil {
+		return f.photoURLFn(ctx, reference, maxWidth)
 	}
 
-	return nil, nil
+	return "", nil
 }
 
 func TestSearchCacheHit(t *testing.T) {
@@ -250,32 +254,107 @@ func TestGetDetailProviderErrorReturnsError(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrVenueNotFound)
 }
 
-func TestPhotoClampsWidth(t *testing.T) {
-	tests := []struct {
-		name      string
-		requested int
-		want      int
-	}{
-		{"OmittedUsesDefault", 0, domain.DefaultPhotoWidth},
-		{"WithinRangeKept", 400, 400},
-		{"TooWideCapped", 4000, domain.MaxPhotoWidth},
+func TestPhotoURLsLooksUpEveryPhotoAtTheWidth(t *testing.T) {
+	var (
+		mu    sync.Mutex
+		asked []string
+	)
+
+	uc := NewVenueUseCase(&fakePlaceProvider{
+		photoURLFn: func(_ context.Context, reference string, maxWidth int) (string, error) {
+			mu.Lock()
+			defer mu.Unlock()
+
+			asked = append(asked, reference)
+
+			return fmt.Sprintf("https://img.example/%s?w=%d", reference, maxWidth), nil
+		},
+	}, &fakeVenueCache{})
+
+	urls, err := uc.PhotoURLs(t.Context(), []domain.PhotoRef{{Reference: "a"}, {}, {Reference: "b"}}, 400)
+	require.NoError(t, err)
+
+	assert.Equal(t, map[string]string{
+		"a": "https://img.example/a?w=400",
+		"b": "https://img.example/b?w=400",
+	}, urls)
+	assert.ElementsMatch(t, []string{"a", "b"}, asked, "a ref without a reference is never looked up")
+}
+
+func TestPhotoURLsLeavesOutAPhotoGoogleNoLongerHas(t *testing.T) {
+	uc := NewVenueUseCase(&fakePlaceProvider{
+		photoURLFn: func(_ context.Context, reference string, _ int) (string, error) {
+			if reference == "gone" {
+				return "", domainerr.New(domain.ErrPhotoNotFound, reference)
+			}
+
+			return "https://img.example/" + reference, nil
+		},
+	}, &fakeVenueCache{})
+
+	urls, err := uc.PhotoURLs(t.Context(), []domain.PhotoRef{{Reference: "a"}, {Reference: "gone"}}, 400)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{"a": "https://img.example/a"}, urls)
+}
+
+func TestPhotoURLsFailsWhenGoogleIsDown(t *testing.T) {
+	uc := NewVenueUseCase(&fakePlaceProvider{
+		photoURLFn: func(_ context.Context, reference string, _ int) (string, error) {
+			if reference == "b" {
+				return "", domainerr.New(domain.ErrProviderUnavailable, "quota")
+			}
+
+			return "https://img.example/" + reference, nil
+		},
+	}, &fakeVenueCache{})
+
+	urls, err := uc.PhotoURLs(t.Context(), []domain.PhotoRef{{Reference: "a"}, {Reference: "b"}}, 400)
+	require.ErrorIs(t, err, domain.ErrProviderUnavailable)
+	assert.Nil(t, urls)
+}
+
+func TestPhotoURLsCancelsTheOtherLookupsWhenGoogleIsDown(t *testing.T) {
+	var (
+		mu        sync.Mutex
+		started   int
+		cancelled int
+	)
+
+	uc := NewVenueUseCase(&fakePlaceProvider{
+		photoURLFn: func(ctx context.Context, reference string, _ int) (string, error) {
+			mu.Lock()
+			started++
+			mu.Unlock()
+
+			if reference == "down" {
+				return "", domainerr.New(domain.ErrProviderUnavailable, "quota")
+			}
+
+			// Every other lookup hangs, like a slow Google, until cancelled.
+			select {
+			case <-ctx.Done():
+				mu.Lock()
+				cancelled++
+				mu.Unlock()
+
+				return "", domainerr.New(domain.ErrProviderUnavailable, ctx.Err().Error())
+			case <-time.After(5 * time.Second):
+				return "https://img.example/" + reference, nil
+			}
+		},
+	}, &fakeVenueCache{})
+
+	// More refs than slots, so some wait for a slot when the failure lands.
+	refs := []domain.PhotoRef{{Reference: "down"}}
+	for i := range 3 * maxPhotoLookups {
+		refs = append(refs, domain.PhotoRef{Reference: fmt.Sprintf("slow-%d", i)})
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var got int
+	begin := time.Now()
+	_, err := uc.PhotoURLs(t.Context(), refs, 400)
 
-			uc := NewVenueUseCase(&fakePlaceProvider{
-				photoFn: func(_ context.Context, _ string, maxWidth int) (*domain.Photo, error) {
-					got = maxWidth
-
-					return &domain.Photo{}, nil
-				},
-			}, &fakeVenueCache{})
-
-			_, err := uc.Photo(t.Context(), "ref", tt.requested)
-			require.NoError(t, err)
-			assert.Equal(t, tt.want, got)
-		})
-	}
+	require.ErrorIs(t, err, domain.ErrProviderUnavailable)
+	assert.Less(t, time.Since(begin), time.Second, "the hanging lookups are cancelled, not waited out")
+	assert.Equal(t, started-1, cancelled, "every lookup that started, other than the failed one, saw the cancel")
+	assert.Less(t, started, len(refs), "lookups still waiting for a slot never start")
 }

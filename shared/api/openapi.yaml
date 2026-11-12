@@ -775,56 +775,6 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/venues/photos/{ref}:
-    x-service: venue-service
-    get:
-      tags: [Venues]
-      operationId: getVenuePhoto
-      summary: Get a venue photo
-      description: |
-        The image bytes, fetched from Google so the API key never reaches the
-        client. Public (no token), because image tags cannot send one; rate
-        limited per client IP at the gateway. Use the `url` from a venue's
-        `photos`; it already points here.
-      security: []
-      parameters:
-        - name: ref
-          in: path
-          required: true
-          description: Opaque photo reference, as in a `photos[].url`.
-          schema:
-            type: string
-        - name: maxWidth
-          in: query
-          description: Widest the image may be; 800 when omitted, capped at 1600.
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 1600
-      responses:
-        '200':
-          description: The photo.
-          headers:
-            Cache-Control:
-              schema:
-                type: string
-                example: public, max-age=86400
-          content:
-            image/*:
-              schema:
-                type: string
-                format: binary
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '502':
-          $ref: '#/components/responses/BadGateway'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
   # ─── Favorites ───────────────────────────────────────────────────────────
 
   /api/v1/squads/{squadID}/favorites:
@@ -1559,6 +1509,49 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /internal/v1/venues/photo-urls:
+    x-service: venue-service
+    servers:
+      - url: http://localhost:3006
+        description: venue-service (direct; the gateway doesn't route /internal)
+    post:
+      tags: [Internal]
+      operationId: getVenuePhotoURLs
+      summary: Turn stored photo references into fresh URLs
+      description: |
+        Called by event-service, which stores a nominated venue's photo `ref`.
+        The URLs expire, so look them up for each response and never store them.
+        Each ref is a billed Google call.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhotoURLsRequest'
+      responses:
+        '200':
+          description: A URL for each ref whose lookup succeeded.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PhotoURLsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /internal/v1/events/confirm-due:
     x-service: event-service
     servers:
@@ -2220,18 +2213,71 @@ components:
 
     Photo:
       type: object
-      required: [url, width, height]
+      required: [url, ref, width, height, attributions]
       properties:
         url:
           type: string
-          description: Path on this API that serves the image without a token.
-          example: /api/v1/venues/photos/AWU5eFj...
+          format: uri
+          description: |
+            The image on Google's servers, sized for the screen this endpoint
+            serves (search cards, a venue's page, or list thumbnails). Needs no
+            key or token, so it works as an image source. It expires: use it
+            from a fresh response and never store it.
+          example: https://lh3.googleusercontent.com/place-photos/AJRVA...=s4800-w800
+        ref:
+          type: string
+          description: |
+            Opaque photo reference. A service that keeps a venue's photo stores
+            this, never the url, and gets a fresh url from
+            POST /internal/v1/venues/photo-urls.
         width:
           type: integer
           description: Original width in pixels.
         height:
           type: integer
           description: Original height in pixels.
+        attributions:
+          type: array
+          description: |
+            The photo's authors. Google requires showing them with the photo.
+            Empty when unknown, e.g. a favorite saved before credits were kept.
+          items:
+            $ref: '#/components/schemas/PhotoAttribution'
+    PhotoURLsRequest:
+      type: object
+      required: [refs, maxWidth]
+      properties:
+        refs:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+          description: Photo references, as in a Photo's `ref`.
+        maxWidth:
+          type: integer
+          minimum: 1
+          maximum: 4800
+          description: Widest the images may be, in pixels.
+    PhotoURLsResponse:
+      type: object
+      required: [urls]
+      properties:
+        urls:
+          type: object
+          additionalProperties:
+            type: string
+            format: uri
+          description: Each ref's URL; a ref whose lookup failed is left out.
+    PhotoAttribution:
+      type: object
+      required: [name, uri]
+      properties:
+        name:
+          type: string
+          description: The author's display name.
+        uri:
+          type: string
+          description: The author's profile page; empty when Google gives none.
     Review:
       type: object
       required: [authorName, rating, text, publishedAt]
@@ -2283,6 +2329,10 @@ components:
           description: Null when Google does not know.
         photos:
           type: array
+          description: |
+            Photos with a direct URL: the first one in search results, up to
+            five on a venue's page. A photo whose URL could not be looked up
+            is left out.
           items:
             $ref: '#/components/schemas/Photo'
     VenueDetail:

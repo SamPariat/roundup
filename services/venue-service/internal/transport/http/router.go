@@ -21,7 +21,6 @@ func RegisterRoutes(app *fiber.App, h *Handlers) {
 
 	venues := v1.Group("/venues")
 	venues.Get("/", h.Venue.Search)
-	venues.Get("/photos/:ref", h.Venue.Photo)
 	// Details include the caller's squads, so they need X-User-ID.
 	venues.Get("/:placeID", middleware.UserID(), h.Venue.GetDetail)
 
@@ -37,4 +36,8 @@ func RegisterRoutes(app *fiber.App, h *Handlers) {
 	history := squads.Group("/history")
 	history.Get("/", h.History.List)
 	history.Post("/", h.History.Record)
+
+	// The /internal routes are for other services; the gateway doesn't route
+	// them, so they are reachable only on the internal network.
+	app.Post(api.VenuePhotoURLsPath, h.Venue.PhotoURLs)
 }

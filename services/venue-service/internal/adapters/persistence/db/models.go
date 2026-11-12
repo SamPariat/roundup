@@ -9,19 +9,21 @@ import (
 )
 
 type SavedVenue struct {
-	ID          int64              `json:"id"`
-	SquadID     string             `json:"squad_id"`
-	UserID      string             `json:"user_id"`
-	PlaceID     string             `json:"place_id"`
-	Name        string             `json:"name"`
-	SavedAt     pgtype.Timestamptz `json:"saved_at"`
-	Address     string             `json:"address"`
-	Rating      float32            `json:"rating"`
-	RatingCount int32              `json:"rating_count"`
-	PriceLevel  int32              `json:"price_level"`
-	PhotoRef    string             `json:"photo_ref"`
-	PhotoWidth  int32              `json:"photo_width"`
-	PhotoHeight int32              `json:"photo_height"`
+	ID              int64              `json:"id"`
+	SquadID         string             `json:"squad_id"`
+	UserID          string             `json:"user_id"`
+	PlaceID         string             `json:"place_id"`
+	Name            string             `json:"name"`
+	SavedAt         pgtype.Timestamptz `json:"saved_at"`
+	Address         string             `json:"address"`
+	Rating          float32            `json:"rating"`
+	RatingCount     int32              `json:"rating_count"`
+	PriceLevel      int32              `json:"price_level"`
+	PhotoRef        string             `json:"photo_ref"`
+	PhotoWidth      int32              `json:"photo_width"`
+	PhotoHeight     int32              `json:"photo_height"`
+	PhotoAuthorName string             `json:"photo_author_name"`
+	PhotoAuthorUri  string             `json:"photo_author_uri"`
 }
 
 type VenueVisit struct {
@@ -39,4 +41,6 @@ type VenueVisit struct {
 	PhotoRef        string             `json:"photo_ref"`
 	PhotoWidth      int32              `json:"photo_width"`
 	PhotoHeight     int32              `json:"photo_height"`
+	PhotoAuthorName string             `json:"photo_author_name"`
+	PhotoAuthorUri  string             `json:"photo_author_uri"`
 }

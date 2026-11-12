@@ -2,8 +2,8 @@
 -- Records one squad visit to a venue during an event, with a snapshot of its display fields.
 INSERT INTO venue_visits (squad_id, event_id, place_id, name, visited_at, avg_spend_in_paise,
                           address, rating, rating_count, price_level, photo_ref, photo_width,
-                          photo_height)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);
+                          photo_height, photo_author_name, photo_author_uri)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15);
 
 -- name: GetVisitHistory :many
 -- Summarises one page of a squad's visits per venue, most recently visited
@@ -14,6 +14,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);
 -- grouping because it compares grouped values.
 -- The casts give sqlc concrete column types instead of interface{}.
 SELECT h.place_id, h.name, h.address, h.photo_ref, h.photo_width, h.photo_height,
+       h.photo_author_name, h.photo_author_uri,
        h.visit_count, h.last_visited_at, h.avg_spend_in_paise
 FROM (SELECT place_id,
              (ARRAY_AGG(name ORDER BY visited_at DESC))[1]::text            AS name,
@@ -21,6 +22,8 @@ FROM (SELECT place_id,
              (ARRAY_AGG(photo_ref ORDER BY visited_at DESC))[1]::text       AS photo_ref,
              (ARRAY_AGG(photo_width ORDER BY visited_at DESC))[1]::integer  AS photo_width,
              (ARRAY_AGG(photo_height ORDER BY visited_at DESC))[1]::integer AS photo_height,
+             (ARRAY_AGG(photo_author_name ORDER BY visited_at DESC))[1]::text AS photo_author_name,
+             (ARRAY_AGG(photo_author_uri ORDER BY visited_at DESC))[1]::text  AS photo_author_uri,
              COUNT(*)                                                       AS visit_count,
              MAX(visited_at)::timestamptz                                   AS last_visited_at,
              COALESCE(ROUND(AVG(avg_spend_in_paise)), 0)::bigint            AS avg_spend_in_paise

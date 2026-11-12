@@ -13,22 +13,25 @@ import (
 
 const addFavorite = `-- name: AddFavorite :exec
 INSERT INTO saved_venues (squad_id, user_id, place_id, name, address, rating, rating_count,
-                          price_level, photo_ref, photo_width, photo_height)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                          price_level, photo_ref, photo_width, photo_height,
+                          photo_author_name, photo_author_uri)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 `
 
 type AddFavoriteParams struct {
-	SquadID     string  `json:"squad_id"`
-	UserID      string  `json:"user_id"`
-	PlaceID     string  `json:"place_id"`
-	Name        string  `json:"name"`
-	Address     string  `json:"address"`
-	Rating      float32 `json:"rating"`
-	RatingCount int32   `json:"rating_count"`
-	PriceLevel  int32   `json:"price_level"`
-	PhotoRef    string  `json:"photo_ref"`
-	PhotoWidth  int32   `json:"photo_width"`
-	PhotoHeight int32   `json:"photo_height"`
+	SquadID         string  `json:"squad_id"`
+	UserID          string  `json:"user_id"`
+	PlaceID         string  `json:"place_id"`
+	Name            string  `json:"name"`
+	Address         string  `json:"address"`
+	Rating          float32 `json:"rating"`
+	RatingCount     int32   `json:"rating_count"`
+	PriceLevel      int32   `json:"price_level"`
+	PhotoRef        string  `json:"photo_ref"`
+	PhotoWidth      int32   `json:"photo_width"`
+	PhotoHeight     int32   `json:"photo_height"`
+	PhotoAuthorName string  `json:"photo_author_name"`
+	PhotoAuthorUri  string  `json:"photo_author_uri"`
 }
 
 // Saves a venue for a user within a squad, with a snapshot of its display fields.
@@ -45,13 +48,16 @@ func (q *Queries) AddFavorite(ctx context.Context, arg AddFavoriteParams) error 
 		arg.PhotoRef,
 		arg.PhotoWidth,
 		arg.PhotoHeight,
+		arg.PhotoAuthorName,
+		arg.PhotoAuthorUri,
 	)
 	return err
 }
 
 const listSquadFavorites = `-- name: ListSquadFavorites :many
 SELECT g.place_id, g.name, g.address, g.rating, g.rating_count, g.price_level,
-       g.photo_ref, g.photo_width, g.photo_height, g.saved_by, g.last_saved_at
+       g.photo_ref, g.photo_width, g.photo_height, g.photo_author_name, g.photo_author_uri,
+       g.saved_by, g.last_saved_at
 FROM (SELECT place_id,
              (ARRAY_AGG(name ORDER BY saved_at DESC))[1]::text            AS name,
              (ARRAY_AGG(address ORDER BY saved_at DESC))[1]::text         AS address,
@@ -61,6 +67,8 @@ FROM (SELECT place_id,
              (ARRAY_AGG(photo_ref ORDER BY saved_at DESC))[1]::text       AS photo_ref,
              (ARRAY_AGG(photo_width ORDER BY saved_at DESC))[1]::integer  AS photo_width,
              (ARRAY_AGG(photo_height ORDER BY saved_at DESC))[1]::integer AS photo_height,
+             (ARRAY_AGG(photo_author_name ORDER BY saved_at DESC))[1]::text AS photo_author_name,
+             (ARRAY_AGG(photo_author_uri ORDER BY saved_at DESC))[1]::text  AS photo_author_uri,
              ARRAY_AGG(user_id ORDER BY saved_at DESC)::text[]            AS saved_by,
              MAX(saved_at)::timestamptz                                   AS last_saved_at
       FROM saved_venues
@@ -82,17 +90,19 @@ type ListSquadFavoritesParams struct {
 }
 
 type ListSquadFavoritesRow struct {
-	PlaceID     string             `json:"place_id"`
-	Name        string             `json:"name"`
-	Address     string             `json:"address"`
-	Rating      float32            `json:"rating"`
-	RatingCount int32              `json:"rating_count"`
-	PriceLevel  int32              `json:"price_level"`
-	PhotoRef    string             `json:"photo_ref"`
-	PhotoWidth  int32              `json:"photo_width"`
-	PhotoHeight int32              `json:"photo_height"`
-	SavedBy     []string           `json:"saved_by"`
-	LastSavedAt pgtype.Timestamptz `json:"last_saved_at"`
+	PlaceID         string             `json:"place_id"`
+	Name            string             `json:"name"`
+	Address         string             `json:"address"`
+	Rating          float32            `json:"rating"`
+	RatingCount     int32              `json:"rating_count"`
+	PriceLevel      int32              `json:"price_level"`
+	PhotoRef        string             `json:"photo_ref"`
+	PhotoWidth      int32              `json:"photo_width"`
+	PhotoHeight     int32              `json:"photo_height"`
+	PhotoAuthorName string             `json:"photo_author_name"`
+	PhotoAuthorUri  string             `json:"photo_author_uri"`
+	SavedBy         []string           `json:"saved_by"`
+	LastSavedAt     pgtype.Timestamptz `json:"last_saved_at"`
 }
 
 // Lists one page of a squad's favorites, one row per venue, most recently
@@ -128,6 +138,8 @@ func (q *Queries) ListSquadFavorites(ctx context.Context, arg ListSquadFavorites
 			&i.PhotoRef,
 			&i.PhotoWidth,
 			&i.PhotoHeight,
+			&i.PhotoAuthorName,
+			&i.PhotoAuthorUri,
 			&i.SavedBy,
 			&i.LastSavedAt,
 		); err != nil {

@@ -30,9 +30,6 @@ func RegisterRoutes(app *fiber.App, upstreams config.Upstreams, pub ed25519.Publ
 
 	v1.Group("/users", auth).All("/*", proxy.To(upstreams.User, timeout))
 
-	// Venue photos are public: image tags cannot send a bearer token, and the
-	// references are opaque. Registered before the /venues group so it wins.
-	v1.Get("/venues/photos/:ref", middleware.PhotoRateLimit(), proxy.To(upstreams.Venue, timeout))
 	v1.Group("/venues", auth).All("/*", proxy.To(upstreams.Venue, timeout))
 
 	// A squad's favorites and history live in venue-service and its events in

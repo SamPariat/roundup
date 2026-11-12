@@ -19,9 +19,10 @@ type PlaceProvider interface {
 	// provider rejects or cannot serve the request.
 	GetDetail(ctx context.Context, placeID string) (*VenueDetail, error)
 
-	// Photo streams a venue photo at most maxWidth pixels wide. Returns
-	// ErrPhotoNotFound for an unknown reference.
-	Photo(ctx context.Context, reference string, maxWidth int) (*Photo, error)
+	// PhotoURL returns a URL that serves the photo at most maxWidth pixels
+	// wide, without credentials, so clients load it directly. The URL expires,
+	// so it is never stored. Returns ErrPhotoNotFound for an unknown reference.
+	PhotoURL(ctx context.Context, reference string, maxWidth int) (string, error)
 }
 
 // VenueCache abstracts the caching layer (Redis, in-memory, etc.).

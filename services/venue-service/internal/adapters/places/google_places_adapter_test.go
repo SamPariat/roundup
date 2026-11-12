@@ -228,26 +228,21 @@ func TestGoogleUnreachableIsUnavailable(t *testing.T) {
 	require.ErrorIs(t, err, domain.ErrProviderUnavailable)
 }
 
-func TestPhotoFetchesTheMedia(t *testing.T) {
+func TestPhotoURLAsksForTheAddressNotTheImage(t *testing.T) {
 	a := fakeGoogle(t, func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/places/p1/photos/abc/media", r.URL.Path)
 		assert.Equal(t, "400", r.URL.Query().Get("maxWidthPx"))
-		w.Header().Set("Content-Type", "image/jpeg")
-		_, _ = io.WriteString(w, "jpeg-bytes")
+		assert.Equal(t, "true", r.URL.Query().Get("skipHttpRedirect"))
+
+		_, _ = io.WriteString(w, `{"name":"places/p1/photos/abc/media","photoUri":"https://lh3.googleusercontent.com/place-photos/abc=s4800-w400"}`)
 	})
 
-	photo, err := a.Photo(t.Context(), encodePhotoReference("places/p1/photos/abc"), 400)
+	url, err := a.PhotoURL(t.Context(), encodePhotoReference("places/p1/photos/abc"), 400)
 	require.NoError(t, err)
-
-	defer func() { _ = photo.Body.Close() }()
-
-	body, err := io.ReadAll(photo.Body)
-	require.NoError(t, err)
-	assert.Equal(t, "image/jpeg", photo.ContentType)
-	assert.Equal(t, "jpeg-bytes", string(body))
+	assert.Equal(t, "https://lh3.googleusercontent.com/place-photos/abc=s4800-w400", url)
 }
 
-func TestPhotoRejectsReferencesItDidNotIssue(t *testing.T) {
+func TestPhotoURLRejectsReferencesItDidNotIssue(t *testing.T) {
 	a := fakeGoogle(t, func(_ http.ResponseWriter, r *http.Request) {
 		t.Errorf("no request should reach Google, got %s", r.URL.Path)
 	})
@@ -258,15 +253,15 @@ func TestPhotoRejectsReferencesItDidNotIssue(t *testing.T) {
 		encodePhotoReference("places/p1/photos/abc/../../x"),
 		"",
 	} {
-		_, err := a.Photo(t.Context(), ref, 400)
+		_, err := a.PhotoURL(t.Context(), ref, 400)
 		require.ErrorIs(t, err, domain.ErrPhotoNotFound, ref)
 	}
 }
 
-func TestPhotoGoogleNoLongerHas(t *testing.T) {
+func TestPhotoURLGoogleNoLongerHas(t *testing.T) {
 	a := fakeGoogle(t, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) })
 
-	_, err := a.Photo(t.Context(), encodePhotoReference("places/p1/photos/gone"), 400)
+	_, err := a.PhotoURL(t.Context(), encodePhotoReference("places/p1/photos/gone"), 400)
 	require.ErrorIs(t, err, domain.ErrPhotoNotFound)
 }
 
@@ -322,5 +317,13 @@ func assertMapped(t *testing.T, p map[string]any, v domain.Venue) {
 		assert.Equal(t, get(raw, "name"), name)
 		assert.InDelta(t, get(raw, "widthPx"), v.PhotoRefs[i].Width, 0)
 		assert.InDelta(t, get(raw, "heightPx"), v.PhotoRefs[i].Height, 0)
+
+		authors, _ := get(raw, "authorAttributions").([]any)
+		require.Len(t, v.PhotoRefs[i].Attributions, len(authors))
+
+		for j, author := range authors {
+			assert.Equal(t, get(author, "displayName"), v.PhotoRefs[i].Attributions[j].Name)
+			assert.Equal(t, get(author, "uri"), v.PhotoRefs[i].Attributions[j].URI)
+		}
 	}
 }

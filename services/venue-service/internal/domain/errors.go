@@ -13,7 +13,8 @@ var (
 	// ErrVenueNotFound is returned when a venue lookup finds no matching record.
 	ErrVenueNotFound = errors.New("venue not found")
 
-	// ErrPhotoNotFound is returned when the provider has no photo for a reference.
+	// ErrPhotoNotFound is returned when the provider has no photo for a
+	// reference. PhotoURLs leaves such a photo out instead of failing.
 	ErrPhotoNotFound = errors.New("photo not found")
 
 	// ErrProviderUnavailable is returned when the external place provider

@@ -37,18 +37,22 @@ func NewPostgresVenueRepository(pool *pgxpool.Pool) *PostgresVenueRepository {
 // AddFavorite persists a new favorite for the user. Returns ErrAlreadySaved if
 // the (squad_id, user_id, place_id) combination already exists.
 func (r *PostgresVenueRepository) AddFavorite(ctx context.Context, cmd domain.AddFavoriteCommand, snapshot domain.VenueSnapshot) error {
+	author := firstAuthor(snapshot.Photo)
+
 	err := r.queries.AddFavorite(ctx, db.AddFavoriteParams{
-		SquadID:     cmd.SquadID,
-		UserID:      cmd.UserID,
-		PlaceID:     cmd.PlaceID,
-		Name:        snapshot.Name,
-		Address:     snapshot.Address,
-		Rating:      snapshot.AverageRating,
-		RatingCount: int32(snapshot.RatingCount),
-		PriceLevel:  int32(snapshot.PriceLevel),
-		PhotoRef:    snapshot.Photo.Reference,
-		PhotoWidth:  int32(snapshot.Photo.Width),
-		PhotoHeight: int32(snapshot.Photo.Height),
+		SquadID:         cmd.SquadID,
+		UserID:          cmd.UserID,
+		PlaceID:         cmd.PlaceID,
+		Name:            snapshot.Name,
+		Address:         snapshot.Address,
+		Rating:          snapshot.AverageRating,
+		RatingCount:     int32(snapshot.RatingCount),
+		PriceLevel:      int32(snapshot.PriceLevel),
+		PhotoRef:        snapshot.Photo.Reference,
+		PhotoWidth:      int32(snapshot.Photo.Width),
+		PhotoHeight:     int32(snapshot.Photo.Height),
+		PhotoAuthorName: author.Name,
+		PhotoAuthorUri:  author.URI,
 	})
 	if err != nil {
 		if postgres.IsUniqueViolation(err) {
@@ -111,7 +115,7 @@ func (r *PostgresVenueRepository) ListSquadFavorites(ctx context.Context, squadI
 			AverageRating: row.Rating,
 			RatingCount:   int(row.RatingCount),
 			PriceLevel:    int(row.PriceLevel),
-			Photo:         photoRef(row.PhotoRef, row.PhotoWidth, row.PhotoHeight),
+			Photo:         photoRef(row.PhotoRef, row.PhotoWidth, row.PhotoHeight, row.PhotoAuthorName, row.PhotoAuthorUri),
 			SavedBy:       row.SavedBy,
 			LastSavedAt:   row.LastSavedAt.Time,
 		})
@@ -140,6 +144,8 @@ func (r *PostgresVenueRepository) SavedInSquads(ctx context.Context, userID, pla
 // AvgSpendInPaise is stored as NULL (unknown) rather than as a real 0.
 // Returns ErrVisitAlreadyRecorded if the (squad, event, place) row exists.
 func (r *PostgresVenueRepository) RecordVisit(ctx context.Context, cmd domain.RecordVisitCommand, snapshot domain.VenueSnapshot) error {
+	author := firstAuthor(snapshot.Photo)
+
 	err := r.queries.RecordVisit(ctx, db.RecordVisitParams{
 		SquadID:         cmd.SquadID,
 		EventID:         cmd.EventID,
@@ -154,6 +160,8 @@ func (r *PostgresVenueRepository) RecordVisit(ctx context.Context, cmd domain.Re
 		PhotoRef:        snapshot.Photo.Reference,
 		PhotoWidth:      int32(snapshot.Photo.Width),
 		PhotoHeight:     int32(snapshot.Photo.Height),
+		PhotoAuthorName: author.Name,
+		PhotoAuthorUri:  author.URI,
 	})
 	if err != nil {
 		if postgres.IsUniqueViolation(err) {
@@ -192,7 +200,7 @@ func (r *PostgresVenueRepository) GetVisitHistory(ctx context.Context, squadID s
 			PlaceID:         row.PlaceID,
 			Name:            row.Name,
 			Address:         row.Address,
-			Photo:           photoRef(row.PhotoRef, row.PhotoWidth, row.PhotoHeight),
+			Photo:           photoRef(row.PhotoRef, row.PhotoWidth, row.PhotoHeight, row.PhotoAuthorName, row.PhotoAuthorUri),
 			VisitCount:      row.VisitCount,
 			LastVisitedAt:   row.LastVisitedAt.Time,
 			AvgSpendInPaise: row.AvgSpendInPaise,
@@ -223,8 +231,24 @@ func decodePlaceCursor(page pagination.Page) (pgtype.Timestamptz, pgtype.Text, e
 	return postgres.Timestamptz(after.At), pgtype.Text{String: after.PlaceID, Valid: true}, nil
 }
 
-// photoRef builds a domain.PhotoRef from the photo_ref, photo_width and
-// photo_height columns.
-func photoRef(reference string, width, height int32) domain.PhotoRef {
-	return domain.PhotoRef{Reference: reference, Width: int(width), Height: int(height)}
+// photoRef builds a domain.PhotoRef from the photo_ref, photo_width,
+// photo_height and photo_author columns; a row without an author name (saved
+// before credits were stored) has no attributions.
+func photoRef(reference string, width, height int32, authorName, authorURI string) domain.PhotoRef {
+	photo := domain.PhotoRef{Reference: reference, Width: int(width), Height: int(height)}
+	if authorName != "" {
+		photo.Attributions = []domain.PhotoAttribution{{Name: authorName, URI: authorURI}}
+	}
+
+	return photo
+}
+
+// firstAuthor is the photo's first attribution, the one a snapshot stores;
+// zero when it has none.
+func firstAuthor(photo domain.PhotoRef) domain.PhotoAttribution {
+	if len(photo.Attributions) == 0 {
+		return domain.PhotoAttribution{}
+	}
+
+	return photo.Attributions[0]
 }

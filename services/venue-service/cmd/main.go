@@ -23,6 +23,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// main wires venue-service: Google Places behind the Redis cache, Postgres
+// for favorites and history, and user-service for squad membership, then
+// serves the routes until shutdown.
 func main() {
 	cfg := config.Load()
 	log := logger.New(api.VenueService, cfg.LogLevel)
@@ -49,8 +52,8 @@ func main() {
 	server.Health(app, log, map[string]server.Check{"postgres": pool.Ping})
 	transporthttp.RegisterRoutes(app, &transporthttp.Handlers{
 		Venue:    transporthttp.NewVenueHandler(venueUC, favoriteUC),
-		Favorite: transporthttp.NewFavoriteHandler(favoriteUC),
-		History:  transporthttp.NewHistoryHandler(historyUC),
+		Favorite: transporthttp.NewFavoriteHandler(favoriteUC, venueUC),
+		History:  transporthttp.NewHistoryHandler(historyUC, venueUC),
 	})
 
 	log.Info("starting "+api.VenueService, zap.String("env", cfg.Env), zap.String("port", cfg.Port))
