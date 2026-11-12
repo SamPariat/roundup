@@ -225,18 +225,20 @@ func (r *PostgresEventRepository) Nominations(ctx context.Context, eventID strin
 	nominations := make([]domain.Nomination, 0, len(rows))
 	for _, row := range rows {
 		nominations = append(nominations, domain.Nomination{
-			PlaceID:     row.PlaceID,
-			Name:        row.Name,
-			Address:     row.Address,
-			Lat:         row.Lat,
-			Lng:         row.Lng,
-			Rating:      row.Rating,
-			PriceLevel:  int(row.PriceLevel),
-			PhotoURL:    row.PhotoUrl,
-			PhotoWidth:  int(row.PhotoWidth),
-			PhotoHeight: int(row.PhotoHeight),
-			NominatedBy: row.NominatedBy.String(),
-			NominatedAt: row.NominatedAt.Time,
+			PlaceID:         row.PlaceID,
+			Name:            row.Name,
+			Address:         row.Address,
+			Lat:             row.Lat,
+			Lng:             row.Lng,
+			Rating:          row.Rating,
+			PriceLevel:      int(row.PriceLevel),
+			PhotoRef:        row.PhotoRef,
+			PhotoWidth:      int(row.PhotoWidth),
+			PhotoHeight:     int(row.PhotoHeight),
+			PhotoAuthorName: row.PhotoAuthorName,
+			PhotoAuthorURI:  row.PhotoAuthorUri,
+			NominatedBy:     row.NominatedBy.String(),
+			NominatedAt:     row.NominatedAt.Time,
 		})
 	}
 
@@ -280,18 +282,20 @@ func (r *PostgresEventRepository) AddNomination(ctx context.Context, eventID str
 	}
 
 	affected, err := r.queries.AddNomination(ctx, db.AddNominationParams{
-		EventID:     eid,
-		PlaceID:     n.PlaceID,
-		Name:        n.Name,
-		Address:     n.Address,
-		Lat:         n.Lat,
-		Lng:         n.Lng,
-		Rating:      n.Rating,
-		PriceLevel:  int32(n.PriceLevel),
-		PhotoUrl:    n.PhotoURL,
-		PhotoWidth:  int32(n.PhotoWidth),
-		PhotoHeight: int32(n.PhotoHeight),
-		NominatedBy: uid,
+		EventID:         eid,
+		PlaceID:         n.PlaceID,
+		Name:            n.Name,
+		Address:         n.Address,
+		Lat:             n.Lat,
+		Lng:             n.Lng,
+		Rating:          n.Rating,
+		PriceLevel:      int32(n.PriceLevel),
+		PhotoRef:        n.PhotoRef,
+		PhotoWidth:      int32(n.PhotoWidth),
+		PhotoHeight:     int32(n.PhotoHeight),
+		PhotoAuthorName: n.PhotoAuthorName,
+		PhotoAuthorUri:  n.PhotoAuthorURI,
+		NominatedBy:     uid,
 	})
 	if err != nil {
 		if postgres.IsUniqueViolation(err) {
@@ -426,18 +430,20 @@ func toDomainEvent(row db.GetEventRow) domain.Event {
 
 	if row.WinnerPlaceID != nil {
 		event.Winner = &domain.Nomination{
-			PlaceID:     *row.WinnerPlaceID,
-			Name:        *row.WinnerName,
-			Address:     *row.WinnerAddress,
-			Lat:         *row.WinnerLat,
-			Lng:         *row.WinnerLng,
-			Rating:      *row.WinnerRating,
-			PriceLevel:  int(*row.WinnerPriceLevel),
-			PhotoURL:    *row.WinnerPhotoUrl,
-			PhotoWidth:  int(*row.WinnerPhotoWidth),
-			PhotoHeight: int(*row.WinnerPhotoHeight),
-			NominatedBy: uuid.UUID(row.WinnerNominatedBy.Bytes).String(),
-			NominatedAt: row.WinnerNominatedAt.Time,
+			PlaceID:         *row.WinnerPlaceID,
+			Name:            *row.WinnerName,
+			Address:         *row.WinnerAddress,
+			Lat:             *row.WinnerLat,
+			Lng:             *row.WinnerLng,
+			Rating:          *row.WinnerRating,
+			PriceLevel:      int(*row.WinnerPriceLevel),
+			PhotoRef:        *row.WinnerPhotoRef,
+			PhotoWidth:      int(*row.WinnerPhotoWidth),
+			PhotoHeight:     int(*row.WinnerPhotoHeight),
+			PhotoAuthorName: *row.WinnerPhotoAuthorName,
+			PhotoAuthorURI:  *row.WinnerPhotoAuthorUri,
+			NominatedBy:     uuid.UUID(row.WinnerNominatedBy.Bytes).String(),
+			NominatedAt:     row.WinnerNominatedAt.Time,
 		}
 	}
 

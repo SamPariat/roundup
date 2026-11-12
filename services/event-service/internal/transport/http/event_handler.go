@@ -44,7 +44,8 @@ func (h *EventHandler) Create(c fiber.Ctx) error {
 		return response.Error(c, errorStatus(err), err)
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(response.OK(dtos.EventToResponse(*event)))
+	// A new event has no winner, so no photo to look up.
+	return c.Status(fiber.StatusCreated).JSON(response.OK(dtos.EventToResponse(*event, nil)))
 }
 
 // List handles GET /api/v1/squads/:squadID/events?limit=&cursor=.
@@ -59,7 +60,16 @@ func (h *EventHandler) List(c fiber.Ctx) error {
 		return response.Error(c, errorStatus(err), err)
 	}
 
-	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.SquadEventsToResponse(events)))
+	places := make([]domain.Place, 0, len(events.Events))
+	for _, e := range events.Events {
+		if e.Winner != nil {
+			places = append(places, e.Winner.Place)
+		}
+	}
+
+	urls := h.uc.PhotoURLs(c.Context(), places)
+
+	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.SquadEventsToResponse(events, urls)))
 }
 
 // Get handles GET /api/v1/events/:eventID.
@@ -170,7 +180,18 @@ func (h *EventHandler) detail(c fiber.Ctx, fn func(ctx context.Context, eventID,
 		return response.Error(c, errorStatus(err), err)
 	}
 
-	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.EventDetailToResponse(d)))
+	places := make([]domain.Place, 0, len(d.Nominations)+1)
+	for _, n := range d.Nominations {
+		places = append(places, n.Place)
+	}
+
+	if d.Winner != nil {
+		places = append(places, d.Winner.Place)
+	}
+
+	urls := h.uc.PhotoURLs(c.Context(), places)
+
+	return c.Status(fiber.StatusOK).JSON(response.OK(dtos.EventDetailToResponse(d, urls)))
 }
 
 // due runs a sweep and answers with how many events it moved on.

@@ -65,7 +65,8 @@ func (f *eventFixture) nominate(t *testing.T, eventID, placeID string) {
 	t.Helper()
 
 	added, err := f.events.AddNomination(t.Context(), eventID, domain.Nomination{
-		PlaceID: placeID, Name: "Place " + placeID, Lat: 19.07, Lng: 72.87, PhotoURL: "/p/" + placeID,
+		PlaceID: placeID, Name: "Place " + placeID, Lat: 19.07, Lng: 72.87, PhotoRef: "ref-" + placeID,
+		PhotoAuthorName: "Asha", PhotoAuthorURI: "https://maps.example/asha",
 		NominatedBy: f.alice,
 	})
 	require.NoError(t, err)

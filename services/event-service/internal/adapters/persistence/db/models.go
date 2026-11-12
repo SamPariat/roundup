@@ -32,19 +32,21 @@ type EventRsvp struct {
 }
 
 type Nomination struct {
-	EventID     uuid.UUID          `json:"event_id"`
-	PlaceID     string             `json:"place_id"`
-	Name        string             `json:"name"`
-	Address     string             `json:"address"`
-	Lat         float64            `json:"lat"`
-	Lng         float64            `json:"lng"`
-	Rating      float32            `json:"rating"`
-	PriceLevel  int32              `json:"price_level"`
-	PhotoUrl    string             `json:"photo_url"`
-	PhotoWidth  int32              `json:"photo_width"`
-	PhotoHeight int32              `json:"photo_height"`
-	NominatedBy uuid.UUID          `json:"nominated_by"`
-	NominatedAt pgtype.Timestamptz `json:"nominated_at"`
+	EventID         uuid.UUID          `json:"event_id"`
+	PlaceID         string             `json:"place_id"`
+	Name            string             `json:"name"`
+	Address         string             `json:"address"`
+	Lat             float64            `json:"lat"`
+	Lng             float64            `json:"lng"`
+	Rating          float32            `json:"rating"`
+	PriceLevel      int32              `json:"price_level"`
+	PhotoRef        string             `json:"photo_ref"`
+	PhotoWidth      int32              `json:"photo_width"`
+	PhotoHeight     int32              `json:"photo_height"`
+	NominatedBy     uuid.UUID          `json:"nominated_by"`
+	NominatedAt     pgtype.Timestamptz `json:"nominated_at"`
+	PhotoAuthorName string             `json:"photo_author_name"`
+	PhotoAuthorUri  string             `json:"photo_author_uri"`
 }
 
 type Vote struct {

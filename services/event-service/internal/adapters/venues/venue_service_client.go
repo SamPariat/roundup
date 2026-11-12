@@ -47,17 +47,9 @@ type venueDetail struct {
 	// PriceLevel is 0–4 (0 = free or unknown, 4 = very expensive).
 	PriceLevel int `json:"priceLevel"`
 
-	// Photos are the venue's photos, best first; only the first is kept.
-	Photos []struct {
-		// URL is the photo's path on venue-service.
-		URL string `json:"url"`
-
-		// Width is the original width in pixels.
-		Width int `json:"width"`
-
-		// Height is the original height in pixels.
-		Height int `json:"height"`
-	} `json:"photos"`
+	// Photos are the venue's photos, best first; only the first is kept,
+	// by its Ref, since the URL beside it expires.
+	Photos []api.PhotoResponse `json:"photos"`
 }
 
 // recordVisitRequest is the body of POST /api/v1/squads/{squadID}/history.
@@ -110,9 +102,15 @@ func (c *VenueServiceClient) Place(ctx context.Context, placeID, userID string) 
 	}
 
 	if len(detail.Photos) > 0 {
-		place.PhotoURL = detail.Photos[0].URL
-		place.PhotoWidth = detail.Photos[0].Width
-		place.PhotoHeight = detail.Photos[0].Height
+		photo := detail.Photos[0]
+		place.PhotoRef = photo.Ref
+		place.PhotoWidth = photo.Width
+		place.PhotoHeight = photo.Height
+
+		if len(photo.Attributions) > 0 {
+			place.PhotoAuthorName = photo.Attributions[0].Name
+			place.PhotoAuthorURI = photo.Attributions[0].URI
+		}
 	}
 
 	return place, nil
@@ -137,6 +135,33 @@ func (c *VenueServiceClient) RecordVisit(ctx context.Context, e domain.Event, us
 	return nil
 }
 
+// PhotoURLs returns a fresh URL, at most maxWidth pixels wide, for each of
+// refs. No refs means no call.
+func (c *VenueServiceClient) PhotoURLs(ctx context.Context, refs []string, maxWidth int) (map[string]string, error) {
+	if len(refs) == 0 {
+		return map[string]string{}, nil
+	}
+
+	resp, err := c.client.Do(ctx, http.MethodPost, api.VenuePhotoURLsPath, "", api.PhotoURLsRequest{Refs: refs, MaxWidth: maxWidth})
+	if err != nil {
+		return nil, unavailable(err.Error())
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, unavailable(fmt.Sprintf("photo urls: unexpected status %d", resp.StatusCode))
+	}
+
+	var data api.PhotoURLsResponse
+	if err := serviceclient.DecodeData(resp.Body, &data); err != nil {
+		return nil, unavailable(err.Error())
+	}
+
+	return data.URLs, nil
+}
+
+// unavailable wraps detail as domain.ErrVenueServiceUnavailable, the error
+// for any venue-service answer the client can't use.
 func unavailable(detail string) error {
 	return domainerr.New(domain.ErrVenueServiceUnavailable, detail)
 }

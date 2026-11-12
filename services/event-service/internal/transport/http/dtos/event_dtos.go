@@ -1,6 +1,10 @@
 package dtos
 
-import "time"
+import (
+	"time"
+
+	"github.com/SamPariat/roundup/shared/api"
+)
 
 // CreateEventRequest carries the JSON body for creating an event.
 type CreateEventRequest struct {
@@ -45,18 +49,6 @@ type PlaceRequest struct {
 	PlaceID string `json:"placeID"`
 }
 
-// PhotoResponse is a venue photo the client can load directly.
-type PhotoResponse struct {
-	// URL is the photo's path on this API, e.g. "/api/v1/venues/photos/…".
-	URL string `json:"url"`
-
-	// Width is the original width in pixels.
-	Width int `json:"width"`
-
-	// Height is the original height in pixels.
-	Height int `json:"height"`
-}
-
 // PlaceResponse is a suggested or winning place's display fields.
 type PlaceResponse struct {
 	// PlaceID is the Google Place ID.
@@ -81,7 +73,7 @@ type PlaceResponse struct {
 	PriceLevel int `json:"priceLevel"`
 
 	// Photo is the place's first photo; null if it had none.
-	Photo *PhotoResponse `json:"photo"`
+	Photo *api.PhotoResponse `json:"photo"`
 }
 
 // WinnerResponse is the confirmed place.

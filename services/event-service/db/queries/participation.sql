@@ -15,10 +15,12 @@ WHERE event_id = ANY (sqlc.arg('event_ids')::uuid[]);
 -- name: AddNomination :execrows
 -- Stores a suggestion while the event is a draft. A repeat is a unique violation.
 INSERT INTO nominations (event_id, place_id, name, address, lat, lng, rating, price_level,
-                         photo_url, photo_width, photo_height, nominated_by)
+                         photo_ref, photo_width, photo_height, photo_author_name,
+                         photo_author_uri, nominated_by)
 SELECT e.id, sqlc.arg('place_id'), sqlc.arg('name'), sqlc.arg('address'), sqlc.arg('lat'),
-       sqlc.arg('lng'), sqlc.arg('rating'), sqlc.arg('price_level'), sqlc.arg('photo_url'),
-       sqlc.arg('photo_width'), sqlc.arg('photo_height'), sqlc.arg('nominated_by')
+       sqlc.arg('lng'), sqlc.arg('rating'), sqlc.arg('price_level'), sqlc.arg('photo_ref'),
+       sqlc.arg('photo_width'), sqlc.arg('photo_height'), sqlc.arg('photo_author_name'),
+       sqlc.arg('photo_author_uri'), sqlc.arg('nominated_by')
 FROM events e
 WHERE e.id = sqlc.arg('event_id')
   AND e.status = 'DRAFT';
@@ -33,8 +35,8 @@ WHERE n.event_id = e.id
   AND n.place_id = sqlc.arg('place_id');
 
 -- name: ListNominations :many
-SELECT place_id, name, address, lat, lng, rating, price_level, photo_url, photo_width,
-       photo_height, nominated_by, nominated_at
+SELECT place_id, name, address, lat, lng, rating, price_level, photo_ref, photo_width,
+       photo_height, photo_author_name, photo_author_uri, nominated_by, nominated_at
 FROM nominations
 WHERE event_id = $1
 ORDER BY nominated_at, place_id;

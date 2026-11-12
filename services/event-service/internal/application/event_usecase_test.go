@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -52,6 +53,9 @@ func (fakeSquads) Members(_ context.Context, id, userID string) ([]domain.SquadM
 type fakeVenues struct {
 	visits   []string // eventID/userID
 	visitErr error
+	// photoRefs records each PhotoURLs call's refs; photoErr fails them.
+	photoRefs [][]string
+	photoErr  error
 }
 
 func (v *fakeVenues) Place(_ context.Context, placeID, _ string) (domain.Place, error) {
@@ -60,6 +64,20 @@ func (v *fakeVenues) Place(_ context.Context, placeID, _ string) (domain.Place, 
 	}
 
 	return domain.Place{PlaceID: placeID, Name: "Place " + placeID}, nil
+}
+
+func (v *fakeVenues) PhotoURLs(_ context.Context, refs []string, maxWidth int) (map[string]string, error) {
+	v.photoRefs = append(v.photoRefs, refs)
+	if v.photoErr != nil {
+		return nil, v.photoErr
+	}
+
+	urls := make(map[string]string, len(refs))
+	for _, ref := range refs {
+		urls[ref] = fmt.Sprintf("https://img.example/%s?w=%d", ref, maxWidth)
+	}
+
+	return urls, nil
 }
 
 func (v *fakeVenues) RecordVisit(_ context.Context, e domain.Event, userID string) error {

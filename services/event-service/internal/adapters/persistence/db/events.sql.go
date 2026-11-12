@@ -178,8 +178,9 @@ SELECT e.id, e.squad_id, e.name, e.type, e.status, e.created_by, e.starts_at,
        e.voting_deadline, e.closed_at, e.created_at,
        w.place_id AS winner_place_id, w.name AS winner_name, w.address AS winner_address,
        w.lat AS winner_lat, w.lng AS winner_lng, w.rating AS winner_rating,
-       w.price_level AS winner_price_level, w.photo_url AS winner_photo_url,
+       w.price_level AS winner_price_level, w.photo_ref AS winner_photo_ref,
        w.photo_width AS winner_photo_width, w.photo_height AS winner_photo_height,
+       w.photo_author_name AS winner_photo_author_name, w.photo_author_uri AS winner_photo_author_uri,
        w.nominated_by AS winner_nominated_by, w.nominated_at AS winner_nominated_at
 FROM events e
          LEFT JOIN nominations w ON w.event_id = e.id AND w.place_id = e.winner_place_id
@@ -187,28 +188,30 @@ WHERE e.id = $1
 `
 
 type GetEventRow struct {
-	ID                uuid.UUID          `json:"id"`
-	SquadID           uuid.UUID          `json:"squad_id"`
-	Name              string             `json:"name"`
-	Type              string             `json:"type"`
-	Status            string             `json:"status"`
-	CreatedBy         uuid.UUID          `json:"created_by"`
-	StartsAt          pgtype.Timestamptz `json:"starts_at"`
-	VotingDeadline    pgtype.Timestamptz `json:"voting_deadline"`
-	ClosedAt          pgtype.Timestamptz `json:"closed_at"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	WinnerPlaceID     *string            `json:"winner_place_id"`
-	WinnerName        *string            `json:"winner_name"`
-	WinnerAddress     *string            `json:"winner_address"`
-	WinnerLat         *float64           `json:"winner_lat"`
-	WinnerLng         *float64           `json:"winner_lng"`
-	WinnerRating      *float32           `json:"winner_rating"`
-	WinnerPriceLevel  *int32             `json:"winner_price_level"`
-	WinnerPhotoUrl    *string            `json:"winner_photo_url"`
-	WinnerPhotoWidth  *int32             `json:"winner_photo_width"`
-	WinnerPhotoHeight *int32             `json:"winner_photo_height"`
-	WinnerNominatedBy pgtype.UUID        `json:"winner_nominated_by"`
-	WinnerNominatedAt pgtype.Timestamptz `json:"winner_nominated_at"`
+	ID                    uuid.UUID          `json:"id"`
+	SquadID               uuid.UUID          `json:"squad_id"`
+	Name                  string             `json:"name"`
+	Type                  string             `json:"type"`
+	Status                string             `json:"status"`
+	CreatedBy             uuid.UUID          `json:"created_by"`
+	StartsAt              pgtype.Timestamptz `json:"starts_at"`
+	VotingDeadline        pgtype.Timestamptz `json:"voting_deadline"`
+	ClosedAt              pgtype.Timestamptz `json:"closed_at"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	WinnerPlaceID         *string            `json:"winner_place_id"`
+	WinnerName            *string            `json:"winner_name"`
+	WinnerAddress         *string            `json:"winner_address"`
+	WinnerLat             *float64           `json:"winner_lat"`
+	WinnerLng             *float64           `json:"winner_lng"`
+	WinnerRating          *float32           `json:"winner_rating"`
+	WinnerPriceLevel      *int32             `json:"winner_price_level"`
+	WinnerPhotoRef        *string            `json:"winner_photo_ref"`
+	WinnerPhotoWidth      *int32             `json:"winner_photo_width"`
+	WinnerPhotoHeight     *int32             `json:"winner_photo_height"`
+	WinnerPhotoAuthorName *string            `json:"winner_photo_author_name"`
+	WinnerPhotoAuthorUri  *string            `json:"winner_photo_author_uri"`
+	WinnerNominatedBy     pgtype.UUID        `json:"winner_nominated_by"`
+	WinnerNominatedAt     pgtype.Timestamptz `json:"winner_nominated_at"`
 }
 
 // One event with its winner's snapshot (all NULL until voting closes).
@@ -233,9 +236,11 @@ func (q *Queries) GetEvent(ctx context.Context, id uuid.UUID) (GetEventRow, erro
 		&i.WinnerLng,
 		&i.WinnerRating,
 		&i.WinnerPriceLevel,
-		&i.WinnerPhotoUrl,
+		&i.WinnerPhotoRef,
 		&i.WinnerPhotoWidth,
 		&i.WinnerPhotoHeight,
+		&i.WinnerPhotoAuthorName,
+		&i.WinnerPhotoAuthorUri,
 		&i.WinnerNominatedBy,
 		&i.WinnerNominatedAt,
 	)
@@ -247,8 +252,9 @@ SELECT e.id, e.squad_id, e.name, e.type, e.status, e.created_by, e.starts_at,
        e.voting_deadline, e.closed_at, e.created_at,
        w.place_id AS winner_place_id, w.name AS winner_name, w.address AS winner_address,
        w.lat AS winner_lat, w.lng AS winner_lng, w.rating AS winner_rating,
-       w.price_level AS winner_price_level, w.photo_url AS winner_photo_url,
+       w.price_level AS winner_price_level, w.photo_ref AS winner_photo_ref,
        w.photo_width AS winner_photo_width, w.photo_height AS winner_photo_height,
+       w.photo_author_name AS winner_photo_author_name, w.photo_author_uri AS winner_photo_author_uri,
        w.nominated_by AS winner_nominated_by, w.nominated_at AS winner_nominated_at
 FROM events e
          LEFT JOIN nominations w ON w.event_id = e.id AND w.place_id = e.winner_place_id
@@ -278,28 +284,30 @@ type ListSquadEventsParams struct {
 }
 
 type ListSquadEventsRow struct {
-	ID                uuid.UUID          `json:"id"`
-	SquadID           uuid.UUID          `json:"squad_id"`
-	Name              string             `json:"name"`
-	Type              string             `json:"type"`
-	Status            string             `json:"status"`
-	CreatedBy         uuid.UUID          `json:"created_by"`
-	StartsAt          pgtype.Timestamptz `json:"starts_at"`
-	VotingDeadline    pgtype.Timestamptz `json:"voting_deadline"`
-	ClosedAt          pgtype.Timestamptz `json:"closed_at"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	WinnerPlaceID     *string            `json:"winner_place_id"`
-	WinnerName        *string            `json:"winner_name"`
-	WinnerAddress     *string            `json:"winner_address"`
-	WinnerLat         *float64           `json:"winner_lat"`
-	WinnerLng         *float64           `json:"winner_lng"`
-	WinnerRating      *float32           `json:"winner_rating"`
-	WinnerPriceLevel  *int32             `json:"winner_price_level"`
-	WinnerPhotoUrl    *string            `json:"winner_photo_url"`
-	WinnerPhotoWidth  *int32             `json:"winner_photo_width"`
-	WinnerPhotoHeight *int32             `json:"winner_photo_height"`
-	WinnerNominatedBy pgtype.UUID        `json:"winner_nominated_by"`
-	WinnerNominatedAt pgtype.Timestamptz `json:"winner_nominated_at"`
+	ID                    uuid.UUID          `json:"id"`
+	SquadID               uuid.UUID          `json:"squad_id"`
+	Name                  string             `json:"name"`
+	Type                  string             `json:"type"`
+	Status                string             `json:"status"`
+	CreatedBy             uuid.UUID          `json:"created_by"`
+	StartsAt              pgtype.Timestamptz `json:"starts_at"`
+	VotingDeadline        pgtype.Timestamptz `json:"voting_deadline"`
+	ClosedAt              pgtype.Timestamptz `json:"closed_at"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	WinnerPlaceID         *string            `json:"winner_place_id"`
+	WinnerName            *string            `json:"winner_name"`
+	WinnerAddress         *string            `json:"winner_address"`
+	WinnerLat             *float64           `json:"winner_lat"`
+	WinnerLng             *float64           `json:"winner_lng"`
+	WinnerRating          *float32           `json:"winner_rating"`
+	WinnerPriceLevel      *int32             `json:"winner_price_level"`
+	WinnerPhotoRef        *string            `json:"winner_photo_ref"`
+	WinnerPhotoWidth      *int32             `json:"winner_photo_width"`
+	WinnerPhotoHeight     *int32             `json:"winner_photo_height"`
+	WinnerPhotoAuthorName *string            `json:"winner_photo_author_name"`
+	WinnerPhotoAuthorUri  *string            `json:"winner_photo_author_uri"`
+	WinnerNominatedBy     pgtype.UUID        `json:"winner_nominated_by"`
+	WinnerNominatedAt     pgtype.Timestamptz `json:"winner_nominated_at"`
 }
 
 // One page of a squad's events: open ones first, soonest first; then closed
@@ -339,9 +347,11 @@ func (q *Queries) ListSquadEvents(ctx context.Context, arg ListSquadEventsParams
 			&i.WinnerLng,
 			&i.WinnerRating,
 			&i.WinnerPriceLevel,
-			&i.WinnerPhotoUrl,
+			&i.WinnerPhotoRef,
 			&i.WinnerPhotoWidth,
 			&i.WinnerPhotoHeight,
+			&i.WinnerPhotoAuthorName,
+			&i.WinnerPhotoAuthorUri,
 			&i.WinnerNominatedBy,
 			&i.WinnerNominatedAt,
 		); err != nil {

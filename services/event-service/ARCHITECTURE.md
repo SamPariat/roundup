@@ -51,6 +51,15 @@ event-service has no scheduler of its own; scheduled jobs live in scheduler-serv
 
 Each is a single guarded `UPDATE`. Postgres locks each row and re-checks the `WHERE` clause, so overlapping calls (a retry, two scheduler instances) move each event exactly once. `TestSweepsMoveEachEventOnceUnderConcurrency` checks this with four concurrent calls.
 
+## Place photos
+
+A nomination stores its place's first photo as venue-service's opaque `photo_ref`, with its size and first author, never a URL: the URLs venue-service hands out point at Google's image servers and expire.
+
+- **Each response looks up fresh URLs.** The event list (winners) and event detail (nominations and winner) collect the refs they show and make one `POST /internal/v1/venues/photo-urls` call (`EventUseCase.PhotoURLs`, 800 px wide).
+- **Photos are decoration.** If venue-service can't answer, the use case logs a warning and the event shows without photos instead of failing.
+- **Credits:** Google requires showing a photo's author with it, so each photo carries `attributions`.
+- Migration `0005_store_photo_refs.sql` turned the old `photo_url` paths (`/api/v1/venues/photos/{ref}`) back into refs.
+
 ## Who sees what
 
 - **Membership:** every route checks squad membership through user-service. A non-member gets 404 for the squad, and 404 for any event in it, so they can't tell an event exists.
