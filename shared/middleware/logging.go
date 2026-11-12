@@ -16,8 +16,10 @@ import (
 const maxLoggedBody = 8 << 10
 
 // Logging logs two lines per request, joined by request_id: a "request" line
-// when it arrives (method, path) and a "response" line when it completes
-// (method, path, status, latency). Register it after RequestID so the request
+// when it arrives (method, path, query) and a "response" line when it
+// completes (method, path, query, status, latency). path is the route's path
+// alone, so lines group by route; query holds its parameters, with locations
+// rounded and sensitive keys redacted (see queryField). Register it after RequestID so the request
 // ID is available on arrival. An error saved by response.Error goes on the
 // response line, and 5xx responses are logged at error level.
 //
@@ -32,6 +34,7 @@ func Logging(log *zap.Logger, logBodies bool) fiber.Handler {
 		base := []zap.Field{
 			zap.String("method", c.Method()),
 			zap.String("path", c.Path()),
+			queryField(c),
 			zap.String("request_id", RequestIDFrom(c)),
 		}
 
@@ -104,9 +107,14 @@ func bodyField(key string, b []byte) zap.Field {
 
 // truncate cuts b to maxLoggedBody bytes, noting how much was dropped.
 func truncate(b []byte) []byte {
-	if len(b) <= maxLoggedBody {
+	return truncateTo(b, maxLoggedBody)
+}
+
+// truncateTo cuts b to limit bytes, noting how much was dropped.
+func truncateTo(b []byte, limit int) []byte {
+	if len(b) <= limit {
 		return b
 	}
 
-	return fmt.Appendf(b[:maxLoggedBody:maxLoggedBody], "…(truncated %d bytes)", len(b)-maxLoggedBody)
+	return fmt.Appendf(b[:limit:limit], "…(truncated %d bytes)", len(b)-limit)
 }
