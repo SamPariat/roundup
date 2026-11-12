@@ -71,7 +71,7 @@ func TestLoggingAccessLineHasTheQuery(t *testing.T) {
 
 	lines := logLine()
 	assert.Equal(t, map[string]any{"lat": "12.97", "radius": "3000"}, lines.resp["query"])
-	assert.EqualValues(t, fiber.StatusUnauthorized, lines.resp["status"])
+	assert.EqualValues(t, fiber.StatusUnauthorized, lines.resp["DownstreamStatus"])
 }
 
 func TestLoggingAddsNoQueryWithoutOne(t *testing.T) {

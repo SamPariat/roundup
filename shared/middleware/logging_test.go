@@ -117,13 +117,40 @@ func TestLoggingAddsCompactedBodies(t *testing.T) {
 func TestLoggingAccessWritesOneLineWithoutBodies(t *testing.T) {
 	lines := postJSON(t, LogAccess, `{"phone":"+919876543210"}`, `{"success":true}`)
 
-	assert.Equal(t, "POST", lines.resp["method"])
-	assert.Equal(t, "/echo", lines.resp["path"])
-	assert.EqualValues(t, fiber.StatusOK, lines.resp["status"])
-	assert.Contains(t, lines.resp, "latency")
+	assert.Equal(t, "POST", lines.resp["RequestMethod"])
+	assert.Equal(t, "/echo", lines.resp["RequestPath"])
+	assert.Equal(t, "HTTP/1.1", lines.resp["RequestProtocol"])
+	assert.EqualValues(t, fiber.StatusOK, lines.resp["DownstreamStatus"])
+	assert.EqualValues(t, len(`{"success":true}`), lines.resp["DownstreamContentSize"])
+	assert.Equal(t, "/echo", lines.resp["RouterName"])
+	assert.Contains(t, lines.resp, "Duration")
+	assert.Contains(t, lines.resp, "ClientHost")
 	assert.NotEmpty(t, lines.resp["request_id"])
+	assert.NotContains(t, lines.resp, "ServiceURL", "the app answered itself, so no upstream")
 	assert.NotContains(t, lines.resp, "req_body")
 	assert.NotContains(t, lines.resp, "resp_body")
+}
+
+func TestLoggingAccessNamesTheUpstreamAndTheClient(t *testing.T) {
+	app, logLine := newLoggedApp(t, LogAccess)
+	app.Get("/api/v1/venues/:placeID", func(c fiber.Ctx) error {
+		SetServiceURL(c, "http://venue-service:3006")
+
+		return c.SendStatus(fiber.StatusOK)
+	})
+
+	req := httptest.NewRequest("GET", "/api/v1/venues/p1", nil)
+	req.Header.Set(fiber.HeaderUserAgent, "Roundup/1.0 (iPhone)")
+	req.Header.Set(fiber.HeaderXForwardedFor, "203.0.113.7, 10.0.0.1")
+
+	_, err := app.Test(req)
+	require.NoError(t, err)
+
+	lines := logLine()
+	assert.Equal(t, "http://venue-service:3006", lines.resp["ServiceURL"])
+	assert.Equal(t, "/api/v1/venues/:placeID", lines.resp["RouterName"], "the route pattern, not the path")
+	assert.Equal(t, "Roundup/1.0 (iPhone)", lines.resp["request_User-Agent"])
+	assert.Equal(t, "203.0.113.7, 10.0.0.1", lines.resp["request_X-Forwarded-For"])
 }
 
 func TestLoggingRedactsSensitiveKeys(t *testing.T) {
