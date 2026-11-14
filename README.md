@@ -10,7 +10,7 @@
   <img alt="Go 1.27" src="https://img.shields.io/badge/Go-1.27-cba6f7?style=for-the-badge&logo=go&logoColor=cdd6f4&labelColor=1e1e2e">
   <a href="shared/api/openapi.yaml"><img alt="OpenAPI /api/v1" src="https://img.shields.io/badge/OpenAPI-%2Fapi%2Fv1-fab387?style=for-the-badge&logo=openapiinitiative&logoColor=cdd6f4&labelColor=1e1e2e"></a>
   <img alt="PostgreSQL 18" src="https://img.shields.io/badge/PostgreSQL-18-b4befe?style=for-the-badge&logo=postgresql&logoColor=cdd6f4&labelColor=1e1e2e">
-  <img alt="Client: Expo, planned" src="https://img.shields.io/badge/client-Expo%20(planned)-f5c2e7?style=for-the-badge&logo=expo&logoColor=cdd6f4&labelColor=1e1e2e">
+  <img alt="Client: Expo, in progress" src="https://img.shields.io/badge/client-Expo%20(in%20progress)-f5c2e7?style=for-the-badge&logo=expo&logoColor=cdd6f4&labelColor=1e1e2e">
   <img alt="Made with love" src="https://img.shields.io/badge/made%20with-%F0%9F%92%9C-cba6f7?style=for-the-badge&labelColor=1e1e2e">
 </p>
 
@@ -38,7 +38,7 @@
   </tr>
 </table>
 
-> **Language policy:** the backend is Go only. The client will be one React Native + Expo app (TypeScript) for web, Android and iOS. No other languages.
+> **Language policy:** the backend is Go only. The client is one React Native + Expo app (TypeScript) for web, Android and iOS, built side by side in the separate `roundup-ui` repo. No other languages.
 
 <p align="center"><img src="assets/brand/divider.svg" width="100%" alt=""></p>
 
@@ -48,7 +48,7 @@ Go microservices behind one gateway, each with its own Postgres. Every route is 
 
 ```mermaid
 flowchart LR
-    app(["Expo app<br/>(planned)"]):::planned --> gw
+    app(["Expo app<br/>(roundup-ui)"]):::planned --> gw
     gw["gateway<br/>:8080"]:::gateway
 
     gw --> auth["auth-service<br/>:3001"]:::live
@@ -119,8 +119,8 @@ stateDiagram-v2
 | **Auth** | Custom phone OTP + Ed25519 JWTs | an SMS provider for production |
 | **Permissions** | Casbin, from a `policy.csv` per service | |
 | **Places** | Google Places API (New) | |
-| **Client** | | React Native + Expo (web first, then Android and iOS) |
-| **Live bill tab** | | Firestore |
+| **Client** | React Native + Expo, web and native side by side (`roundup-ui`) | |
+| **Receipts** | | an OCR provider for receipt scanning |
 | **Media** | | Cloudinary |
 | **Push** | | Firebase Cloud Messaging |
 
@@ -360,10 +360,10 @@ Or use the Makefile shortcuts: `make auth-run`, `make user-run`, `make event-run
 | Live | gateway | 8080 | Routes `/api/v1`, verifies access tokens, rate-limits sign-in |
 | Live | auth-service | 3001 | Phone OTP sign-in, Ed25519 access and refresh tokens |
 | Live | user-service | 3002 | Profiles, squads and members, device tokens |
-| In review | event-service | 3003 | Events, RSVPs, place suggestions, open votes ([#36](https://github.com/SamPariat/roundup/pull/36)) |
+| Live | event-service | 3003 | Events, RSVPs, place suggestions, open votes |
 | Live | venue-service | 3006 | Places API (New) search and details with a Redis cache; favorites and squad history |
-| Planned | scheduler-service | | Runs scheduled jobs, such as closing voting at its deadline |
-| Planned | billing-service | | Receipt scanning, bill splitting, debts |
+| Next | scheduler-service | 3005 | Runs scheduled jobs, such as closing voting at its deadline |
+| Next | billing-service | 3004 | Receipt scanning, bill splitting, debts |
 | Planned | notification-service | | Push notifications |
 | Planned | media-service | | Photos |
 | Planned | realtime-service | | WebSocket updates |

@@ -1,101 +1,65 @@
-# Roundup — Complete Directory Structure
+# Roundup — Directory Structure
 
-> **Language policy:** Backend is Go only. The client is one React Native + Expo app (TypeScript) for web, Android and iOS. No other languages.
+> **Language policy:** Backend is Go only. The client is one React Native + Expo app (TypeScript) for web, Android and iOS, built side by side in the separate `roundup-ui` repo.
+>
+> Services talk over REST, and each owns its own Postgres database. No Kafka and no gRPC.
 
 ```
 roundup/
 ├── .github/
-│   ├── workflows/
-│   │   ├── ci.yml                        # gofmt, vet, golangci-lint, go test + docker build on every PR; `ci-ok` gates main
-│   │   ├── deploy.yml                    # build + push + deploy on main merge
-│   │   └── proto.yml                     # regenerate Go stubs on proto changes
-│   ├── CODEOWNERS
-│   └── pull_request_template.md
+│   └── workflows/
+│       ├── ci.yml                        # gofmt, vet, golangci-lint, go test + docker build on every PR; `ci-ok` gates main
+│       └── deploy.yml                    # (planned) build + push + deploy to Cloud Run on main merge
 │
 ├── .githooks/
 │   └── pre-commit                        # gofmt + go vet + golangci-lint on staged files
 │
-├── proto/                                # shared gRPC definitions (Go stubs only)
-│   ├── buf.yaml
-│   ├── buf.gen.yaml
-│   ├── auth/
-│   │   └── auth.proto
-│   ├── user/
-│   │   └── user.proto
-│   ├── billing/
-│   │   └── billing.proto
-│   └── flags/
-│       └── flags.proto
-│
 ├── shared/                               # module github.com/SamPariat/roundup/shared
+│   ├── api/                              # cross-service contract: route prefixes, shared bodies, openapi.yaml (served as Swagger UI)
+│   ├── authtoken/                        # Ed25519 access JWTs: sign (auth) and verify (gateway)
 │   ├── authz/                            # Casbin model + Enforcer; each service supplies its policy.csv
+│   ├── domainerr/                        # wrap a service's sentinel errors with context, errors.Is still matches
 │   ├── env/                              # .env.<APP_ENV> loading + typed getters
 │   ├── logger/                           # zap logger factory
-│   ├── middleware/                       # RequestID, Logging, UserID (Fiber)
+│   ├── middleware/                       # RequestID, Logging, Recover, UserID (Fiber)
+│   ├── pagination/                       # cursor pagination
+│   ├── phone/                            # phone number normalisation
 │   ├── postgres/                         # pool setup + Postgres error helpers
 │   ├── response/                         # JSON response envelope
-│   ├── userclient/                       # user-service client: squad members (with role) and squads
-│   └── kafka/                            # topic name constants
-│
-├── infra/
-│   ├── docker/
-│   │   └── prometheus.yml               # Prometheus scrape config
-│   ├── k8s/                             # Kubernetes manifests (future)
-│   │   └── .gitkeep
-│   └── terraform/                       # GCP infra as code (future)
-│       └── .gitkeep
+│   ├── server/                           # Run: health/ready probes, graceful shutdown
+│   ├── serviceclient/                    # HTTP client for service-to-service calls
+│   └── userclient/                       # user-service client: squad members (with role) and squads
 │
 ├── scripts/
-│   ├── setup.sh                         # first-time dev environment setup
-│   ├── start-all.sh                     # start all services
-│   ├── migrate-all.sh                   # run goose migrations on all DBs
-│   └── seed.sh                          # seed dev databases
+│   └── setup.sh                          # first-time dev environment setup (`make setup`)
 │
-├── docs/
-│   ├── ARCHITECTURE.md                  # system overview, service map
-│   ├── CONTRIBUTING.md                  # branching, PR, review process
-│   ├── RUNBOOK.md                       # ops procedures
-│   └── adr/                             # Architecture Decision Records
-│       ├── 001-microservices.md
-│       ├── 002-kafka-vs-redis-pubsub.md
-│       ├── 003-go-only-backend.md
-│       └── 004-react-native-expo-client.md
+├── assets/brand/                         # logo, banner and mark files
 │
-├── app/                                 # [TypeScript — React Native + Expo: web, Android, iOS]
-│   ├── src/
-│   │   ├── app/                         # Expo Router routes; each file is also a web URL
-│   │   │   ├── (auth)/                  # welcome, phone, otp, profile setup
-│   │   │   └── (tabs)/                  # squads/, explore/, profile/ (BottomNav on phones, SideNav on desktop web)
-│   │   ├── components/                  # design-system components (Button, SquadCard, Logo, …)
-│   │   ├── theme/                       # tokens.ts generated from the design system's tokens.json; Mocha + Latte
-│   │   ├── api/                         # typed client generated from shared/api/openapi.yaml
-│   │   └── lib/                         # token storage, push, websocket
-│   ├── app.config.ts                    # per-environment config (APP_ENV=dev|prod)
-│   ├── eas.json                         # EAS Build profiles: development, preview, production
-│   └── package.json
+├── services/                             # every service is Go — see template below
+│   ├── gateway/                          # built
+│   ├── auth-service/                     # built
+│   ├── user-service/                     # built
+│   ├── event-service/                    # built
+│   ├── venue-service/                    # built
+│   ├── billing-service/                  # next
+│   ├── scheduler-service/                # next
+│   ├── notification-service/             # planned
+│   ├── media-service/                    # planned
+│   ├── realtime-service/                 # planned
+│   ├── reservation-service/              # planned
+│   ├── analytics-service/                # planned
+│   ├── feature-flag-service/             # planned
+│   └── admin-service/                    # planned
 │
-├── services/                            # every service is Go — see template below
-│   ├── gateway/
-│   ├── auth-service/
-│   ├── user-service/
-│   ├── event-service/
-│   ├── billing-service/
-│   ├── venue-service/
-│   ├── notification-service/
-│   ├── media-service/
-│   ├── realtime-service/
-│   ├── reservation-service/
-│   ├── analytics-service/
-│   ├── feature-flag-service/
-│   └── admin-service/
-│
-├── go.work                              # Go workspace — lists every service + shared
-├── docker-compose.yml                   # databases + infra
-├── docker-compose.override.yml          # local overrides (gitignored)
-├── Makefile                             # convenience commands
-├── .gitignore
+├── go.work                               # Go workspace — lists every service + shared
+├── docker-compose.yml                    # one Postgres per service, Redis, and the services (`services` profile)
+├── Makefile                              # convenience commands
+├── .golangci.yml
 ├── .editorconfig
-└── README.md
+├── .gitignore
+├── README.md
+├── SCOPE.md                              # product + technical scope
+└── ROUNDUP-TASKS.md                      # backend task list
 ```
 
 ---
@@ -115,6 +79,7 @@ services/<name>/
 │   │   ├── <entity>.go
 │   │   ├── errors.go
 │   │   └── port.go
+│   ├── policy/policy.csv                # Casbin permissions, when the service has roles
 │   ├── application/                     # use cases — depend only on domain ports
 │   │   ├── <feature>_usecase.go
 │   │   └── <feature>_usecase_test.go
@@ -124,7 +89,7 @@ services/<name>/
 │   │       └── db/                      # sqlc-generated code
 │   └── transport/
 │       └── http/
-│           ├── router.go                # all routes under /api/v1
+│           ├── router.go                # public routes under /api/v1, service-to-service under /internal/v1
 │           ├── <feature>_handler.go
 │           └── dtos/
 ├── db/
@@ -133,7 +98,7 @@ services/<name>/
 ├── sqlc.yaml
 ├── go.mod
 ├── go.sum
-├── .air.toml                            # live reload
+├── ARCHITECTURE.md
 ├── Dockerfile
 ├── .env.beta.example                    # template for .env.beta (local + beta)
 └── .env.prod.example                    # template for .env.prod
@@ -143,127 +108,55 @@ services/<name>/
 
 ## Service-specific files
 
-Only the parts that differ from the template are listed.
+Only the parts that differ from the template are listed. Built services are documented in their own `ARCHITECTURE.md`.
 
-### gateway
+### gateway (built)
 
 ```
 internal/
-├── config/config.go                     # upstream URLs, JWT_PUBLIC_KEY, timeout
+├── config/config.go                     # upstream URLs, JWT_PUBLIC_KEY, timeout, CORS origins
 ├── proxy/proxy.go                       # forward to an upstream (path, query, X-Request-Id)
 ├── middleware/identity.go               # StripIdentity + RequireAuth (Ed25519, sets X-User-ID)
-└── transport/http/router.go             # public vs protected routes → upstream per prefix
+└── transport/http/router.go             # public vs protected routes → upstream per prefix; only /api/v1 is mounted
 ```
 
-### auth-service
+### auth-service, user-service, event-service, venue-service (built)
 
-```
-internal/
-├── domain/
-│   ├── otp.go                           # OTPCode + OTP limits
-│   ├── session.go                       # refresh tokens, TokenPair, LoginResult
-│   └── port.go                          # OTPRepository, SessionRepository, OTPSender, UserDirectory
-├── application/
-│   ├── otp_usecase.go                   # request + verify OTP → login
-│   ├── token_usecase.go                 # refresh (rotation + reuse detection), logout
-│   └── tokens.go                        # TokenIssuer: Ed25519 access JWTs + refresh tokens
-├── adapters/
-│   ├── sms/console_sender.go            # beta — logs the code (prod SMS provider: later)
-│   ├── users/user_service_client.go     # POST /api/v1/users on user-service
-│   └── persistence/                     # OTP + session repositories (sqlc)
-└── transport/http/auth_handler.go
-db/migrations/
-├── 0001_create_otp_codes.sql
-└── 0002_create_sessions.sql
-```
+See each service's `ARCHITECTURE.md`.
 
-### user-service
+### billing-service (next)
 
 ```
 internal/
 ├── domain/
-│   ├── user.go
-│   ├── device_token.go
-│   ├── squad.go
-│   └── port.go
-├── application/
-│   ├── user_usecase.go
-│   ├── device_token_usecase.go
-│   ├── squad_usecase.go
-│   └── friend_usecase.go
-└── transport/http/
-    ├── user_handler.go
-    ├── device_token_handler.go
-    └── squad_handler.go
-db/migrations/
-├── 0001_create_users.sql
-├── 0002_create_device_tokens.sql
-├── 0003_create_squads.sql
-├── 0004_create_squad_members.sql
-├── 0005_create_user_face_profiles.sql
-└── 0006_create_friend_connections.sql
-```
-
-### event-service
-
-```
-internal/
-├── domain/
-│   ├── event.go                         # DRAFT → VOTING → CONFIRMED → ACTIVE → CLOSED
-│   ├── schedule.go                      # start time and voting deadline rules
-│   ├── rsvp.go
-│   ├── nomination.go                    # Place, Nomination, Vote
-│   ├── authz.go                         # roles (incl. CREATOR), actions
-│   ├── view.go                          # EventSummary, EventDetail, Permissions
-│   ├── port.go
-│   └── errors.go
-├── policy/policy.csv
-├── application/
-│   ├── event_usecase.go                 # create, list, get, update
-│   ├── participation.go                 # RSVP, suggest, vote
-│   ├── lifecycle.go                     # start/close voting, start/close night, due sweeps
-│   └── view.go
-├── adapters/
-│   ├── persistence/
-│   └── venues/                          # venue-service client
-└── transport/http/
-db/migrations/
-├── 0001_create_events.sql
-├── 0002_create_event_rsvps.sql
-├── 0003_create_nominations.sql
-└── 0004_create_votes.sql
-```
-
-### billing-service
-
-```
-internal/
-├── domain/
-│   ├── bill.go
-│   ├── debt.go
-│   ├── command.go                       # BillCommand interface
-│   ├── split_strategy.go                # SplitStrategy interface
-│   └── debt_graph.go                    # min-cash-flow algorithm
+│   ├── bill.go                          # one payer, items, who shares it
+│   ├── split.go                         # equal split in paise, leftover paise in a fixed order
+│   ├── netting.go                       # all of a night's bills → one debt per pair
+│   └── debt.go                          # PENDING → SETTLED
 ├── application/
 │   ├── bill_usecase.go
-│   ├── debt_usecase.go
-│   ├── commands/                        # AddItem, RemoveItem, AssignItem, CloseBill, invoker
-│   └── splits/                          # EqualSplit, ByItemSplit, CustomSplit
-└── adapters/kafka/
-    ├── publisher.go
-    └── consumer.go                      # event.closed → close bill
+│   └── debt_usecase.go
+└── adapters/
+    ├── persistence/
+    └── receipts/                        # ReceiptScanner (OCR provider still to be chosen)
 db/migrations/
 ├── 0001_create_bills.sql
 ├── 0002_create_bill_items.sql
-├── 0003_create_item_assignments.sql
-├── 0004_create_debts.sql
-├── 0005_create_audit_log.sql
-└── 0006_create_split_configs.sql
+├── 0003_create_bill_shares.sql
+└── 0004_create_debts.sql
 ```
 
-### venue-service (built)
+### scheduler-service (next)
 
-See `services/venue-service/ARCHITECTURE.md`.
+No database and no domain logic.
+
+```
+internal/
+├── config/config.go                     # target URLs + interval per job
+└── jobs/                                # each job POSTs to one /internal/v1 endpoint
+    ├── event_confirm_due.go
+    └── event_close_due.go
+```
 
 ### notification-service
 
@@ -271,29 +164,27 @@ See `services/venue-service/ARCHITECTURE.md`.
 internal/
 ├── adapters/
 │   ├── fcm/client.go
-│   ├── whatsapp/client.go
-│   └── kafka/consumer.go                # all Kafka topic listeners
-└── application/notification_router.go   # decides FCM vs WhatsApp
+│   └── whatsapp/client.go
+├── application/notification_router.go   # decides FCM vs WhatsApp, quiet hours
+└── transport/http/                      # POST /internal/v1/notifications
 db/migrations/
 └── 0001_create_notification_log.sql
 ```
 
 ### media-service
 
+Face tagging is deferred.
+
 ```
 internal/
-├── adapters/
-│   ├── cloudinary/client.go
-│   ├── vision/client.go                 # Google Vision API
-│   └── kafka/tagging_worker.go          # photo.uploaded → Vision → match
+├── adapters/cloudinary/client.go
 ├── application/
 │   ├── media_usecase.go
-│   ├── qr_usecase.go                    # JWT signing + QR PNG
+│   ├── download_usecase.go              # signed download token + QR PNG
 │   └── zip_streamer.go                  # stream ZIP without buffering
 db/migrations/
 ├── 0001_create_photos.sql
-├── 0002_create_photo_faces.sql
-└── 0003_create_download_tokens.sql
+└── 0002_create_download_tokens.sql
 ```
 
 ### realtime-service
@@ -303,10 +194,10 @@ internal/
 ├── hub/
 │   ├── hub.go                           # connection registry (sync.RWMutex)
 │   └── connection.go
-├── presence/presence.go                 # Redis SET per event
-├── adapters/kafka/consumer.go           # fan-out Kafka → WebSocket
 ├── domain/message.go                    # WsMessage + type constants
-└── transport/http/ws_handler.go         # WebSocket upgrade endpoint
+└── transport/http/
+    ├── ws_handler.go                    # WebSocket upgrade endpoint
+    └── publish_handler.go               # POST /internal/v1/realtime/publish
 ```
 
 ### reservation-service
@@ -323,28 +214,24 @@ db/migrations/
 
 ### analytics-service
 
+Reads from the other services' internal endpoints; a scheduler-service job refreshes it nightly.
+
 ```
 internal/
-├── adapters/kafka/consumer.go           # ingests domain events
 └── application/
     ├── squad_stats_usecase.go
     ├── user_stats_usecase.go
     └── wrapped_usecase.go
-db/migrations/
-├── 0001_create_analytics_events.sql
-├── 0002_squad_stats_view.sql
-├── 0003_user_stats_view.sql
-├── 0004_venue_stats_view.sql
-└── 0005_monthly_summary_view.sql
 ```
 
 ### feature-flag-service
 
 ```
 internal/
-├── application/flag_evaluator.go        # hash-based rollout
-├── adapters/cache/flag_cache.go         # Redis cache (60s TTL)
-└── transport/http/flag_handler.go       # REST — admin only
+├── application/flag_evaluator.go        # override → global → hash-based rollout
+└── transport/http/
+    ├── flag_handler.go                  # REST — admin only
+    └── evaluate_handler.go              # POST /internal/v1/flags/evaluate
 db/migrations/
 ├── 0001_create_feature_flags.sql
 └── 0002_create_user_overrides.sql
@@ -360,7 +247,6 @@ internal/
 └── transport/http/
     ├── users_handler.go
     ├── flags_handler.go
-    ├── venues_handler.go
     └── abuse_handler.go
 ```
 
@@ -368,22 +254,23 @@ internal/
 
 ## Service → Port map
 
-| Service              | Language | Internal Port | DB Port |
-| -------------------- | -------- | ------------- | ------- |
-| gateway              | Go       | 8080          | —       |
-| auth-service         | Go       | 3001          | 5433    |
-| user-service         | Go       | 3002          | 5434    |
-| event-service        | Go       | 3003          | 5435    |
-| billing-service      | Go       | 3004          | 5436    |
-| venue-service        | Go       | 3006          | 5438    |
-| notification-service | Go       | 3007          | —       |
-| media-service        | Go       | 3008          | 5439    |
-| realtime-service     | Go       | 3009          | —       |
-| reservation-service  | Go       | 3011          | 5442    |
-| analytics-service    | Go       | 3012          | 5441    |
-| feature-flag-service | Go       | 3013          | 5440    |
-| admin-service        | Go       | 3014          | —       |
+| Service              | Status  | Internal Port | DB Port |
+| -------------------- | ------- | ------------- | ------- |
+| gateway              | built   | 8080          | —       |
+| auth-service         | built   | 3001          | 5433    |
+| user-service         | built   | 3002          | 5434    |
+| event-service        | built   | 3003          | 5435    |
+| billing-service      | next    | 3004          | 5436    |
+| scheduler-service    | next    | 3005          | —       |
+| venue-service        | built   | 3006          | 5438    |
+| notification-service | planned | 3007          | 5437    |
+| media-service        | planned | 3008          | 5439    |
+| realtime-service     | planned | 3009          | —       |
+| reservation-service  | planned | 3011          | 5442    |
+| analytics-service    | planned | 3012          | —       |
+| feature-flag-service | planned | 3013          | 5440    |
+| admin-service        | planned | 3014          | —       |
 
-_All services share Redis on 6379 and Kafka on 9092. All HTTP routes are versioned under `/api/v1`._
+_Redis on 6379 is used only by venue-service's best-effort cache locally; production launches without it. All public HTTP routes are versioned under `/api/v1`; service-to-service routes live under `/internal/v1` and are never exposed by the gateway._
 
-> **Later:** AI features — deferred, will be revisited.
+> **Later:** AI features are deferred, except receipt scanning for bills.

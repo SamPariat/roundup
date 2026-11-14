@@ -1,11 +1,13 @@
-# Roundup — Full Task Breakdown
+# Roundup — Backend Task Breakdown
 
 > Check off tasks as you complete them. Each checkbox is one atomic unit of work.
-> **Legend:** `[Go]` `[Infra]` `[App]`
+> **Legend:** `[Go]` `[Infra]`
 >
-> **Language policy:** Backend is Go only. The client is one React Native + Expo app (TypeScript) for web, Android and iOS. No other languages.
+> **Language policy:** Backend is Go only. The client is one React Native + Expo app (TypeScript) for web, Android and iOS, built side by side in the separate `roundup-ui` repo. Its tasks live there.
 >
-> **Later:** AI features — deferred, will be revisited.
+> **Keep it simple:** services talk over REST (`/internal/v1/...` for service-to-service calls), each with its own Postgres database. No Kafka, gRPC or Pub/Sub. Scheduled work lives only in scheduler-service.
+>
+> **Later:** AI features are deferred, except receipt scanning for bills. Face recognition is still deferred.
 
 ---
 
@@ -17,6 +19,7 @@
 - [User Service](#user-service--go)
 - [Event Service](#event-service--go)
 - [Billing Service](#billing-service--go)
+- [Scheduler Service](#scheduler-service--go)
 - [Venue Service](#venue-service--go)
 - [Notification Service](#notification-service--go)
 - [Media Service](#media-service--go)
@@ -25,7 +28,7 @@
 - [Analytics Service](#analytics-service--go)
 - [Feature Flag Service](#feature-flag-service--go)
 - [Admin Service](#admin-service--go)
-- [App](#app-react-native--expo-app)
+- [Client contract](#client-contract)
 - [Cross-cutting](#cross-cutting)
 
 ---
@@ -39,9 +42,6 @@
 - [x] Install goose (`make install`)
 - [x] Install sqlc (`make install`)
 - [x] Install golangci-lint
-- [ ] Install Node.js 26 LTS (Expo app); Android Studio + Xcode only for local native builds
-- [ ] Install protoc (gRPC compiler)
-- [ ] Install buf CLI (protobuf linting)
 
 ### Monorepo setup
 
@@ -50,21 +50,14 @@
 - [x] Add `.gitignore`
 - [x] Add `.editorconfig` for consistent formatting
 - [x] Create `services/` directory for all microservices
-- [ ] Create `proto/` directory for shared gRPC definitions
 - [x] Create `scripts/` for dev helper scripts
-- [x] Write `scripts/start-all.sh` to boot all services locally
+- [x] `make services-up` boots every service in Docker (compose `services` profile)
 
 ### Docker Compose — local services
 
 - [x] Add PostgreSQL container (one per service, separate ports)
-- [x] Add Redis container (shared, single instance)
-- [ ] Add Kafka container (Bitnami image)
-- [ ] Add Zookeeper container (Kafka dependency)
-- [ ] Add Kafka UI container (Provectus) for local debugging
-- [ ] Add Redis Commander container for local Redis browsing
-- [ ] Add pgAdmin container for DB browsing
+- [x] Add Redis container (local venue cache only)
 - [x] Set up Docker networking so all services can communicate
-- [ ] Write `docker-compose.override.yml` for local-only overrides
 - [ ] Add health checks to all containers
 
 ### CI/CD
@@ -75,70 +68,36 @@
 - [x] Add test step for each service
 - [x] Add build step for each service (Docker image per service; `ci-ok` is the required check)
 - [ ] Write `deploy.yml` — runs on merge to main
-- [ ] Add Docker image build per service
 - [ ] Push images to Google Artifact Registry
-- [ ] Add Cloud Run deploy step per service
+- [ ] Add Cloud Run deploy step per service, plus goose migrations before rollout
 - [ ] Set up environment secrets in GitHub (DB URLs, API keys)
 - [ ] Write `CODEOWNERS` file
 
-### Kafka setup
-
-- [ ] Define all Kafka topic names as constants in `shared/kafka`
-- [ ] Topic: `rsvp.updated`
-- [ ] Topic: `event.created`
-- [ ] Topic: `event.closed`
-- [ ] Topic: `tab.opened`
-- [ ] Topic: `tab.closed`
-- [ ] Topic: `debt.created`
-- [ ] Topic: `debt.settled`
-- [ ] Topic: `photo.uploaded`
-- [ ] Topic: `photo.tagged`
-- [ ] Set retention policy (7 days) for all topics
-- [ ] Set replication factor (3) for production topics
-
-### gRPC proto definitions
-
-- [ ] Create `proto/auth.proto` — token validation RPC
-- [ ] Create `proto/user.proto` — get user by ID RPC
-- [ ] Create `proto/billing.proto` — get bill, get debts RPCs
-- [ ] Create `proto/flags.proto` — evaluate flag RPC
-- [ ] Generate Go stubs from all protos
-- [ ] Add buf lint check to CI
-
 ### GCP production setup
 
+Cloud Run in asia-south1, every service scales to zero (no min-instances; cold starts are fine). One Cloud SQL instance with one database per service. No Memorystore at launch: the venue cache is best-effort, so venue-service runs without Redis.
+
 - [ ] Create GCP project
-- [ ] Enable Cloud Run API
-- [ ] Enable Cloud SQL API
-- [ ] Enable Memorystore API
-- [ ] Enable Artifact Registry API
-- [ ] Enable Secret Manager API
-- [ ] Enable Pub/Sub API (if replacing Kafka)
-- [ ] Create Cloud SQL Postgres instance (asia-south1)
-- [ ] Create Memorystore Redis instance
+- [ ] Enable Cloud Run, Cloud SQL, Artifact Registry and Secret Manager APIs
+- [ ] Create one Cloud SQL Postgres instance (asia-south1, db-g1-small) with a database per service
 - [ ] Create Artifact Registry repository
 - [ ] Set up service accounts per microservice
-- [ ] Configure IAM roles (least privilege)
+- [ ] Configure IAM roles (least privilege), including who may call each service's `/internal/v1` routes
 - [ ] Set up Secret Manager for all env vars
-- [ ] Configure VPC connector for Cloud Run → Cloud SQL
-- [ ] Set up Cloud Armor for DDoS protection on gateway
+- [ ] Direct VPC egress from Cloud Run to Cloud SQL
 
 ### Observability
 
 - [x] Graceful shutdown on SIGTERM and panic recovery on every service (`shared/server.Run`, `shared/middleware.Recover`)
+- [x] Structured request/response logs with the gateway's request ID on every service
 
 - [ ] Set up Grafana Cloud account (free tier)
-- [ ] Configure Loki log shipping (Vector sidecar)
-- [ ] Create Grafana dashboard — request rate per service
-- [ ] Create Grafana dashboard — error rate per service
-- [ ] Create Grafana dashboard — p95 latency per service
-- [ ] Create Grafana dashboard — Kafka consumer lag
+- [ ] Ship Cloud Run logs to Grafana Loki
 - [ ] Set up Prometheus metrics endpoint per service
+- [ ] Create Grafana dashboards — request rate, error rate and p95 latency per service
 - [ ] Configure alert — error rate > 1% for 5min → Discord
 - [ ] Configure alert — service down → Discord
-- [ ] Set up Jaeger for distributed tracing
-- [ ] Add OpenTelemetry SDK to each service
-- [ ] Create trace dashboard in Grafana
+- [ ] Add OpenTelemetry tracing to each service, keyed on the request ID
 
 ---
 
@@ -154,17 +113,18 @@ Access tokens are Ed25519 JWTs: the gateway verifies them locally with auth-serv
 - [x] Create `internal/config/` — env var loading with validation
 - [x] Create `.env.beta.example` and `.env.prod.example` with all required vars
 - [x] Write `Dockerfile` (multi-stage, distroless nonroot)
-- [ ] Add `prometheus/client_golang` dependency
-- [ ] Add OpenTelemetry Go SDK
 
 ### Routing
 
-- [x] Proxy `/api/v1/auth`, `/users`, `/venues`, `/squads` to their upstream service URLs (config per service)
-- [x] Keep `/events`, `/billing`, `/media`, `/realtime` as 501 until those services exist
+- [x] Proxy `/api/v1/auth`, `/users`, `/venues`, `/squads`, `/events` to their upstream service URLs (config per service)
+- [x] Answer 501 for route groups whose service isn't built yet
+- [ ] Proxy the billing routes once billing-service exists
 - [x] Block external `POST /api/v1/users` (only auth-service creates users, directly)
+- [x] `/internal/v1/*` is unreachable through the gateway (it only mounts `/api/v1`)
 - [x] Upstream down or slow → 502
 - [x] Request ID generation (UUID v4) and forwarding as `X-Request-Id`
 - [x] Forward `X-User-ID` after auth validation
+- [x] Refresh token in an httpOnly `roundup_refresh` cookie for web clients, CORS from `CORS_ALLOWED_ORIGINS`
 
 ### Auth middleware
 
@@ -178,10 +138,6 @@ Access tokens are Ed25519 JWTs: the gateway verifies them locally with auth-serv
 - [x] Rate limit `/api/v1/auth/*` by IP: 20 requests per 15 minutes, in memory per gateway instance (protects OTP sending)
 - [ ] Rate limit by user ID for authenticated routes
 - [x] Return `429 Too Many Requests` with `Retry-After` header
-
-### Load balancing
-
-- [ ] Support multiple upstream instances per service (or rely on the platform's load balancer)
 
 ### Observability
 
@@ -210,7 +166,7 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 
 - [x] Define `OTPSender` port in `internal/domain/port.go`
 - [x] Console adapter for beta — logs the code; `OTP_DEV_CODE` accepted in beta only
-- [ ] SMS provider adapter for production (e.g. MSG91) — auth refuses to start in prod until it exists
+- [ ] SMS provider adapter for production (e.g. MSG91) — auth refuses to start in prod until it exists (**blocks launch**)
 - [x] Store OTP hashed with 5-minute expiry and an attempt counter (5 wrong guesses max)
 - [x] Rate limit OTP requests per phone number (3 per 15 minutes, counted in Postgres)
 
@@ -258,8 +214,7 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 - [x] `0002_create_device_tokens.sql` — id, user_id, token, platform, created_at
 - [x] `0003_create_squads.sql` — id, name, avatar_url, created_by, created_at
 - [x] `0004_create_squad_members.sql` — squad_id, user_id, role, joined_at
-- [ ] `0005_create_user_face_profiles.sql` — user_id, cloudinary_id, embeddings (jsonb), updated_at
-- [ ] `0006_create_friend_connections.sql` — user_id_a, user_id_b, created_at (unique pair)
+- [ ] `0005_create_friend_connections.sql` — user_id_a, user_id_b, created_at (unique pair)
 - [x] Add indexes: users(phone), squad_members(squad_id, user_id)
 
 ### Domain & repositories
@@ -289,7 +244,6 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 - [x] `GET /api/v1/users/me` — get own profile
 - [x] `PATCH /api/v1/users/me` — update name, avatar
 - [x] `DELETE /api/v1/users/me` — soft delete account
-- [ ] `GET /api/v1/users/:id` — get user by ID (internal use)
 - [x] `POST /api/v1/users/me/device-tokens` — register FCM token
 - [x] `DELETE /api/v1/users/me/device-tokens/:token` — deregister token
 - [x] `POST /api/v1/squads` — create squad
@@ -300,7 +254,7 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 - [x] `PATCH /api/v1/squads/:id/members/:userId` — make admin or demote
 - [x] `DELETE /api/v1/squads/:id/members/:userId` — remove member, or leave with your own ID
 - [x] `POST /api/v1/users/lookup` — which of these phone numbers are Roundup users
-- [ ] `POST /api/v1/users/me/face-profile` — upload reference photo
+- [ ] `POST /internal/v1/device-tokens/batch` — device tokens for a list of users (notification service)
 - [ ] `GET /api/v1/users/me/friends` — get friend list
 
 ### Tests
@@ -314,7 +268,7 @@ Custom auth — phone OTP + JWT. No Firebase Auth.
 
 ## Event Service `[Go]`
 
-Built in PR B. See `services/event-service/ARCHITECTURE.md`. Kafka publishing is replaced by direct calls; invites and guests are deferred.
+See `services/event-service/ARCHITECTURE.md`. Other services are called directly; invites and guests are deferred.
 
 ### Project setup
 
@@ -345,7 +299,7 @@ Built in PR B. See `services/event-service/ARCHITECTURE.md`. Kafka publishing is
 - [x] Start/close voting, start the night, close the night (records the visit)
 - [x] Internal `confirm-due` and `close-due` sweeps for scheduler-service
 - [x] Permissions from `policy.csv` (MEMBER, ADMIN, CREATOR)
-- [ ] `ACTIVE` opens and closes the bill — needs billing-service (PR C)
+- [ ] `ACTIVE` = bill open: closing the night closes the bills in billing-service (direct call)
 - [ ] Invite links and guests — deferred
 
 ### Controllers (REST)
@@ -363,85 +317,71 @@ Built in PR B. See `services/event-service/ARCHITECTURE.md`. Kafka publishing is
 - [x] Domain, policy, use cases (fakes), Postgres repository, venue client, routes vs spec
 - [x] Concurrent sweeps move each event exactly once
 
+---
+
 ## Billing Service `[Go]`
+
+The bill is why you open an event. Scan the receipt, one payer per bill, several bills per night, equal split, and the bills are netted into one debt per pair. People settle outside the app and mark the debt paid. No payments.
 
 ### Project setup
 
 - [ ] `go mod init github.com/SamPariat/roundup/services/billing-service` — venue-service layout
-- [ ] Add `segmentio/kafka-go`
-- [ ] Write `Dockerfile`
+- [ ] Write `Dockerfile`, `.env.*.example`, compose Postgres, `billing-*` Makefile targets
 
 ### Database schema (goose migrations)
 
-- [ ] `0001_create_bills.sql` — id, event_id, status (OPEN/CLOSED), split_mode, total_paise, created_at
-- [ ] `0002_create_bill_items.sql` — id, bill_id, name, amount_paise, added_by, created_at, deleted_at
-- [ ] `0003_create_item_assignments.sql` — item_id, user_id, share_paise
-- [ ] `0004_create_debts.sql` — id, bill_id, from_user, to_user, amount_paise, status (PENDING/SETTLED)
-- [ ] `0005_create_audit_log.sql` — id, bill_id, action, payload (jsonb), performed_by, created_at
-- [ ] `0006_create_split_configs.sql` — bill_id, user_id, percentage
+- [ ] `0001_create_bills.sql` — id, event_id, paid_by, total_paise, receipt_ref, created_at, deleted_at
+- [ ] `0002_create_bill_items.sql` — id, bill_id, name, amount_paise (from the scanned receipt, editable)
+- [ ] `0003_create_bill_shares.sql` — bill_id, user_id (who splits this bill)
+- [ ] `0004_create_debts.sql` — id, event_id, from_user, to_user, amount_paise, status (PENDING/SETTLED), settled_at
 
-### Command pattern
+### Domain
 
-- [ ] `BillCommand` interface — `Execute(ctx)`, `AuditEntry()`
-- [ ] `AddItemCommand` — adds item, writes audit log
-- [ ] `RemoveItemCommand` — soft deletes item, writes audit log
-- [ ] `AssignItemCommand` — assigns item to user
-- [ ] `CloseBillCommand` — runs split, generates debts, closes bill
-- [ ] `CommandInvoker` — executes command + persists audit entry in one transaction
+- [ ] Equal split in paise; the leftover paise go to a fixed order of members so the totals always match
+- [ ] Net all of a night's bills into one debt per pair of people
+- [ ] Unit tests: ₹900 across 3 → ₹300 each; ₹1000 across 3 (leftover paise); two payers in one night net out
 
-### Strategy pattern
+### Receipt scanning
 
-- [ ] `SplitStrategy` interface — `Calculate(bill, members) ([]Debt, error)`
-- [ ] `EqualSplit` — divide total by member count
-- [ ] `ByItemSplit` — sum assigned items per user
-- [ ] `CustomSplit` — use explicit percentages from config
-- [ ] `SplitStrategyFor(mode)` — map from `SplitMode`
-
-### Debt simplification graph
-
-- [ ] `DebtGraph` type
-- [ ] `AddDebt(from, to, amount)` — build net balance map
-- [ ] `Simplify()` — min-cash-flow algorithm, returns minimum number of transfers
-- [ ] Unit test with 3-person circular debt (A owes B, B owes C, C owes A)
-- [ ] Unit test with 5-person complex debt
-- [ ] Unit test with all debts already settled
+- [ ] `ReceiptScanner` port — photo → line items + total
+- [ ] OCR adapter (provider still to be chosen)
+- [ ] User confirms or edits items before the bill is saved
 
 ### Use cases
 
-- [ ] `BillUseCase` — create bill, add/remove/assign item (via commands), close bill, get bill
-- [ ] `DebtUseCase` — debts for user, mark as paid, total owed, total owing
+- [ ] `BillUseCase` — add, edit and remove a bill while the event is `ACTIVE`, choose who shares it
+- [ ] Close the event's bills → generate the netted debts (idempotent)
+- [ ] `DebtUseCase` — my debts across events, mark as paid (only the person owed can confirm), totals owed / owing
 
 ### Controllers (REST)
 
-- [ ] `POST /api/v1/bills` — create bill for event
-- [ ] `GET /api/v1/bills/:id` — get bill with items
-- [ ] `POST /api/v1/bills/:id/items` — add line item
-- [ ] `DELETE /api/v1/bills/:id/items/:itemId` — remove item
-- [ ] `POST /api/v1/bills/:id/items/:itemId/assign` — assign to users
-- [ ] `POST /api/v1/bills/:id/close` — close and generate debts
-- [ ] `GET /api/v1/bills/:id/debts` — get all debts for bill
-- [ ] `GET /api/v1/debts/me` — my debts across all events
-- [ ] `POST /api/v1/debts/:id/mark-paid` — mark debt as paid
-- [ ] `GET /api/v1/bills/:id/audit` — audit log
-
-### Kafka consumers
-
-- [ ] Listen `event.closed` → auto-close open bill
-
-### Kafka publishers
-
-- [ ] Publish `tab.opened` on bill create
-- [ ] Publish `tab.closed` on bill close
-- [ ] Publish `debt.created` for each new debt
-- [ ] Publish `debt.settled` when a debt is marked paid
+- [ ] `GET/POST /api/v1/events/:eventID/bills`
+- [ ] `GET/PATCH/DELETE /api/v1/bills/:billID`
+- [ ] `POST /api/v1/events/:eventID/bills/scan` — receipt photo → proposed items
+- [ ] `GET /api/v1/events/:eventID/debts`
+- [ ] `GET /api/v1/debts/me`
+- [ ] `POST /api/v1/debts/:debtID/mark-paid`
+- [ ] `POST /internal/v1/events/:eventID/bills/close` — called by event-service when the night closes
+- [ ] Add every route to `shared/api/openapi.yaml`
 
 ### Tests
 
-- [ ] Unit test `EqualSplit` — 3 people, ₹900 → ₹300 each
-- [ ] Unit test `ByItemSplit` — uneven item assignments
-- [ ] Unit test `DebtGraph.Simplify()` — multiple scenarios
-- [ ] Unit test `CommandInvoker` — audit log entry created
+- [ ] Use cases with fakes, Postgres repository, routes vs spec
 - [ ] Integration test full bill lifecycle
+
+---
+
+## Scheduler Service `[Go]`
+
+No database and no domain logic. It calls each service's idempotent `/internal/v1` endpoint on a schedule.
+
+- [ ] `go mod init github.com/SamPariat/roundup/services/scheduler-service`
+- [ ] Job: event `confirm-due` (voting deadline passed)
+- [ ] Job: event `close-due` (night over)
+- [ ] Config: target URLs and interval per job via `shared/env`
+- [ ] Log each run with its outcome; one failed job never stops the others
+- [ ] Write `Dockerfile`
+- [ ] Prod: Cloud Scheduler hits the jobs (scale to zero) instead of an always-on ticker
 
 ---
 
@@ -486,6 +426,7 @@ Built in PR B. See `services/event-service/ARCHITECTURE.md`. Kafka publishing is
 - [x] `FavoriteUseCase.SavedIn` — which of my squads saved this venue (one user-service call, one query)
 - [x] `HistoryUseCase.Record` and `List` — per venue, most recently visited first, with average known spend
 - [x] Squad membership checked through user-service (`SquadDirectory.Members`) before every squad operation
+- [ ] Fill a visit's spend from the night's bills once billing-service exists
 
 ### Controllers (REST)
 
@@ -497,7 +438,7 @@ Built in PR B. See `services/event-service/ARCHITECTURE.md`. Kafka publishing is
 
 ### Recording visits automatically
 
-- [x] Record a visit when an event closes (event-service calls it directly, not through Kafka)
+- [x] Record a visit when an event closes (event-service calls it directly)
 
 ### Tests
 
@@ -511,559 +452,206 @@ Built in PR B. See `services/event-service/ARCHITECTURE.md`. Kafka publishing is
 
 ## Notification Service `[Go]`
 
+Other services call `POST /internal/v1/notifications` directly when something happens.
+
 ### Project setup
 
 - [ ] `go mod init github.com/SamPariat/roundup/services/notification-service` — venue-service layout
-- [ ] Add Firebase Admin SDK for Go
-- [ ] Add `segmentio/kafka-go`
+- [ ] Add Firebase Admin SDK for Go (FCM only)
 - [ ] Write `Dockerfile`
 
 ### FCM integration
 
-- [ ] Create `internal/fcm/client.go`
-- [ ] Implement `Send(token, title, body, data)` → `error`
-- [ ] Implement `SendMulticast(tokens, title, body, data)` → `BatchResponse`
-- [ ] Handle `messaging/registration-token-not-registered` → signal User Service to remove token
-- [ ] Log every notification send (success + failure)
+- [ ] `Send(token, title, body, data)` and `SendMulticast(tokens, …)`
+- [ ] Unregistered token → ask user-service to remove it
+- [ ] Log every send (success + failure)
 
 ### WhatsApp Business API
 
-- [ ] Create `internal/whatsapp/client.go`
-- [ ] Implement `SendTemplate(phone, templateName, params)` → `error`
-- [ ] Template: `debt_reminder` — "Hey, you owe ₹X to Y from Friday drinks"
-- [ ] Template: `outing_invite` — "Join us at Z this Saturday"
-- [ ] Template: `debt_settled` — "Y marked ₹X as paid"
+- [ ] `SendTemplate(phone, templateName, params)`
+- [ ] Templates: `debt_reminder`, `outing_invite`, `debt_settled`
 
-### Kafka consumers
+### Triggers (direct calls)
 
-- [ ] Listen `rsvp.updated` → notify organiser
-- [ ] Listen `vote.cast` → notify all squad members (tally update)
-- [ ] Listen `tab.closed` → notify all members (debts ready)
-- [ ] Listen `debt.created` → notify debtor
-- [ ] Listen `debt.settled` → notify creditor
-- [ ] Listen `photo.tagged` → notify tagged user
+- [ ] Event-service: RSVP changed → organiser; voting opened / venue confirmed → squad
+- [ ] Billing-service: debts ready → everyone in the night; debt created → debtor; debt marked paid → the other person
+- [ ] Scheduler-service: debt reminders
 
-### Notification routing
+### Routing & log
 
-- [ ] Create `NotificationRouter` — decides channel (FCM vs WhatsApp vs both)
-- [ ] Route by user preference (from User Service)
-- [ ] Route by notification type (debt reminder → WhatsApp, photo tag → FCM)
-- [ ] Implement quiet hours check before sending
-
-### Notification log
-
+- [ ] `NotificationRouter` — FCM vs WhatsApp by notification type and user preference
+- [ ] Quiet hours check before sending
 - [ ] `0001_create_notification_log.sql` — id, user_id, channel, type, status, sent_at
-- [ ] Write log entry on every send attempt
-- [ ] Update status on delivery receipt (FCM success/failure)
 
 ### Tests
 
 - [ ] Unit test `NotificationRouter` — correct channel selection
 - [ ] Unit test quiet hours enforcement
-- [ ] Integration test FCM send with Firebase test credentials
 
 ---
 
 ## Media Service `[Go]`
 
+Face tagging is deferred with the other AI features.
+
 ### Project setup
 
 - [ ] `go mod init github.com/SamPariat/roundup/services/media-service` — venue-service layout
-- [ ] Add `gofiber/fiber/v3`
 - [ ] Add `cloudinary/cloudinary-go`
-- [ ] Add `segmentio/kafka-go`
-- [ ] Add `golang-jwt/jwt` for download tokens
-- [ ] Add `mholt/archiver` for ZIP streaming
 - [ ] Write `Dockerfile`
 
 ### Database schema
 
-- [ ] `0001_create_photos.sql` — id, event_id, uploaded_by, cloudinary_id, width, height, tagging_status, created_at
-- [ ] `0002_create_photo_faces.sql` — id, photo_id, user_id (nullable), confidence, bounding_box (jsonb)
-- [ ] `0003_create_download_tokens.sql` — token, user_id, event_id, expires_at, used_at
+- [ ] `0001_create_photos.sql` — id, event_id, uploaded_by, cloudinary_id, width, height, created_at
+- [ ] `0002_create_download_tokens.sql` — token, user_id, event_id, expires_at, used_at
 
-### Cloudinary integration
+### Cloudinary & upload
 
-- [ ] Create `internal/cloudinary/client.go`
-- [ ] Implement `GenerateSignedUploadPreset(eventId, userId)` → `SignedParams`
-- [ ] Implement `BuildUrl(cloudinaryId, transformations)` → `string`
-- [ ] Implement `DeleteAsset(cloudinaryId)` → `error`
-- [ ] Implement `CropFace(cloudinaryId, boundingBox)` → `string` (crop URL)
-
-### Webhook handler
-
-- [ ] `POST /api/v1/webhooks/cloudinary` — receive upload complete event
-- [ ] Verify Cloudinary webhook signature
-- [ ] Extract `public_id`, `width`, `height`, `event_id` from payload
-- [ ] Insert photo record in DB
-- [ ] Publish `photo.uploaded` Kafka event
-- [ ] Return `200 OK` immediately
-
-### Face tagging pipeline
-
-- [ ] Implement `TaggingWorker` — subscribes to `photo.uploaded` Kafka topic
-- [ ] For each photo: call Google Vision API → get face bounding boxes
-- [ ] Fetch squad members for the event
-- [ ] For each face: call AWS Rekognition `CompareFaces` against each member's reference photo
-- [ ] Only create `photo_faces` row if confidence ≥ 0.85
-- [ ] Update `tagging_status` → DONE or FAILED
-- [ ] Publish `photo.tagged` Kafka event
+- [ ] Signed upload params per event and user
+- [ ] `POST /api/v1/webhooks/cloudinary` — verify signature, insert photo row, return 200
+- [ ] Delete asset when a photo is removed
 
 ### QR & download
 
-- [ ] Create `QRService`
-- [ ] Implement `GenerateToken(userId, eventId)` → signed JWT (7-day TTL)
-- [ ] Store token in `download_tokens` table
-- [ ] Implement `GenerateQR(token)` → PNG buffer (using `skip2/go-qrcode`)
-- [ ] Create download endpoint `GET /api/v1/media/download/:token`
-- [ ] Verify JWT signature
-- [ ] Check not expired
-- [ ] Fetch all photos tagged with `userId` for `eventId`
-- [ ] Stream ZIP: pipe each Cloudinary URL into `archiver` → response
-- [ ] Never buffer entire ZIP to disk
-- [ ] Mark token `used_at` after download
+- [ ] Signed download token (7-day TTL), stored in `download_tokens`
+- [ ] QR PNG for the token (`skip2/go-qrcode`)
+- [ ] `GET /api/v1/media/download/:token` — stream a ZIP of the event's photos, never buffered to disk
 
 ### Controllers (REST)
 
-- [ ] `GET /api/v1/media/upload-params?eventId=` — returns signed Cloudinary params
-- [ ] `POST /api/v1/webhooks/cloudinary` — upload webhook
-- [ ] `GET /api/v1/media/qr/:eventId` — generate and return QR PNG
-- [ ] `GET /api/v1/media/download/:token` — stream ZIP (no auth guard)
-- [ ] `GET /api/v1/events/:id/photos` — list photos for event
-- [ ] `GET /api/v1/events/:id/photos/tagged` — my tagged photos in event
-- [ ] `POST /api/v1/photos/:id/tag` — manual self-tag
-
-### Kafka consumers / publishers
-
-- [ ] Consume `photo.uploaded` → trigger tagging worker
-- [ ] Publish `photo.tagged` → notify tagged users
+- [ ] `GET /api/v1/media/upload-params?eventId=`
+- [ ] `GET /api/v1/media/qr/:eventId`
+- [ ] `GET /api/v1/events/:id/photos`
 
 ### Tests
 
 - [ ] Unit test ZIP streaming — no disk buffering
-- [ ] Unit test JWT signing + verification
-- [ ] Unit test confidence threshold — below 0.85 not saved
+- [ ] Unit test download token signing + expiry
 - [ ] Integration test Cloudinary webhook parsing
 
 ---
 
 ## Realtime Service `[Go]`
 
+Other services POST to `/internal/v1/realtime/publish` and realtime fans the update out to connected clients.
+
 ### Project setup
 
 - [ ] `go mod init github.com/SamPariat/roundup/services/realtime-service` — venue-service layout
-- [ ] Add `gorilla/websocket`
-- [ ] Add `segmentio/kafka-go`
-- [ ] Add `redis/go-redis`
+- [ ] Add a WebSocket library
 - [ ] Write `Dockerfile`
 
 ### Connection management
 
-- [ ] Create `Hub` — manages all active WebSocket connections
-- [ ] Store connections in `map[userID]map[connID]*Conn`
-- [ ] Handle concurrent access with `sync.RWMutex`
-- [ ] Implement `Register(conn)` — add to hub
-- [ ] Implement `Unregister(conn)` — remove from hub
-- [ ] Implement `BroadcastToEvent(eventId, message)` — send to all users in event
-- [ ] Implement `SendToUser(userId, message)` — send to specific user
+- [ ] `Hub` — connections per user, guarded by `sync.RWMutex`
+- [ ] `Register`, `Unregister`, `BroadcastToEvent`, `SendToUser`
+- [ ] `GET /ws` — upgrade, authenticate with the access token via `shared/authtoken`
+- [ ] Ping/pong; drop dead connections; drain on shutdown
 
-### WebSocket server
+### Messages
 
-- [ ] `GET /ws` — WebSocket upgrade endpoint
-- [ ] Authenticate on connect: read `?token=` query param, validate via Auth Service
-- [ ] Subscribe user to their events on connect
-- [ ] Handle client ping/pong to detect dead connections
-- [ ] Auto-remove dead connections from hub
-- [ ] Implement graceful shutdown — drain connections
-
-### Presence tracking
-
-- [ ] Store active users per event in Redis SET `presence:{eventId}`
-- [ ] Add user on connect (if they're viewing an event)
-- [ ] Remove user on disconnect
-- [ ] TTL on presence keys (5min) as fallback
-- [ ] `GET /api/v1/events/:id/presence` — REST endpoint for current viewers
-
-### Kafka consumers (fan out to WebSocket clients)
-
-- [ ] Listen `rsvp.updated` → broadcast to event room
-- [ ] Listen `vote.cast` → broadcast tally update to event room
-- [ ] Listen `tab.opened` → broadcast to event members
-- [ ] Listen `debt.created` → send to specific user
-- [ ] Listen `debt.settled` → send to both parties
-- [ ] Listen `photo.tagged` → send to tagged user
-- [ ] Listen `event.confirmed` → broadcast venue to event room
-
-### Message format
-
-- [ ] Define `WsMessage` struct — `{ type, payload, eventId, timestamp }`
-- [ ] Types: `RSVP_UPDATE`, `VOTE_UPDATE`, `TAB_ITEM_ADDED`, `DEBT_CREATED`, `DEBT_SETTLED`, `PHOTO_TAGGED`, `VENUE_CONFIRMED`, `USER_TYPING`, `USER_PRESENCE`
-- [ ] Client sends `TYPING` message → server broadcasts to event members
+- [ ] `WsMessage` — `{ type, payload, eventId, timestamp }`
+- [ ] Types: `RSVP_UPDATE`, `VOTE_UPDATE`, `VENUE_CONFIRMED`, `BILL_UPDATED`, `DEBT_SETTLED`
+- [ ] Decide how fan-out works across several Cloud Run instances before launch
 
 ### Tests
 
 - [ ] Unit test Hub concurrent register/unregister
 - [ ] Unit test broadcast to event — only connected users receive
-- [ ] Integration test WebSocket connect + receive Kafka-triggered message
 
 ---
 
 ## Reservation Service `[Go]`
 
-### Project setup
-
-- [ ] `go mod init github.com/SamPariat/roundup/services/reservation-service` — venue-service layout
-- [ ] Add `gofiber/fiber/v3`
-- [ ] Add `segmentio/kafka-go`
-- [ ] Write `Dockerfile`
 - [ ] Research Dineout / EazyDiner partner API access — submit request
-
-### Database schema
-
+- [ ] `go mod init github.com/SamPariat/roundup/services/reservation-service` — venue-service layout, `Dockerfile`
 - [ ] `0001_create_reservations.sql` — id, event_id, venue_place_id, provider, reservation_ref, status, party_size, reservation_time, created_at
-- [ ] `0002_create_reservation_events.sql` — id, reservation_id, event_type, payload, created_at
-
-### Reservation state machine
-
-- [ ] States: `PENDING`, `CONFIRMED`, `CANCELLED`, `NO_SHOW`
-- [ ] Implement transitions with guard conditions
-- [ ] Unit test all transitions
-
-### Dineout/EazyDiner client
-
-- [ ] Create `internal/dineout/client.go`
-- [ ] Implement `SearchAvailability(placeId, date, partySize)` → `[]Slot`
-- [ ] Implement `CreateReservation(placeId, slot, contactPhone, partySize)` → `ReservationRef`
-- [ ] Implement `CancelReservation(ref)` → `error`
-- [ ] Handle partner API auth (API key + HMAC signature)
-- [ ] Map partner response to internal `Reservation` struct
-
-### Service layer
-
-- [ ] Create `ReservationService`
-- [ ] Implement `CheckAvailability(eventId, venueId, date, partySize)`
-- [ ] Implement `Book(eventId, venueId, slot, partySize)`
-- [ ] Implement `Cancel(reservationId)`
-- [ ] Implement `GetReservation(eventId)`
-
-### Webhook handler
-
-- [ ] `POST /api/v1/webhooks/dineout` — receive confirmation / cancellation
-- [ ] Verify provider webhook signature
-- [ ] Update reservation status
-- [ ] Publish Kafka event on status change
-
-### Controllers (REST)
-
-- [ ] `GET /api/v1/reservations/availability?eventId=&venueId=&date=&partySize=`
-- [ ] `POST /api/v1/reservations` — book a table
-- [ ] `DELETE /api/v1/reservations/:id` — cancel
-- [ ] `GET /api/v1/reservations/:eventId` — get event reservation
-
-### Tests
-
-- [ ] Unit test state machine transitions
-- [ ] Unit test Dineout client response mapping
-- [ ] Integration test booking flow with sandbox
+- [ ] State machine: `PENDING`, `CONFIRMED`, `CANCELLED`, `NO_SHOW` (unit test every transition)
+- [ ] Partner client — availability, book, cancel (API key + HMAC)
+- [ ] `POST /api/v1/webhooks/dineout` — verify signature, update status
+- [ ] REST: availability, book, cancel, get for event
 
 ---
 
 ## Analytics Service `[Go]`
 
-### Project setup
+Reads from the other services' internal endpoints. No event stream.
 
-- [ ] `go mod init github.com/SamPariat/roundup/services/analytics-service` — venue-service layout
-- [ ] Add `segmentio/kafka-go`
-- [ ] Write `Dockerfile`
-
-### Database schema (goose migrations)
-
-- [ ] `0001_create_analytics_events.sql` — id, squad_id, user_id, event_type, payload (jsonb), occurred_at
-- [ ] `0002_squad_stats_view.sql` — materialized view: total outings, total spend, avg per outing per squad
-- [ ] `0003_user_stats_view.sql` — materialized view: per-user stats across squads
-- [ ] `0004_venue_stats_view.sql` — most visited venues per squad
-- [ ] `0005_monthly_summary_view.sql` — monthly aggregates
-- [ ] Add `pg_cron` job: refresh all views nightly at 2am
-
-### Kafka consumers (event ingestion)
-
-- [ ] Listen `event.created` → store analytics event
-- [ ] Listen `event.closed` → store analytics event
-- [ ] Listen `rsvp.updated` → store analytics event
-- [ ] Listen `debt.created` → store analytics event
-- [ ] Listen `debt.settled` → store analytics event
-- [ ] Listen `photo.uploaded` → store analytics event
-
-### Use cases
-
-- [ ] `SquadStatsUseCase` — squad stats, leaderboard, venue history, spend by month
-- [ ] `UserStatsUseCase` — total outings, total spent, squads
-- [ ] `WrappedUseCase` — full year summary
-
-### Controllers (REST)
-
-- [ ] `GET /api/v1/analytics/squads/:id/stats` — squad summary stats
-- [ ] `GET /api/v1/analytics/squads/:id/leaderboard` — rankings
-- [ ] `GET /api/v1/analytics/squads/:id/venues` — venue history
-- [ ] `GET /api/v1/analytics/squads/:id/spend?year=` — monthly spend
-- [ ] `GET /api/v1/analytics/users/:id/stats` — user stats
-- [ ] `GET /api/v1/analytics/squads/:id/wrapped?year=` — yearly wrapped
-
-### Tests
-
-- [ ] Unit test leaderboard calculation
-- [ ] Unit test monthly spend aggregation
-- [ ] Integration test materialized view refresh
+- [ ] `go mod init github.com/SamPariat/roundup/services/analytics-service` — venue-service layout, `Dockerfile`
+- [ ] Squad stats — outings, total spend, average per outing, most visited venues
+- [ ] User stats across squads
+- [ ] Yearly wrapped
+- [ ] Nightly refresh via a scheduler-service job (not `pg_cron`)
+- [ ] REST: `GET /api/v1/analytics/squads/:id/stats`, `…/wrapped?year=`, `GET /api/v1/analytics/users/me/stats`
 
 ---
 
 ## Feature Flag Service `[Go]`
 
-### Project setup
-
-- [ ] `go mod init github.com/SamPariat/roundup/services/feature-flag-service` — venue-service layout
-- [ ] Add `gofiber/fiber/v3`
-- [ ] Add `redis/go-redis`
-- [ ] Add `google.golang.org/grpc` for gRPC server
-- [ ] Write `Dockerfile`
-
-### Database schema
-
-- [ ] `0001_create_feature_flags.sql` — key, enabled, rollout (0-100), metadata (jsonb), updated_at
-- [ ] `0002_create_user_overrides.sql` — flag_key, user_id, enabled, created_at
-
-### Flag evaluation
-
-- [ ] Create `FlagEvaluator`
-- [ ] Implement `IsEnabled(key, userId)` → `bool`
-- [ ] Check user override first
-- [ ] Check global enabled
-- [ ] Apply rollout percentage — deterministic hash of userId % 100
-- [ ] Cache evaluation result in Redis (60s TTL)
-- [ ] Invalidate cache on flag update
-
-### gRPC server
-
-- [ ] Implement `EvaluateFlag(key, userId)` RPC — for service-to-service
-- [ ] Implement `EvaluateBulk(keys, userId)` RPC — evaluate multiple flags at once
-
-### Controllers (REST — admin only)
-
-- [ ] `GET /api/v1/flags` — list all flags
-- [ ] `POST /api/v1/flags` — create flag
-- [ ] `PATCH /api/v1/flags/:key` — update enabled, rollout
-- [ ] `DELETE /api/v1/flags/:key` — delete flag
-- [ ] `POST /api/v1/flags/:key/overrides` — set user-level override
-- [ ] `DELETE /api/v1/flags/:key/overrides/:userId` — remove override
-
-### Tests
-
-- [ ] Unit test rollout — userId always maps to same bucket
-- [ ] Unit test user override takes precedence over global
-- [ ] Unit test cache invalidation on flag update
+- [ ] `go mod init github.com/SamPariat/roundup/services/feature-flag-service` — venue-service layout, `Dockerfile`
+- [ ] `0001_create_feature_flags.sql` — key, enabled, rollout (0-100), updated_at
+- [ ] `0002_create_user_overrides.sql` — flag_key, user_id, enabled
+- [ ] `IsEnabled(key, userId)` — override, then global, then deterministic rollout bucket
+- [ ] `POST /internal/v1/flags/evaluate` — several keys for one user
+- [ ] Admin REST: list, create, update, delete flags; set/remove overrides
+- [ ] Unit test: same user always lands in the same bucket; override beats global
 
 ---
 
 ## Admin Service `[Go]`
 
-### Project setup
-
-- [ ] `go mod init github.com/SamPariat/roundup/services/admin-service` — venue-service layout
-- [ ] Add `golang-jwt/jwt/v5`, `golang.org/x/crypto/bcrypt`
-- [ ] Admin-only JWT separate from user JWT
-- [ ] Write `Dockerfile`
-
-### Auth
-
-- [ ] Admin login — email + password (bcrypt hashed)
-- [ ] Issue admin JWT (short TTL, 1hr)
-- [ ] Admin JWT middleware on all routes
-- [ ] Role-based: `SUPER_ADMIN`, `OPS`, `SUPPORT`
-
-### User management
-
-- [ ] `GET /api/v1/admin/users?q=` — search users by phone, email, name
-- [ ] `GET /api/v1/admin/users/:id` — full user detail
-- [ ] `POST /api/v1/admin/users/:id/ban` — soft ban (sets banned_at)
-- [ ] `POST /api/v1/admin/users/:id/unban`
-- [ ] `POST /api/v1/admin/users/:id/impersonate` — generate token for support
-- [ ] `GET /api/v1/admin/users/:id/squads` — user's squads
-- [ ] `GET /api/v1/admin/users/:id/debts` — open debts
-
-### Webhook ops
-
-- [ ] `POST /api/v1/admin/webhooks/:id/replay` — replay failed webhook
-
-### Feature flag admin
-
-- [ ] `GET /api/v1/admin/flags` — all flags with metadata
-- [ ] `PATCH /api/v1/admin/flags/:key` — update flag (proxies to Flag Service)
-- [ ] `POST /api/v1/admin/flags/:key/overrides` — per-user override
-
-### Abuse detection
-
-- [ ] `GET /api/v1/admin/abuse/suspicious-debts` — unusually large debts
-- [ ] `GET /api/v1/admin/abuse/fake-invites` — invite links with abnormal redemption rate
-- [ ] `POST /api/v1/admin/abuse/users/:id/flag` — flag user for review
-
-### Venue partner ops
-
-- [ ] `GET /api/v1/admin/venues/partners` — all partner venues
-- [ ] `POST /api/v1/admin/venues/partners` — add partner
-- [ ] `PATCH /api/v1/admin/venues/partners/:id` — update deal, rollout %
-- [ ] `GET /api/v1/admin/venues/partners/:id/analytics` — visits, revenue
-
-### Tests
-
-- [ ] Unit test role-based access — OPS cannot access SUPER_ADMIN routes
-- [ ] E2E test impersonation token — expires in 1hr
-- [ ] E2E test webhook replay — re-publishes to Kafka
+- [ ] `go mod init github.com/SamPariat/roundup/services/admin-service` — venue-service layout, `Dockerfile`
+- [ ] Admin login — email + password (bcrypt), separate short-lived admin JWT
+- [ ] Roles: `SUPER_ADMIN`, `OPS`, `SUPPORT`
+- [ ] Users: search, detail, ban/unban, squads, open debts
+- [ ] Flags: manage through feature-flag-service
+- [ ] Abuse: unusually large debts, flag user for review
+- [ ] Audit log for every admin action
+- [ ] Unit test role-based access — OPS cannot reach SUPER_ADMIN routes
 
 ---
 
-## App (React Native + Expo) `[App]`
+## Client contract
 
-One TypeScript codebase for web, Android and iOS. The web build ships first.
+The client (`roundup-ui`) generates its typed API client from `shared/api/openapi.yaml`. Web and native are built side by side there, so the spec must ship with each backend change.
 
-### Project setup
-
-- [ ] Create the Expo app (TypeScript, Expo Router) in `app/`, with web, Android and iOS targets
-- [ ] Expo Router for navigation; routes double as web URLs (`/squads/[id]/members`)
-- [ ] TanStack Query for server state; React context for the session
-- [ ] Generate a typed API client from `shared/api/openapi.yaml` (openapi-typescript + openapi-fetch)
-- [ ] Firebase JS SDK — Firestore (live bill tab)
-- [ ] `expo-image` for images, `react-native-svg` for icons and the logo
-- [ ] `react-native-qrcode-svg` for QR display
-- [ ] `expo-image-picker` for avatars and photos
-- [ ] Configure environments: `APP_ENV=dev|prod` in `app.config.ts`, EAS Build profiles in `eas.json`
-
-### Design system
-
-- [ ] Generate `src/theme/tokens.ts` from the design system's `tokens.json` (Mocha + Latte, type, spacing, radius)
-- [ ] Load Onest with `@expo-google-fonts/onest`
-- [ ] Theme provider: follow the system (`useColorScheme`), with a System / Light / Dark override saved per device
-- [ ] Build the design-system components in React Native with the same prop names and variant values
-- [ ] Web: hover states via `Pressable`, SideNav from 1024px wide, BottomNav below
-
-### Web
-
-- [ ] Static export with `npx expo export --platform web`; host behind the gateway's domain
-- [ ] Welcome page at `/` for signed-out visitors; return to the original link after sign-in
-- [x] Keep the refresh token in an httpOnly cookie on web (needs a gateway change); access token in memory — backend done (`roundup_refresh` cookie, CORS); the web client side lands with the sign-in screens
-
-### Auth screens
-
-- [ ] Phone number input screen
-- [ ] OTP verification screen — calls Auth Service `/api/v1/auth/otp/*`
-- [ ] Profile setup screen (name, avatar)
-- [ ] Store tokens securely on native — `expo-secure-store` (Keychain / Keystore)
-- [ ] Refresh access token automatically on 401
-- [ ] Auto-login on app launch if refresh token valid
-
-### Planning screens
-
-- [ ] Squad list screen — all my squads
-- [ ] Create squad screen
-- [ ] Outing list screen — upcoming + past
-- [ ] Create outing screen — name, type, deadline
-- [ ] Venue search screen — map + list view
-- [ ] Venue detail screen — photos, rating, price level
-- [ ] Voting screen — see options, cast vote, live tally via WebSocket
-- [ ] RSVP screen — going / not going / maybe, live headcount
-
-### Bill tab screens
-
-- [ ] Live bill tab screen — Firestore real-time
-- [ ] Add item bottom sheet — name + amount
-- [ ] Assign item to people sheet
-- [ ] Split mode selector — equal, by item, custom
-- [ ] Close tab confirmation screen
-
-### Debt screens
-
-- [ ] Debts overview screen — who owes me, what I owe
-- [ ] Mark as paid action on a debt
-- [ ] Running balance screen — across all squads
-
-### Memory wall screens
-
-- [ ] Event album screen — grid of photos
-- [ ] Photo viewer screen — full screen, swipe
-- [ ] Face tagging screen — tap untagged face → "that's me"
-- [ ] QR code screen — show download QR
-
-### Notification handling
-
-- [ ] Request push permission on first launch (native; no web push in v1)
-- [ ] Get the FCM / APNs device token with `expo-notifications` (`getDevicePushTokenAsync`)
-- [ ] Register device token with User Service (`POST /api/v1/users/me/device-tokens`)
-- [ ] Handle foreground notification — show in-app banner
-- [ ] Handle background notification tap — deep link to relevant screen
-- [ ] Notification preferences screen
-
-### Realtime WebSocket
-
-- [ ] Connect WebSocket on app launch (authenticated)
-- [ ] Handle `RSVP_UPDATE` — update headcount on planning screen
-- [ ] Handle `VOTE_UPDATE` — update tally on voting screen
-- [ ] Handle `TAB_ITEM_ADDED` — append item on bill tab screen
-- [ ] Handle `DEBT_SETTLED` — update debt status live
-- [ ] Handle `PHOTO_TAGGED` — show notification in-app
-- [ ] Reconnect on disconnect (exponential backoff)
-
-### Settings
-
-- [ ] Profile settings screen
-- [ ] Theme setting — System / Light / Dark
-- [ ] Notification preferences screen
-- [ ] Linked squads screen
-- [ ] Delete account flow (with confirmation)
-- [ ] GDPR data export request button
+- [x] Every public route in `shared/api/openapi.yaml`, served by Swagger UI at the gateway
+- [x] `TestRoutesAreDocumented` in auth, user, event and venue services (CI fails until the spec matches)
+- [ ] Same test in every new service
+- [ ] Land the billing spec before the handlers so the bill screens can start early
 
 ---
 
 ## Cross-cutting
 
-### API contracts
-
-- [x] Document all REST endpoints in OpenAPI 3.0 YAML
-- [x] Host Swagger UI for dev environment
-- [ ] Write contract tests between gateway and each service (Pact)
-- [x] Version all APIs (`/api/v1/`)
-
 ### Security
 
-- [ ] Rotate all API keys every 90 days (automated)
-- [ ] Enable HTTPS only on all Cloud Run services
+- [ ] HTTPS only on all Cloud Run services; internal services not publicly invokable
 - [ ] Add Content Security Policy headers
-- [x] Add CORS — whitelist only the web app origin and the admin domain (native apps send no Origin) — gateway `CORS_ALLOWED_ORIGINS`; set the real web origin in prod, and the admin domain once it exists
+- [x] CORS — gateway `CORS_ALLOWED_ORIGINS`; set the real web origin in prod, and the admin domain once it exists
 - [ ] Penetration test auth flow (JWT forgery, OTP brute force)
 - [ ] Scan Docker images for vulnerabilities (Trivy in CI)
 
 ### Data & compliance
 
-- [ ] Implement GDPR data export — all user data as JSON
-- [ ] Implement account deletion — purge from all services
-- [ ] Add data retention policy — delete inactive data after 2 years
-- [ ] Encrypt PII at rest (Postgres column-level encryption for phone numbers)
-- [ ] Add audit log for all admin actions
+- [ ] GDPR data export — all user data as JSON
+- [ ] Account deletion — purge from every service
+- [ ] Data retention policy — delete inactive data after 2 years
+- [ ] Encrypt PII at rest (phone numbers)
 
 ### Performance
 
-- [ ] Load test API gateway — target 1000 req/s
-- [ ] Load test Billing Service debt simplification — 100 concurrent bills
-- [ ] Load test Realtime Service — 500 concurrent WebSocket connections
-- [ ] DB query optimisation — EXPLAIN ANALYZE on all N+1 suspects
-- [ ] Add connection pooling (PgBouncer) in front of all Postgres instances
+- [ ] Load test the gateway
+- [ ] `EXPLAIN ANALYZE` on list queries and N+1 suspects
+- [ ] Check Cloud SQL connection limits with every service scaled out
 
 ### Documentation
 
-- [ ] Write `README.md` for each service — setup, run, env vars
-- [ ] Write `ARCHITECTURE.md` — system overview, service map
-- [ ] Write `CONTRIBUTING.md` — branching, PR, code review process
-- [ ] Write `RUNBOOK.md` — common ops procedures (restart service, replay webhook)
-- [ ] Write `ADR/` folder — Architecture Decision Records for key choices
+- [x] `ARCHITECTURE.md` for auth, user, venue and event services
+- [ ] `ARCHITECTURE.md` for each new service
+- [ ] `RUNBOOK.md` — deploy, roll back, run a migration, rerun a scheduler job
+- [ ] `CONTRIBUTING.md` — branching, PR, code review process
 
 ---
 
-_Total services: 13 | Backend language: Go | Client: React Native + Expo (web, Android, iOS) | Estimated team: 4 people × 6 months_
+_Backend: 14 Go services (gateway, auth, user, event, billing, scheduler, venue, notification, media, realtime, reservation, analytics, flags, admin) · Client: React Native + Expo in `roundup-ui` (web, Android, iOS side by side)_
