@@ -1,8 +1,8 @@
-# Roundup — Full Product & Technical Scope
+# Roundup — Product & Technical Scope
 
-> Complete reference document covering features, architecture, services, communication patterns, design patterns, and database schemas.
+> What Roundup does, how the backend is put together, and in what order it gets built. For the task-level checklist see `ROUNDUP-TASKS.md`; for how a built service works inside, see its `ARCHITECTURE.md`.
 
-> **Language policy:** Backend is Go only. The client is one React Native + Expo app (TypeScript) for web, Android and iOS. No other languages.
+> **Language policy:** Backend is Go only. The client is one React Native + Expo app (TypeScript) for web, Android and iOS, built side by side in the separate `roundup-ui` repo.
 
 ---
 
@@ -16,7 +16,8 @@
 - [Design patterns](#design-patterns)
 - [Database schemas](#database-schemas)
 - [SDKs & third-party](#sdks--third-party)
-- [Build phases](#build-phases)
+- [Deployment](#deployment)
+- [Build order](#build-order)
 
 ---
 
@@ -27,7 +28,7 @@ Roundup is a weekend squad outing planner. It handles the full arc of a group ni
 **Core loop**
 
 ```
-Plan → Vote → RSVP → Go out → Bill tab → Settle → Remember
+Plan → Vote → RSVP → Go out → Scan the bill → Settle → Remember
 ```
 
 **Target users** — friend groups of 5–15 people who go out regularly and currently coordinate over WhatsApp, split bills on Splitwise, and lose photos across everyone's camera rolls.
@@ -38,78 +39,79 @@ Plan → Vote → RSVP → Go out → Bill tab → Settle → Remember
 
 ### Planning & discovery
 
-| Feature             | Description                                                                     |
-| ------------------- | ------------------------------------------------------------------------------- |
-| Venue voting        | Create a poll with deadline. Everyone votes. Highest score wins.                |
-| Place discovery     | Google Places search filtered by vibe — rooftop, cocktail bar, pub, fine dining |
-| Saved favourites    | Squad's go-to spots saved for quick access                                      |
-| Venue history       | Every venue the squad has visited, with avg spend                               |
-| Table reservation   | Direct booking via Dineout / EazyDiner                                          |
-| Deals & offers      | Venue-specific discounts surfaced during planning                               |
-| Event templates     | Reuse a past outing's config (same squad, same split mode)                      |
-| Budget cap          | Set max spend per person before the outing                                      |
-| Recurring outings   | Every Friday auto-created with same squad                                       |
-| Calendar sync       | Export outing to Google / Apple Calendar                                        |
-| Invite links        | Shareable link — join without being in the squad                                |
-| Guest mode          | RSVP and settle bill without creating an account                                |
-| Cross-squad outings | Merge two squads for one event                                                  |
+| Feature             | Description                                                                     | Status  |
+| ------------------- | ------------------------------------------------------------------------------- | ------- |
+| Venue voting        | Suggest places, open voting with a deadline. Most votes wins; a tie goes to the first suggestion. | Built   |
+| Place discovery     | Google Places search filtered by vibe — rooftop, cocktail bar, pub, fine dining | Built   |
+| Saved favourites    | Squad's go-to spots saved for quick access                                      | Built   |
+| Venue history       | Every venue the squad has visited, with average spend                           | Built   |
+| RSVP                | Going / maybe / not going, per event                                            | Built   |
+| Table reservation   | Direct booking via Dineout / EazyDiner                                          | Planned |
+| Deals & offers      | Venue-specific discounts surfaced during planning                               | Planned |
+| Event templates     | Reuse a past outing's setup (same squad, same venue shortlist)                  | Planned |
+| Budget cap          | Set max spend per person before the outing                                      | Planned |
+| Recurring outings   | Every Friday auto-created with the same squad (a scheduler-service job)         | Planned |
+| Calendar sync       | Export outing to Google / Apple Calendar                                        | Planned |
+| Invite links        | Shareable link — join without being in the squad                                | Deferred |
+| Guest mode          | RSVP and settle bill without creating an account                                | Deferred |
+| Cross-squad outings | Merge two squads for one event                                                  | Planned |
 
 ### Billing & debts
 
-| Feature             | Description                                                         |
-| ------------------- | ------------------------------------------------------------------- |
-| Live bill tab       | Firestore real-time sync — multiple people add items simultaneously |
-| Split strategies    | Equal, by item, custom percentage                                   |
-| Item assignment     | Tap a line item to claim it                                         |
-| Tax & tip split     | Proportional or equal                                               |
-| Multi-bill support  | Bar tab + dinner bill on the same outing                            |
-| Debt simplification | Min-cash-flow graph — reduces N pairwise debts to minimum transfers |
-| Running balance     | Total owed / owing across all squads                                |
-| Mark as paid        | Settle a debt outside the app, then mark it paid                    |
-| Dispute resolution  | Flag an incorrect line item                                         |
-| Bill audit log      | Every add / remove / assign recorded with timestamp and user        |
+The bill is the reason to open an event: `ACTIVE` means the bill is open. Money never moves through Roundup.
+
+| Feature             | Description                                                                 | Status  |
+| ------------------- | --------------------------------------------------------------------------- | ------- |
+| Receipt scanning    | Photograph the bill; OCR proposes the items and total, the payer confirms   | Next    |
+| One payer per bill  | Whoever paid adds the bill and picks who shares it                          | Next    |
+| Multi-bill nights   | Bar tab + dinner on the same night, possibly paid by different people       | Next    |
+| Equal split         | Split evenly in paise; leftover paise go to members in a fixed order        | Next    |
+| Netting             | All of a night's bills net into one debt per pair of people                 | Next    |
+| Mark as paid        | Settle outside the app, then the person owed marks it paid                  | Next    |
+| Running balance     | Total owed / owing across all squads                                        | Next    |
+| By-item and custom % split | Claim line items, or split by percentage                             | Later   |
+| Tax & tip split     | Proportional or equal                                                       | Later   |
+| Dispute resolution  | Flag an incorrect line item                                                 | Later   |
 
 ### Social & memory
 
-| Feature            | Description                                                      |
-| ------------------ | ---------------------------------------------------------------- |
-| Photo album        | One album per outing, auto-collected from all squad members      |
-| Face detection     | Google Vision API — bounding box per face per photo              |
-| Face tagging       | Auto-match against squad profiles (≥0.85 confidence) or self-tag |
-| QR download        | Scan QR to download ZIP of your tagged photos only               |
-| Shareable card     | Instagram-ready highlight card for the outing                    |
-| On this day        | Anniversary reminder for past outings                            |
-| Video reel         | Auto-compilation of photos into a short reel                     |
-| Reactions          | Emoji reactions on photos                                        |
-| Squad stats        | Most visited spot, biggest spender, most frequent RSVPer         |
-| Leaderboard        | Rankings per squad — fun data to roast each other with           |
-| Streak tracking    | Consecutive weekly outings                                       |
-| Vibes rating       | Rate the outing after it closes                                  |
-| Yearly wrapped     | Spotify-style annual recap                                       |
+| Feature            | Description                                                      | Status   |
+| ------------------ | ---------------------------------------------------------------- | -------- |
+| Photo album        | One album per outing, collected from all squad members           | Planned  |
+| QR download        | Scan a QR to download a ZIP of the outing's photos               | Planned  |
+| Squad stats        | Most visited spot, biggest spender, most frequent RSVPer         | Planned  |
+| Leaderboard        | Rankings per squad — fun data to roast each other with           | Planned  |
+| Yearly wrapped     | Spotify-style annual recap                                       | Planned  |
+| Streak tracking    | Consecutive weekly outings                                       | Planned  |
+| Vibes rating       | Rate the outing after it closes                                  | Planned  |
+| Reactions          | Emoji reactions on photos                                        | Planned  |
+| Shareable card     | Instagram-ready highlight card for the outing                    | Planned  |
+| On this day        | Anniversary reminder for past outings                            | Planned  |
+| Face tagging       | Detect faces and match them to squad members                     | Deferred (AI) |
+| Video reel         | Auto-compilation of photos into a short reel                     | Deferred (AI) |
 
 ### Notifications
 
 | Feature             | Description                                             |
 | ------------------- | ------------------------------------------------------- |
 | RSVP nudge          | Reminder if not responded before deadline               |
-| Debt reminder       | Gentle nudge 48 hours after debt created                |
-| Friday prompt       | Weekly push if no outing planned for the weekend        |
 | Vote deadline alert | Notification 1 hour before voting closes                |
-| Photo tagged        | Notification when you appear in a new photo             |
+| Debt reminder       | Gentle nudge 48 hours after a debt is created           |
 | Debt settled        | Instant notification when a debt is marked paid         |
-| Download alert      | Notifies photo uploader when someone downloads          |
+| Friday prompt       | Weekly push if no outing is planned for the weekend     |
 | Quiet hours         | User-set window where no notifications are sent         |
-| Channels            | FCM push (primary), WhatsApp Business API, SMS fallback |
+| Channels            | FCM push (primary), WhatsApp Business API               |
+
+Time-based notifications (nudges, reminders, the Friday prompt) are scheduler-service jobs.
 
 ### Real-time
 
-| Feature                | Description                                          |
-| ---------------------- | ---------------------------------------------------- |
-| Live RSVP count        | Headcount updates on planning screen without refresh |
-| Live vote tally        | See votes come in as friends cast them               |
-| Typing indicators      | "Priya is adding an item..." on bill tab             |
-| Presence               | Who is currently viewing the outing                  |
-| Debt settled live      | Debt status clears instantly on both screens         |
+| Feature           | Description                                          |
+| ----------------- | ---------------------------------------------------- |
+| Live RSVP count   | Headcount updates on the planning screen without refresh |
+| Live vote tally   | See votes come in as friends cast them               |
+| Live bills        | A new or edited bill shows up for everyone at the table |
+| Debt settled live | Debt status clears instantly on both screens         |
 
 ### Monetisation
 
@@ -117,11 +119,11 @@ Plan → Vote → RSVP → Go out → Bill tab → Settle → Remember
 | ---------------------- | -------------------------------------------------- |
 | Venue partnerships     | Featured placement in discovery                    |
 | Commission on bookings | Revenue on Dineout reservations                    |
-
-> **Later:** AI features — deferred, will be revisited.
 | Roundup Pro            | Unlimited history, advanced analytics              |
 | Referral program       | Invite friends, earn Pro credits                   |
 | Deals marketplace      | Exclusive squad offers from partner venues         |
+
+> **Later:** AI features are deferred, except receipt scanning for bills.
 
 ---
 
@@ -131,387 +133,189 @@ Plan → Vote → RSVP → Go out → Bill tab → Settle → Remember
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  React Native + Expo app (web · Android · iOS)          │
+│  React Native + Expo app — roundup-ui (web · Android · iOS) │
 └────────────────────────┬────────────────────────────────┘
-                         │ HTTPS
+                         │ HTTPS  /api/v1/*   (WebSocket for realtime)
 ┌────────────────────────▼────────────────────────────────┐
 │  API Gateway (Go)                                       │
-│  routing · rate limiting · auth forwarding              │
+│  Ed25519 JWT check · rate limiting · CORS · request ID  │
 └──┬──────┬──────┬──────┬──────┬──────┬──────┬───────────┘
-   │      │      │      │      │      │      │
    ▼      ▼      ▼      ▼      ▼      ▼      ▼
- Auth   User  Event Billing Venue  Media  ...
- (Go)   (Go)  (Go)  (Go)    (Go)   (Go)
+ Auth   User  Event Billing Venue  Media  Realtime ...
+   │      ▲      │      │      │
+   └──────┴──────┴──────┴──────┘   direct REST calls on /internal/v1 (and a few /api/v1)
 
-                   │ Kafka (async events)
-         ┌─────────┴──────────┐
-         ▼                    ▼
-   Notification           Analytics
-      (Go)                 (Go)
+ Scheduler ──► POST /internal/v1/... on event, billing, notification, analytics
 
 ┌──────────────────────────────────────────────────────┐
-│  Data layer                                          │
-│  PostgreSQL (per service) · Redis · Firestore        │
+│  Data                                                │
+│  PostgreSQL — one database per service               │
+│  Redis — venue cache only, best-effort, local        │
 └──────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────┐
 │  External                                            │
-│  Cloudinary · Google Places · SMS provider           │
-│  Google Vision · FCM · WhatsApp Business             │
+│  Google Places · SMS provider · OCR provider          │
+│  Cloudinary · FCM · WhatsApp Business                │
 └──────────────────────────────────────────────────────┘
 ```
 
 ### Communication strategy
 
-**REST over HTTP** — all synchronous calls. Simple, debuggable, no tooling overhead.
+**REST over HTTP, and nothing else.** A service that needs something from another calls it directly. Routes only other services call are mounted under `/internal/v1`, which the gateway never exposes.
 
-**Kafka** — all asynchronous domain events. Services are fully decoupled — publishers never know who consumes.
+**Scheduled work lives in scheduler-service.** Domain services never run their own cron or ticker. They expose idempotent internal endpoints (for example `POST /internal/v1/events/confirm-due`) and scheduler-service calls them. Duplicate runs are harmless.
 
-> gRPC was considered and dropped. At Roundup's scale the latency benefit is single-digit milliseconds. REST over an internal network is adequate and far easier to debug.
+> Kafka and gRPC were considered and dropped. At Roundup's scale a message bus adds infrastructure and failure modes without a real benefit, and REST over an internal network is fast enough and far easier to debug.
 
 ---
 
 ## Services
 
-| Service              | Language   | Port | DB              |
-| -------------------- | ---------- | ---- | --------------- |
-| API Gateway          | Go (Fiber) | 8080 | —               |
-| Auth Service         | Go         | 3001 | 5433            |
-| User Service         | Go         | 3002 | 5434            |
-| Event Service        | Go         | 3003 | 5435            |
-| Billing Service      | Go         | 3004 | 5436            |
-| Venue Service        | Go         | 3006 | 5438            |
-| Notification Service | Go         | 3007 | —               |
-| Media Service        | Go         | 3008 | 5439            |
-| Realtime Service     | Go         | 3009 | —               |
-| Reservation Service  | Go         | 3011 | 5442            |
-| Analytics Service    | Go         | 3012 | 5441            |
-| Feature Flag Service | Go         | 3013 | 5440            |
-| Admin Service        | Go         | 3014 | —               |
+| Service              | Status  | Port | DB   | Owns |
+| -------------------- | ------- | ---- | ---- | ---- |
+| API Gateway          | Built   | 8080 | —    | Routing, token check, rate limits, CORS |
+| Auth Service         | Built   | 3001 | 5433 | Phone OTP, sessions, access + refresh tokens |
+| User Service         | Built   | 3002 | 5434 | Profiles, squads, members, device tokens |
+| Event Service        | Built   | 3003 | 5435 | Events, RSVPs, suggestions, votes, the event lifecycle |
+| Billing Service      | Next    | 3004 | 5436 | Bills, splits, debts |
+| Scheduler Service    | Next    | 3005 | —    | Calls other services' internal endpoints on a schedule |
+| Venue Service        | Built   | 3006 | 5438 | Places search and details, favourites, history |
+| Notification Service | Planned | 3007 | 5437 | FCM + WhatsApp sends, notification log |
+| Media Service        | Planned | 3008 | 5439 | Photos, Cloudinary, QR download |
+| Realtime Service     | Planned | 3009 | —    | WebSocket fan-out |
+| Reservation Service  | Planned | 3011 | 5442 | Table bookings |
+| Analytics Service    | Planned | 3012 | —    | Squad and user stats, wrapped |
+| Feature Flag Service | Planned | 3013 | 5440 | Flags, rollout, overrides |
+| Admin Service        | Planned | 3014 | —    | Admin login, user and flag management |
 
-All services share Redis on `6379` and Kafka on `9092`. All HTTP routes are versioned under `/api/v1`.
+All public HTTP routes are versioned under `/api/v1`.
 
 ---
 
 ## Communication
 
-### Kafka topics
+### Direct calls between services
 
-| Topic                    | Publisher | Consumers                         |
-| ------------------------ | --------- | --------------------------------- |
-| `rsvp.updated`           | Event     | Notification, Realtime, Analytics |
-| `event.created`          | Event     | Analytics                         |
-| `event.closed`           | Event     | Billing, Analytics                |
-| `vote.cast`              | Event     | Realtime, Analytics               |
-| `event.confirmed`        | Event     | Realtime, Reservation             |
-| `tab.opened`             | Billing   | Realtime                          |
-| `tab.closed`             | Billing   | Notification                      |
-| `debt.created`           | Billing   | Notification, Realtime            |
-| `debt.settled`           | Billing   | Analytics, Realtime               |
-| `photo.uploaded`         | Media     | Media (tagging worker)            |
-| `photo.tagged`           | Media     | Notification, Realtime            |
+| Caller       | Callee        | Call                                          | When                              | Status  |
+| ------------ | ------------- | --------------------------------------------- | --------------------------------- | ------- |
+| Auth         | User          | `POST /api/v1/users`                          | Login — create or get user        | Built   |
+| Venue        | User          | squad members / my squads (`shared/userclient`) | Before every squad operation    | Built   |
+| Event        | User          | squad members (`shared/userclient`)           | Before every event operation      | Built   |
+| Event        | Venue         | place details, `POST /internal/v1/venues/photo-urls`, record visit | Suggest, show, close the night | Built   |
+| Scheduler    | Event         | `POST /internal/v1/events/confirm-due`, `…/close-due` | Voting deadline, night over | Next    |
+| Event        | Billing       | `POST /internal/v1/events/:id/bills/close`    | The night closes                  | Next    |
+| Billing      | Venue         | spend for the visit                           | Bills close                       | Next    |
+| Event, Billing | Notification | `POST /internal/v1/notifications`            | RSVPs, votes, debts               | Planned |
+| Event, Billing | Realtime    | `POST /internal/v1/realtime/publish`          | Anything a screen shows live      | Planned |
+| Notification | User          | device tokens for a list of users             | Before sending push               | Planned |
+| Any service  | Feature Flag  | `POST /internal/v1/flags/evaluate`            | Feature-gated code paths          | Planned |
 
-### Synchronous REST calls
-
-| Caller          | Callee               | Endpoint                  | When                                           |
-| --------------- | -------------------- | ------------------------- | ---------------------------------------------- |
-| Gateway         | Auth Service         | `POST /api/v1/auth/validate` | Every authenticated request (Redis cached)  |
-| Any service     | Feature Flag Service | `GET /api/v1/flags/:key?userId=` | On feature-gated code paths (Redis cached 60s) |
+The gateway verifies access tokens itself with auth-service's public key; it never calls auth-service per request.
 
 ---
 
 ## Design patterns
 
-| Pattern        | Where                      | What it does                                                                                                        |
-| -------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Strategy       | Billing — split modes      | `EqualSplit`, `ByItemSplit`, `CustomSplit` all implement `SplitStrategy`. Swapped at runtime based on `split_mode`. |
-| Strategy       | Auth — providers           | `OTPStrategy`, `JWTStrategy`, `APIKeyStrategy` all implement the `AuthStrategy` interface. Factory picks at request time. |
-| Factory        | Auth                       | `AuthStrategyFactory` holds a `map[AuthProvider]AuthStrategy` and resolves via `Resolve(provider)`.                 |
-| Repository     | All services               | All DB queries behind a domain interface. Use cases never touch sqlc/pgx directly.                                  |
-| Port / Adapter | Auth — SMS                 | `OTPSender` interface. An SMS provider adapter implements it (console adapter in dev). Swap provider freely.        |
-| Port / Adapter | Venue — Places             | `VenueProvider` interface. `GooglePlacesAdapter` implements it. Future: `ZomatoAdapter`, `FoursquareAdapter`.       |
-| Command        | Billing — bill tab         | Every mutation (`AddItem`, `RemoveItem`, `AssignItem`, `CloseBill`) is a Command. Enables audit log and undo.       |
-| State machine  | Event Service              | `DRAFT → VOTING → CONFIRMED → ACTIVE → CLOSED`. Invalid transitions throw.                                          |
-| State machine  | Billing — debts            | `PENDING → SETTLED` (marked paid by hand).                                                                          |
-| State machine  | Reservation Service        | `PENDING → CONFIRMED → CANCELLED → NO_SHOW`.                                                                        |
-| Observer       | All services               | Kafka domain events. `rsvp.updated` triggers notification without Event knowing Notification exists.               |
-| Facade         | Venue Service              | Wraps Google Places API + Redis cache. Callers call `venueService.search()` — no knowledge of Places API.           |
-| Middleware     | `shared/middleware`        | `RequestID`, `Logging`, auth, error handling — Fiber middleware shared by every service.                            |
-| Singleton      | All services               | DB pool, Redis client, FCM client — built once in `cmd/main.go` and injected.                                        |
-| Feature flags  | All services               | `feature_flags` table + Redis cache. Kill switch for every major feature.                                           |
+| Pattern        | Where                      | What it does |
+| -------------- | -------------------------- | ------------ |
+| Hexagonal (ports & adapters) | Every service | Domain at the centre; port interfaces in `domain/port.go`; Postgres, HTTP and providers are adapters. |
+| Repository     | Every service              | All DB queries behind a domain interface. Use cases never touch sqlc/pgx directly. |
+| Port / Adapter | Auth — SMS                 | `OTPSender` interface; console adapter in beta, an SMS provider in prod. |
+| Port / Adapter | Venue — Places             | `PlaceProvider` interface; `GooglePlacesAdapter` implements it. |
+| Port / Adapter | Billing — receipts         | `ReceiptScanner` interface; the OCR provider is an adapter. |
+| State machine  | Event Service              | `DRAFT → VOTING → CONFIRMED → ACTIVE → CLOSED`; only the next step is allowed, re-checked inside each SQL write. |
+| State machine  | Billing — debts            | `PENDING → SETTLED` (marked paid by hand). |
+| State machine  | Reservation Service        | `PENDING → CONFIRMED → CANCELLED → NO_SHOW`. |
+| Policy (Casbin) | User, Event               | Roles and permissions in a `policy.csv` per service, loaded into `shared/authz`. |
+| Facade         | Venue Service              | Wraps Google Places + the cache. Callers never see the Places API. |
+| Idempotent sweep | Event (and later Billing) | Internal endpoints that move every due row exactly once: a single guarded `UPDATE` re-checks the status under the row lock, so calling twice is harmless. |
+| Middleware     | `shared/middleware`        | `RequestID`, `Logging`, `Recover`, `UserID` — Fiber middleware shared by every service. |
+| Built once, injected | Every service        | DB pool, cache client, enforcer — built in `cmd/main.go` and passed in. No per-service wrappers around shared code. |
 
 ---
 
 ## Database schemas
 
-### Auth Service (PostgreSQL)
+### Built services
+
+The goose migrations are the source of truth. Read them rather than a copy here:
+
+- auth-service — `services/auth-service/db/migrations/` (OTP codes, sessions, refresh tokens)
+- user-service — `services/user-service/db/migrations/` (users, device tokens, squads, squad members)
+- event-service — `services/event-service/db/migrations/` (events, RSVPs, nominations, votes)
+- venue-service — `services/venue-service/db/migrations/` (saved venues, visits, venue snapshots)
+
+### User Service — planned addition
 
 ```sql
--- sessions
-CREATE TABLE sessions (
-  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id            UUID NOT NULL,
-  refresh_token_hash TEXT NOT NULL UNIQUE,       -- never store the raw token
-  ip_address         TEXT,
-  created_at         TIMESTAMP NOT NULL DEFAULT now(),
-  expires_at         TIMESTAMP NOT NULL,
-  revoked_at         TIMESTAMP
-);
-
-CREATE INDEX idx_sessions_user_id ON sessions(user_id);
-```
-
----
-
-### User Service (PostgreSQL)
-
-```sql
--- users
-CREATE TABLE users (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  phone       TEXT UNIQUE,
-  email       TEXT UNIQUE,
-  name        TEXT,                          -- set during profile setup
-  avatar_url  TEXT,
-  deleted_at  TIMESTAMP,                     -- soft delete
-  created_at  TIMESTAMP NOT NULL DEFAULT now(),
-  updated_at  TIMESTAMP NOT NULL DEFAULT now()
-);
-
--- squads
-CREATE TABLE squads (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name        TEXT NOT NULL,
-  avatar_url  TEXT,
-  created_by  UUID NOT NULL REFERENCES users(id),
-  created_at  TIMESTAMP NOT NULL DEFAULT now()
-);
-
--- squad_members
-CREATE TABLE squad_members (
-  squad_id    UUID NOT NULL REFERENCES squads(id),
-  user_id     UUID NOT NULL REFERENCES users(id),
-  role        TEXT NOT NULL DEFAULT 'MEMBER', -- ADMIN | MEMBER (several admins allowed)
-  joined_at   TIMESTAMP NOT NULL DEFAULT now(),
-  PRIMARY KEY (squad_id, user_id)
-);
-
--- device_tokens (FCM)
-CREATE TABLE device_tokens (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID NOT NULL REFERENCES users(id),
-  token       TEXT NOT NULL UNIQUE,
-  platform    TEXT NOT NULL,                 -- iOS | Android
-  created_at  TIMESTAMP NOT NULL DEFAULT now()
-);
-
--- user_face_profiles (for face recognition matching)
-CREATE TABLE user_face_profiles (
-  user_id      UUID PRIMARY KEY REFERENCES users(id),
-  cloudinary_id TEXT NOT NULL,              -- reference photo
-  embeddings   JSONB,                       -- face embedding vector
-  updated_at   TIMESTAMP NOT NULL DEFAULT now()
-);
-
 -- friend_connections
 CREATE TABLE friend_connections (
   user_id_a   UUID NOT NULL REFERENCES users(id),
   user_id_b   UUID NOT NULL REFERENCES users(id),
-  created_at  TIMESTAMP NOT NULL DEFAULT now(),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id_a, user_id_b),
   CHECK (user_id_a < user_id_b)             -- prevent duplicate pairs
 );
-
-CREATE INDEX idx_users_phone ON users(phone);
-CREATE INDEX idx_squad_members_squad_id ON squad_members(squad_id);
-CREATE INDEX idx_squad_members_user_id ON squad_members(user_id);
-CREATE INDEX idx_device_tokens_user_id ON device_tokens(user_id);
 ```
 
 ---
 
-### Event Service (PostgreSQL)
+### Billing Service (next)
 
 ```sql
--- event type and status enums
-CREATE TYPE event_type AS ENUM ('DRINKS', 'DINING', 'BOTH');
-CREATE TYPE event_status AS ENUM ('DRAFT', 'VOTING', 'CONFIRMED', 'ACTIVE', 'CLOSED');
-CREATE TYPE rsvp_status AS ENUM ('PENDING', 'GOING', 'NOT_GOING', 'MAYBE');
-
--- events
-CREATE TABLE events (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  squad_id     UUID NOT NULL,
-  name         TEXT NOT NULL,
-  type         event_type NOT NULL,
-  status       event_status NOT NULL DEFAULT 'DRAFT',
-  venue_id     TEXT,                          -- Google Place ID, set after voting
-  venue_name   TEXT,
-  created_by   UUID NOT NULL,
-  deadline     TIMESTAMP,                     -- voting deadline
-  event_date   TIMESTAMP,
-  max_budget_paise BIGINT,                   -- optional budget cap
-  created_at   TIMESTAMP NOT NULL DEFAULT now(),
-  updated_at   TIMESTAMP NOT NULL DEFAULT now()
-);
-
--- event_members
-CREATE TABLE event_members (
-  event_id    UUID NOT NULL REFERENCES events(id),
-  user_id     UUID NOT NULL,
-  rsvp_status rsvp_status NOT NULL DEFAULT 'PENDING',
-  is_guest    BOOLEAN NOT NULL DEFAULT false,
-  joined_at   TIMESTAMP NOT NULL DEFAULT now(),
-  PRIMARY KEY (event_id, user_id)
-);
-
--- votes
-CREATE TABLE votes (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_id    UUID NOT NULL REFERENCES events(id),
-  user_id     UUID NOT NULL,
-  venue_id    TEXT NOT NULL,                 -- Google Place ID
-  venue_name  TEXT NOT NULL,
-  cast_at     TIMESTAMP NOT NULL DEFAULT now(),
-  UNIQUE (event_id, user_id)                -- one vote per user per event
-);
-
--- invite_links
-CREATE TABLE invite_links (
-  token       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_id    UUID NOT NULL REFERENCES events(id),
-  created_by  UUID NOT NULL,
-  max_uses    INT NOT NULL DEFAULT 10,
-  use_count   INT NOT NULL DEFAULT 0,
-  expires_at  TIMESTAMP NOT NULL,
-  created_at  TIMESTAMP NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_events_squad_id ON events(squad_id);
-CREATE INDEX idx_events_status ON events(status);
-CREATE INDEX idx_event_members_event_id ON event_members(event_id);
-CREATE INDEX idx_event_members_user_id ON event_members(user_id);
-CREATE INDEX idx_votes_event_id ON votes(event_id);
-CREATE INDEX idx_invite_links_token ON invite_links(token);
-```
-
----
-
-### Billing Service (PostgreSQL)
-
-```sql
-CREATE TYPE split_mode AS ENUM ('EQUAL', 'BY_ITEM', 'CUSTOM');
-CREATE TYPE bill_status AS ENUM ('OPEN', 'CLOSED');
 CREATE TYPE debt_status AS ENUM ('PENDING', 'SETTLED');
 
--- bills
+-- bills: one payer each; a night can have several
 CREATE TABLE bills (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id     UUID NOT NULL,
-  status       bill_status NOT NULL DEFAULT 'OPEN',
-  split_mode   split_mode NOT NULL DEFAULT 'EQUAL',
-  total_paise  BIGINT NOT NULL DEFAULT 0,
-  created_at   TIMESTAMP NOT NULL DEFAULT now(),
-  closed_at    TIMESTAMP
+  paid_by      UUID NOT NULL,
+  total_paise  BIGINT NOT NULL CHECK (total_paise > 0),
+  receipt_ref  TEXT,                              -- the scanned photo, if any
+  created_by   UUID NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at   TIMESTAMPTZ
 );
 
--- bill_items
+-- bill_items: from the scanned receipt, editable before saving
 CREATE TABLE bill_items (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   bill_id      UUID NOT NULL REFERENCES bills(id),
   name         TEXT NOT NULL,
-  amount_paise BIGINT NOT NULL,
-  added_by     UUID NOT NULL,
-  created_at   TIMESTAMP NOT NULL DEFAULT now(),
-  deleted_at   TIMESTAMP                         -- soft delete
+  amount_paise BIGINT NOT NULL
 );
 
--- item_assignments (who is responsible for which item)
-CREATE TABLE item_assignments (
-  item_id      UUID NOT NULL REFERENCES bill_items(id),
-  user_id      UUID NOT NULL,
-  share_paise  BIGINT NOT NULL,
-  PRIMARY KEY (item_id, user_id)
-);
-
--- debts (generated after bill closes + simplification runs)
-CREATE TABLE debts (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  bill_id      UUID NOT NULL REFERENCES bills(id),
-  from_user    UUID NOT NULL,                   -- owes money
-  to_user      UUID NOT NULL,                   -- receives money
-  amount_paise BIGINT NOT NULL,
-  status       debt_status NOT NULL DEFAULT 'PENDING',
-  created_at   TIMESTAMP NOT NULL DEFAULT now(),
-  settled_at   TIMESTAMP
-);
-
--- split_configs (for CUSTOM mode)
-CREATE TABLE split_configs (
-  bill_id     UUID NOT NULL REFERENCES bills(id),
-  user_id     UUID NOT NULL,
-  percentage  NUMERIC(5,2) NOT NULL,
+-- bill_shares: who splits this bill (equal split)
+CREATE TABLE bill_shares (
+  bill_id  UUID NOT NULL REFERENCES bills(id),
+  user_id  UUID NOT NULL,
   PRIMARY KEY (bill_id, user_id)
 );
 
--- audit_log (Command pattern — every mutation recorded)
-CREATE TABLE audit_log (
+-- debts: generated when the night closes, one per pair after netting
+CREATE TABLE debts (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  bill_id      UUID NOT NULL REFERENCES bills(id),
-  action       TEXT NOT NULL,                  -- ADD_ITEM | REMOVE_ITEM | ASSIGN | CLOSE
-  payload      JSONB NOT NULL,
-  performed_by UUID NOT NULL,
-  created_at   TIMESTAMP NOT NULL DEFAULT now()
+  event_id     UUID NOT NULL,
+  from_user    UUID NOT NULL,                     -- owes money
+  to_user      UUID NOT NULL,                     -- is owed
+  amount_paise BIGINT NOT NULL CHECK (amount_paise > 0),
+  status       debt_status NOT NULL DEFAULT 'PENDING',
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  settled_at   TIMESTAMPTZ,
+  UNIQUE (event_id, from_user, to_user)
 );
 
 CREATE INDEX idx_bills_event_id ON bills(event_id);
-CREATE INDEX idx_bill_items_bill_id ON bill_items(bill_id);
-CREATE INDEX idx_debts_bill_id ON debts(bill_id);
-CREATE INDEX idx_debts_from_user ON debts(from_user);
-CREATE INDEX idx_debts_to_user ON debts(to_user);
-CREATE INDEX idx_debts_status ON debts(status);
-CREATE INDEX idx_audit_log_bill_id ON audit_log(bill_id);
+CREATE INDEX idx_debts_from_user ON debts(from_user) WHERE status = 'PENDING';
+CREATE INDEX idx_debts_to_user ON debts(to_user) WHERE status = 'PENDING';
 ```
 
 ---
 
-### Venue Service (PostgreSQL)
+### Media Service (planned)
 
 ```sql
--- saved_venues (squad favourites)
-CREATE TABLE saved_venues (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  squad_id    UUID NOT NULL,
-  user_id     UUID NOT NULL,                    -- who saved it
-  place_id    TEXT NOT NULL,                    -- Google Place ID
-  name        TEXT NOT NULL,
-  saved_at    TIMESTAMP NOT NULL DEFAULT now(),
-  UNIQUE (squad_id, place_id)
-);
-
--- venue_visits (recorded when event.confirmed fires)
-CREATE TABLE venue_visits (
-  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  squad_id         UUID NOT NULL,
-  event_id         UUID NOT NULL,
-  place_id         TEXT NOT NULL,
-  name             TEXT NOT NULL,
-  avg_spend_paise  BIGINT,
-  visited_at       TIMESTAMP NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_saved_venues_squad_id ON saved_venues(squad_id);
-CREATE INDEX idx_venue_visits_squad_id ON venue_visits(squad_id);
-CREATE INDEX idx_venue_visits_place_id ON venue_visits(place_id);
-```
-
----
-
-### Media Service (PostgreSQL)
-
-```sql
-CREATE TYPE tagging_status AS ENUM ('PENDING', 'PROCESSING', 'DONE', 'FAILED');
-
 -- photos
 CREATE TABLE photos (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -520,158 +324,68 @@ CREATE TABLE photos (
   cloudinary_id   TEXT NOT NULL UNIQUE,         -- public_id — not the full URL
   width           INT,
   height          INT,
-  tagging_status  tagging_status NOT NULL DEFAULT 'PENDING',
-  created_at      TIMESTAMP NOT NULL DEFAULT now()
-);
-
--- photo_faces (one row per detected face per photo)
-CREATE TABLE photo_faces (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  photo_id      UUID NOT NULL REFERENCES photos(id),
-  user_id       UUID,                           -- null = unknown face
-  confidence    REAL,                           -- 0.0 – 1.0
-  bounding_box  JSONB NOT NULL,                 -- { x, y, width, height } normalised
-  tagged_by     TEXT NOT NULL DEFAULT 'AUTO',   -- AUTO | SELF
-  created_at    TIMESTAMP NOT NULL DEFAULT now()
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- download_tokens (QR-gated photo downloads)
 CREATE TABLE download_tokens (
-  token       TEXT PRIMARY KEY,                 -- signed JWT stored for revocation
+  token       TEXT PRIMARY KEY,
   user_id     UUID NOT NULL,
   event_id    UUID NOT NULL,
-  expires_at  TIMESTAMP NOT NULL,
-  used_at     TIMESTAMP                         -- null = not yet downloaded
+  expires_at  TIMESTAMPTZ NOT NULL,
+  used_at     TIMESTAMPTZ
 );
 
 CREATE INDEX idx_photos_event_id ON photos(event_id);
-CREATE INDEX idx_photos_uploaded_by ON photos(uploaded_by);
-CREATE INDEX idx_photo_faces_photo_id ON photo_faces(photo_id);
-CREATE INDEX idx_photo_faces_user_id ON photo_faces(user_id);
-CREATE INDEX idx_download_tokens_user_event ON download_tokens(user_id, event_id);
 ```
 
 ---
 
-### Notification Service (no persistent DB — logs only)
+### Notification Service (planned)
 
 ```sql
--- notification_log
 CREATE TABLE notification_log (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     UUID NOT NULL,
-  channel     TEXT NOT NULL,                   -- FCM | WHATSAPP | SMS
+  channel     TEXT NOT NULL,                   -- FCM | WHATSAPP
   type        TEXT NOT NULL,                   -- RSVP_NUDGE | DEBT_REMINDER | etc.
-  title       TEXT,
-  body        TEXT NOT NULL,
-  status      TEXT NOT NULL DEFAULT 'SENT',    -- SENT | DELIVERED | FAILED
-  sent_at     TIMESTAMP NOT NULL DEFAULT now()
+  status      TEXT NOT NULL DEFAULT 'SENT',    -- SENT | FAILED
+  sent_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_notification_log_user_id ON notification_log(user_id);
-CREATE INDEX idx_notification_log_type ON notification_log(type);
 ```
 
 ---
 
-### Analytics Service (PostgreSQL + materialized views)
+### Feature Flag Service (planned)
 
 ```sql
--- raw event ingestion
-CREATE TABLE analytics_events (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  squad_id     UUID,
-  user_id      UUID,
-  event_type   TEXT NOT NULL,
-  payload      JSONB NOT NULL,
-  occurred_at  TIMESTAMP NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_analytics_events_squad_id ON analytics_events(squad_id);
-CREATE INDEX idx_analytics_events_user_id ON analytics_events(user_id);
-CREATE INDEX idx_analytics_events_type ON analytics_events(event_type);
-CREATE INDEX idx_analytics_events_occurred_at ON analytics_events(occurred_at);
-
--- materialized view: squad summary stats
-CREATE MATERIALIZED VIEW squad_stats AS
-SELECT
-  squad_id,
-  COUNT(DISTINCT CASE WHEN event_type = 'event.closed' THEN payload->>'event_id' END) AS total_outings,
-  SUM(CASE WHEN event_type = 'debt.settled' THEN (payload->>'amount_paise')::BIGINT ELSE 0 END) AS total_spend_paise,
-  MAX(occurred_at) AS last_outing_at
-FROM analytics_events
-GROUP BY squad_id;
-
--- materialized view: per-user stats
-CREATE MATERIALIZED VIEW user_stats AS
-SELECT
-  user_id,
-  COUNT(DISTINCT CASE WHEN event_type = 'rsvp.updated'
-    AND payload->>'status' = 'GOING' THEN payload->>'event_id' END) AS outings_attended,
-  SUM(CASE WHEN event_type = 'debt.settled'
-    AND payload->>'direction' = 'paid'
-    THEN (payload->>'amount_paise')::BIGINT ELSE 0 END) AS total_paid_paise
-FROM analytics_events
-GROUP BY user_id;
-
--- materialized view: venue visit counts per squad
-CREATE MATERIALIZED VIEW venue_stats AS
-SELECT
-  squad_id,
-  payload->>'place_id'   AS place_id,
-  payload->>'venue_name' AS venue_name,
-  COUNT(*)               AS visit_count,
-  AVG((payload->>'avg_spend_paise')::BIGINT) AS avg_spend_paise
-FROM analytics_events
-WHERE event_type = 'event.confirmed'
-GROUP BY squad_id, payload->>'place_id', payload->>'venue_name';
-
--- refresh all views nightly (via pg_cron at 2am)
--- SELECT cron.schedule('0 2 * * *', 'REFRESH MATERIALIZED VIEW CONCURRENTLY squad_stats');
--- SELECT cron.schedule('0 2 * * *', 'REFRESH MATERIALIZED VIEW CONCURRENTLY user_stats');
--- SELECT cron.schedule('0 2 * * *', 'REFRESH MATERIALIZED VIEW CONCURRENTLY venue_stats');
-```
-
----
-
-### Feature Flag Service (PostgreSQL)
-
-```sql
--- feature_flags
 CREATE TABLE feature_flags (
   key         TEXT PRIMARY KEY,
   enabled     BOOLEAN NOT NULL DEFAULT false,
-  rollout     INT NOT NULL DEFAULT 100,          -- 0–100 percentage
+  rollout     INT NOT NULL DEFAULT 100 CHECK (rollout BETWEEN 0 AND 100),
   description TEXT,
-  metadata    JSONB,
-  updated_at  TIMESTAMP NOT NULL DEFAULT now()
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- user_overrides (per-user flag value, takes precedence over global)
+-- per-user value, takes precedence over the global one
 CREATE TABLE user_overrides (
   flag_key    TEXT NOT NULL REFERENCES feature_flags(key),
   user_id     UUID NOT NULL,
   enabled     BOOLEAN NOT NULL,
-  created_at  TIMESTAMP NOT NULL DEFAULT now(),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (flag_key, user_id)
 );
-
--- seed flags
-INSERT INTO feature_flags (key, enabled, rollout, description) VALUES
-  ('memory_wall',         false, 100, 'Photo upload and memory wall'),
-  ('new_bill_tab_v2',     false, 100, 'Redesigned live bill tab UI'),
-  ('squad_stats',         false, 100, 'Squad leaderboard and analytics'),
-  ('table_reservation',   false, 100, 'Direct table booking via Dineout');
 ```
 
 ---
 
-### Reservation Service (PostgreSQL)
+### Reservation Service (planned)
 
 ```sql
 CREATE TYPE reservation_status AS ENUM ('PENDING', 'CONFIRMED', 'CANCELLED', 'NO_SHOW');
 
--- reservations
 CREATE TABLE reservations (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id         UUID NOT NULL,
@@ -681,121 +395,77 @@ CREATE TABLE reservations (
   status           reservation_status NOT NULL DEFAULT 'PENDING',
   party_size       INT NOT NULL,
   contact_phone    TEXT NOT NULL,
-  reservation_time TIMESTAMP NOT NULL,
-  created_at       TIMESTAMP NOT NULL DEFAULT now(),
-  updated_at       TIMESTAMP NOT NULL DEFAULT now()
+  reservation_time TIMESTAMPTZ NOT NULL,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- reservation_events (webhook log + replay)
+-- webhook log + replay
 CREATE TABLE reservation_events (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   reservation_id  UUID NOT NULL REFERENCES reservations(id),
   event_type      TEXT NOT NULL,
   raw_payload     JSONB NOT NULL,
-  created_at      TIMESTAMP NOT NULL DEFAULT now()
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_reservations_event_id ON reservations(event_id);
 CREATE UNIQUE INDEX idx_reservations_event_id_unique ON reservations(event_id)
-  WHERE status NOT IN ('CANCELLED');
+  WHERE status <> 'CANCELLED';
 ```
 
----
+### Analytics Service (planned)
 
-### Firestore (live bill tab — not PostgreSQL)
-
-Firestore is used only for the live bill tab. When the tab closes, the final state is synced to the Billing Service's PostgreSQL.
-
-```
-bill_tabs/                              (collection)
-  {eventId}/                            (document)
-    status: 'OPEN' | 'CLOSED'
-    createdAt: timestamp
-    closedAt: timestamp | null
-
-    items/                              (subcollection)
-      {itemId}/                         (document)
-        name: string
-        amount_paise: number
-        added_by: string (userId)
-        added_at: timestamp
-        deleted: boolean
-
-    presence/                           (subcollection)
-      {userId}/                         (document)
-        name: string
-        last_seen: timestamp
-        typing: boolean
-```
+No event store. It reads from the other services' internal endpoints, and a scheduler-service job refreshes its numbers nightly.
 
 ---
 
 ## SDKs & third-party
 
-| Category  | SDK                                  | Free tier                        | Used by              |
-| --------- | ------------------------------------ | -------------------------------- | -------------------- |
-| Auth      | SMS provider (OTP delivery)          | Dev uses a fixed code, no SMS    | Auth Service         |
-| Push      | Firebase FCM (`firebase.google.com/go`) | Unlimited forever                | Notification Service |
-| Real-time | Firestore                            | 50k reads/day, 20k writes/day    | Media + Billing      |
-| Maps      | Places API (New), plain HTTP         | 10,000 calls/month per SKU       | Venue Service        |
-| Media     | `cloudinary-go`                      | 25 credits/month, no card        | Media Service        |
-| Vision    | `cloud.google.com/go/vision`         | 1,000 units/month free           | Media Service        |
-| Queue     | `hibiken/asynq` + Redis              | Self-hosted on Redis             | Notification, Media  |
-| QR        | `skip2/go-qrcode`                    | Free open source                 | Media Service        |
+| Category | SDK / API                               | Free tier                        | Used by              | Status  |
+| -------- | --------------------------------------- | -------------------------------- | -------------------- | ------- |
+| Maps     | Places API (New), plain HTTP            | 10,000 calls/month per SKU       | Venue Service        | Built   |
+| Auth     | SMS provider (e.g. MSG91)               | Beta uses a console sender       | Auth Service         | Needed for launch |
+| Receipts | OCR provider (to be chosen)             | —                                | Billing Service      | Next    |
+| Push     | Firebase FCM (`firebase.google.com/go`) | Unlimited                        | Notification Service | Planned |
+| Messages | WhatsApp Business API                   | Per-conversation pricing         | Notification Service | Planned |
+| Media    | `cloudinary-go`                         | 25 credits/month, no card        | Media Service        | Planned |
+| QR       | `skip2/go-qrcode`                       | Open source                      | Media Service        | Planned |
 
 ---
 
-## Build phases
+## Deployment
 
-### Phase 1 — Foundation (Month 1)
-
-| Person | Work                                                                    |
-| ------ | ----------------------------------------------------------------------- |
-| A      | API Gateway (Go) + Auth Service (Go) — phone OTP + JWT                  |
-| B      | User Service (Go) — profiles, squads, device tokens                     |
-| C      | Infra — Docker Compose, Kafka, Redis, Postgres per service, CI skeleton |
-| D      | Realtime Service (Go) — WebSocket hub, connection registry, presence    |
-
-**Done when:** a user can sign up with phone OTP, create a squad, and the gateway routes authenticated requests.
-
-### Phase 2 — Core domain (Month 2–3)
-
-| Person | Work                                                                         |
-| ------ | ---------------------------------------------------------------------------- |
-| A      | Event Service (Go) — state machine, RSVP, voting, invite links, guest mode   |
-| B      | Billing Service (Go) — tab, strategies, debt graph, command pattern          |
-| C      | Venue Service (Go) + Feature Flag Service (Go)                               |
-| D      | Realtime wired — live RSVP, live votes, live bill tab typing indicators      |
-
-**Done when:** a squad can plan an outing, vote on a venue, open a bill tab, and one person can mark a debt as paid.
-
-### Phase 3 — Media + notifications + reservation (Month 4)
-
-| Person | Work                                                                    |
-| ------ | ----------------------------------------------------------------------- |
-| A      | Media Service (Go) — Cloudinary, face detection pipeline, QR download   |
-| B      | Notification Service (Go) + Analytics Service (Go)                      |
-| C      | Reservation Service (Go) — Dineout integration, booking state machine   |
-| D      | Expo app (web first) — planning, bill tab, debts screens               |
-
-### Phase 4 — Admin + growth (Month 5)
-
-| Person | Work                                                                     |
-| ------ | ------------------------------------------------------------------------ |
-| A      | Admin Service (Go) — user mgmt, flag mgmt, webhook replay                |
-| B      | Venue partnerships — deals, featured placement, partner analytics        |
-| C      | Friend graph, cross-squad outings, yearly wrapped                        |
-| D      | Expo app — memory wall, notifications, settings; Android + iOS builds   |
-
-### Phase 5 — Hardening (Month 6)
-
-| Person | Work                                                                |
-| ------ | ------------------------------------------------------------------- |
-| A      | E2E tests, contract tests, security audit, pen test auth            |
-| B      | Go service profiling (pprof), DB index audit                        |
-| C      | GCP production deploy — Cloud Run, Cloud SQL, Memorystore           |
-| D      | Grafana + Loki + Prometheus, distributed tracing, alerting          |
+- GCP, `asia-south1`. Every Go service on **Cloud Run, scaling to zero** — no min-instances; cold starts are acceptable.
+- **One Cloud SQL Postgres instance** (db-g1-small) with one database per service, reached over Direct VPC egress.
+- **No Redis at launch.** The venue cache is best-effort, so venue-service runs without it.
+- scheduler-service's jobs are triggered by Cloud Scheduler, so nothing has to stay awake.
+- The web build is hosted on Firebase Hosting; Android and iOS builds go through EAS (both from `roundup-ui`).
+- Rough hosting cost ≈ $30/month; the Google Places API is the larger variable cost.
 
 ---
 
-_13 services · 1 backend language (Go) · one React Native + Expo client (web, Android, iOS) · 4 people · 6 months_
+## Build order
+
+### Done
+
+Gateway, auth-service, user-service (profiles, squads, permissions), venue-service (search, details, favourites, history) and event-service (lifecycle, RSVP, suggestions, voting). CI on every PR. The client in `roundup-ui` is being built alongside, web and native together.
+
+### Next — finish the core loop
+
+**Done when:** a squad can plan an outing, vote on a venue, add the night's bills, and one person can mark a debt as paid.
+
+1. **billing-service**: bills, receipt scanning, equal split, netting, mark as paid
+2. **scheduler-service**: voting deadlines and closing the night happen on their own
+3. **Launch blockers**: an SMS provider for auth, then `deploy.yml` to Cloud Run
+
+### After that
+
+- Notification service (FCM first, then WhatsApp) and realtime service
+- Media service (album, QR download)
+- Analytics (squad stats, wrapped), friends, cross-squad outings
+- Reservation service, feature flags, admin
+- Hardening: metrics, tracing, alerts, pen test of auth, GDPR export and deletion
+
+---
+
+_14 services · 1 backend language (Go) · one React Native + Expo client in `roundup-ui` (web, Android, iOS)_
